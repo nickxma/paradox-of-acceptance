@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paradox of Acceptance — Meditation Tools</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --border: #e4e2dc;
+  --text: #1a1a18;
+  --text-muted: #6b6966;
+  --accent: #2d5a27;
+  --accent-light: #eef3ec;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  text-align: center;
+  padding: 80px 24px 40px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.header-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.description {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+main {
+  flex: 1;
+  padding: 60px 24px;
+}
+
+.tools-grid {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.tool-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 28px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.tool-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
+.tool-icon {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+}
+
+.tool-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.tool-desc {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  flex: 1;
+}
+
+.tool-link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-link::after {
+  content: '→';
+}
+
+.tool-card:hover .tool-link {
+  gap: 10px;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.footer-content {
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+@media (max-width: 600px) {
+  header {
+    padding: 60px 20px 30px;
+  }
+
+  h1 {
+    margin-bottom: 16px;
+  }
+
+  main {
+    padding: 40px 20px;
+  }
+
+  .tools-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .tool-card {
+    padding: 28px 24px;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">Meditation Toolkit</div>
+  <h1>Paradox of Acceptance</h1>
+  <p class="subtitle">Four tools for thinking more clearly about meditation practice</p>
+  <p class="description">Honest exploration of what mindfulness actually does — the benefits, the tensions, and what the meditation world isn't talking about. Powered by the Waking Up transcript corpus.</p>
+</header>
+
+<main>
+  <div class="tools-grid">
+
+    <!-- Quiz -->
+    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card">
+      <div class="tool-icon">🧠</div>
+      <h2 class="tool-title">What Kind of Meditator Are You?</h2>
+      <p class="tool-desc">Seven questions that map your mindfulness archetype. Discover which teacher approach resonates with how you actually practice.</p>
+      <span class="tool-link">Take the quiz</span>
+    </a>
+
+    <!-- Debates -->
+    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card">
+      <div class="tool-icon">⚖️</div>
+      <h2 class="tool-title">5 Questions Teachers Don't Agree On</h2>
+      <p class="tool-desc">Explore five fundamental debates in the meditation world: cherry-picking, accumulation, awakening, safety, and suffering. See where different teachers actually land.</p>
+      <span class="tool-link">Explore debates</span>
+    </a>
+
+    <!-- Recommender -->
+    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card">
+      <div class="tool-icon">🗺️</div>
+      <h2 class="tool-title">What Should I Actually Practice?</h2>
+      <p class="tool-desc">Five questions about your goals, experience, and obstacles. Get a personalized recommendation for which meditation approach actually fits your situation.</p>
+      <span class="tool-link">Get recommendation</span>
+    </a>
+
+    <!-- Teacher Debates -->
+    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card">
+      <div class="tool-icon">👥</div>
+      <h2 class="tool-title">Where Do Teachers Disagree?</h2>
+      <p class="tool-desc">26 teachers across 8 dimensions. Flip through specific questions and see exactly which teachers land where, and why the field can't reach consensus.</p>
+      <span class="tool-link">Explore teacher positions</span>
+    </a>
+
+  </div>
+</main>
+
+<footer>
+  <div class="footer-content">
+    <p>These tools are informed by a knowledge base of ~760 transcripts from the Waking Up app — conversations, lessons, and teachings from 50+ meditation instructors. The content is original and analytical, not derivative. All tools are free and open-source.</p>
+  </div>
+</footer>
+
+</body>
+</html>
