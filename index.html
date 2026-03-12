@@ -23,7 +23,6 @@
   --accent-soft: #e8f0e6;
   --accent-glow: rgba(45, 90, 39, 0.08);
 
-  /* Stripe's signature warm-tinted shadow system */
   --shadow-sm: 0 2px 5px 0 rgba(50,50,93,.1), 0 1px 1px 0 rgba(0,0,0,.07);
   --shadow-md: 0 6px 12px -2px rgba(50,50,93,.12), 0 3px 7px -3px rgba(0,0,0,.08);
   --shadow-lg: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
@@ -76,7 +75,6 @@ body {
   gap: 12px;
 }
 
-/* ---- AUTH (in nav) ---- */
 /* ---- NAV LINKS / DROPDOWNS ---- */
 .nav-links {
   display: flex;
@@ -154,7 +152,6 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* Triangle pointer */
 .nav-dropdown::before {
   content: '';
   position: absolute;
@@ -216,7 +213,6 @@ body {
   margin: 4px 8px;
 }
 
-/* Wider dropdown for mindfulness (many items) */
 .nav-dropdown.wide {
   min-width: 320px;
 }
@@ -244,7 +240,6 @@ body {
   display: none;
 }
 
-/* Mobile nav */
 .nav-hamburger {
   display: none;
   border: none;
@@ -319,6 +314,7 @@ body {
   }
 }
 
+/* ---- AUTH (in nav) ---- */
 .auth-link {
   font-size: 0.8rem;
   color: var(--text-tertiary);
@@ -438,9 +434,9 @@ body {
   width: 100%;
   max-width: 900px;
   height: 400px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(45,90,39,0.04) 0%, transparent 70%),
-              radial-gradient(ellipse at 30% 60%, rgba(50,50,93,0.03) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 40%, rgba(45,90,39,0.03) 0%, transparent 50%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(50,50,93,0.04) 0%, transparent 70%),
+              radial-gradient(ellipse at 30% 60%, rgba(50,50,93,0.025) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 40%, rgba(50,50,93,0.025) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -453,8 +449,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text-secondary);
+  background: rgba(50, 50, 93, 0.06);
   padding: 5px 14px;
   border-radius: 14px;
   margin-bottom: 28px;
@@ -469,6 +465,7 @@ body {
   line-height: 1.1;
   margin-bottom: 20px;
   color: var(--text);
+  text-wrap: balance;
 }
 
 .hero-subtitle {
@@ -479,6 +476,7 @@ body {
   font-weight: 400;
   line-height: 1.6;
   margin-bottom: 12px;
+  text-wrap: pretty;
 }
 
 .hero-desc {
@@ -489,96 +487,31 @@ body {
   line-height: 1.7;
   max-width: 520px;
   margin: 0 auto;
+  text-wrap: pretty;
 }
 
-/* ---- CONTROLS ---- */
-.controls {
+/* ---- BENTO GRID ---- */
+.bento-section {
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 0 24px 40px;
+  padding: 0 24px;
 }
 
-.search-wrap {
-  max-width: 360px;
-  margin: 0 auto 20px;
-  position: relative;
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+.section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-tertiary);
-  pointer-events: none;
+  padding: 0 4px;
+  margin-bottom: 16px;
 }
 
-#search {
-  width: 100%;
-  padding: 10px 12px 10px 38px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  font-family: inherit;
-  font-size: 0.88rem;
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
-  box-shadow: var(--shadow-sm);
-}
-
-#search:focus {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-glow);
-}
-
-#search::placeholder { color: var(--text-tertiary); }
-
-.filter-pills {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.pill {
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 6px 16px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-  box-shadow: 0 1px 2px rgba(50,50,93,.08);
-}
-
-.pill:hover {
-  color: var(--text-secondary);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-
-.pill.active {
-  background: var(--text);
-  color: #fff;
-  border-color: var(--text);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ---- GRID ---- */
-.tools-section {
-  max-width: calc(var(--content-width) + 48px);
-  margin: 0 auto;
-  padding: 0 24px 48px;
-}
-
-.tools-grid {
+.bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 16px;
+  margin-bottom: 48px;
 }
 
 /* ---- CARDS ---- */
@@ -623,6 +556,62 @@ body {
 
 .tool-card.hidden { display: none; }
 
+/* Featured cards — span 2 columns, more visual weight */
+.tool-card--hero {
+  grid-column: span 2;
+  padding: 36px 34px 32px;
+  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, var(--surface) 0%, #fafcff 100%);
+}
+
+.tool-card--hero .tool-icon {
+  font-size: 2.2rem;
+  margin-bottom: 20px;
+}
+
+.tool-card--hero .tool-title {
+  font-size: 1.2rem;
+}
+
+/* Wide card — span 2 columns, horizontal layout */
+.tool-card--wide {
+  grid-column: span 2;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+}
+
+.tool-card--wide .tool-card-content {
+  flex: 1;
+}
+
+.tool-card--wide .tool-icon {
+  font-size: 2rem;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+/* Compact card — smaller, denser */
+.tool-card--compact {
+  padding: 22px 22px 20px;
+}
+
+.tool-card--compact .tool-icon {
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+}
+
+.tool-card--compact .tool-title {
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+
+.tool-card--compact .tool-desc {
+  font-size: 0.8rem;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+
 .tool-cat {
   font-size: 0.62rem;
   font-weight: 700;
@@ -654,6 +643,7 @@ body {
   color: var(--text-secondary);
   margin-bottom: 20px;
   flex: 1;
+  text-wrap: pretty;
 }
 
 .tool-link {
@@ -684,8 +674,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text-secondary);
+  background: rgba(50, 50, 93, 0.06);
   padding: 3px 8px;
   border-radius: 4px;
 }
@@ -706,17 +696,6 @@ body {
 }
 
 .tool-card.completed .completed-badge { display: block; }
-
-/* No results */
-.no-results {
-  text-align: center;
-  padding: 60px 24px;
-  color: var(--text-tertiary);
-  font-size: 0.95rem;
-  display: none;
-}
-
-.no-results.show { display: block; }
 
 /* ---- FEATURED DARK CARD ---- */
 .featured-section {
@@ -819,6 +798,7 @@ body {
   line-height: 1.7;
   max-width: 520px;
   margin: 0 auto;
+  text-wrap: pretty;
 }
 
 /* ---- SCROLL ANIMATIONS ---- */
@@ -838,40 +818,24 @@ body {
   transform: translateY(0);
 }
 
-/* Ensure hover overrides scroll-reveal (match specificity) */
 .reveal.visible .tool-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
   border-color: transparent;
 }
 
-/* Stagger cards within visible grid */
-.tools-grid.visible .tool-card:nth-child(1) { transition-delay: 0s; }
-.tools-grid.visible .tool-card:nth-child(2) { transition-delay: 0.05s; }
-.tools-grid.visible .tool-card:nth-child(3) { transition-delay: 0.1s; }
-.tools-grid.visible .tool-card:nth-child(4) { transition-delay: 0.15s; }
-.tools-grid.visible .tool-card:nth-child(5) { transition-delay: 0.2s; }
-.tools-grid.visible .tool-card:nth-child(6) { transition-delay: 0.25s; }
-.tools-grid.visible .tool-card:nth-child(7) { transition-delay: 0.3s; }
-.tools-grid.visible .tool-card:nth-child(8) { transition-delay: 0.35s; }
-.tools-grid.visible .tool-card:nth-child(9) { transition-delay: 0.4s; }
-.tools-grid.visible .tool-card:nth-child(10) { transition-delay: 0.45s; }
+/* Stagger cards */
+.bento-grid.visible .tool-card:nth-child(1) { transition-delay: 0s; }
+.bento-grid.visible .tool-card:nth-child(2) { transition-delay: 0.06s; }
+.bento-grid.visible .tool-card:nth-child(3) { transition-delay: 0.12s; }
+.bento-grid.visible .tool-card:nth-child(4) { transition-delay: 0.18s; }
+.bento-grid.visible .tool-card:nth-child(5) { transition-delay: 0.24s; }
 
-.tools-grid .tool-card {
+.bento-grid .tool-card {
   opacity: 0;
   transform: translateY(16px);
   transition: opacity 0.5s var(--ease), transform 0.5s var(--ease),
               box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
-}
-
-/* Filter animation */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.tool-card.entering {
-  animation: cardIn 0.25s var(--ease) both;
 }
 
 /* ---- FOCUS VISIBLE ---- */
@@ -887,15 +851,6 @@ body {
   outline-offset: 2px;
 }
 
-#search:focus-visible {
-  outline: none; /* already has custom focus style */
-}
-
-.pill:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 /* ---- REDUCED MOTION ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -903,28 +858,38 @@ body {
     transition-duration: 0.01ms !important;
   }
   .reveal { opacity: 1; transform: none; }
-  .tools-grid .tool-card { opacity: 1; transform: none; }
+  .bento-grid .tool-card { opacity: 1; transform: none; }
 }
 
 /* ---- RESPONSIVE ---- */
 @media (max-width: 960px) {
-  .tools-grid { grid-template-columns: repeat(2, 1fr); }
+  .bento-grid { grid-template-columns: repeat(2, 1fr); }
+  .tool-card--hero { grid-column: span 2; }
+  .tool-card--wide { grid-column: span 2; }
 }
 
 @media (max-width: 600px) {
   .site-nav { padding: 0 16px; }
   .hero { padding: clamp(40px, 6vw, 60px) 20px 32px; }
   .hero h1 { letter-spacing: -0.03em; }
-  .controls { padding: 0 20px 32px; }
-  .tools-section { padding: 0 20px 40px; }
-  .tools-grid { grid-template-columns: 1fr; gap: 14px; }
+  .bento-section { padding: 0 20px; }
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+  .tool-card--hero { grid-column: span 1; padding: 28px 24px 24px; }
+  .tool-card--wide {
+    grid-column: span 1;
+    flex-direction: column;
+  }
+  .tool-card--wide .tool-icon { margin-bottom: 12px; }
   .tool-card { padding: 22px 20px 20px; }
   .featured-section { padding: 0 20px 48px; }
   .featured-card { padding: 32px 24px; }
   .featured-moon { display: none; }
   .site-footer { padding: 40px 20px; }
 
-  /* Auth: collapse form to stacked on mobile */
   .auth-form {
     flex-direction: column;
     position: fixed;
@@ -1042,9 +1007,9 @@ body {
       </div>
     </div>
 
-    <!-- Desire -->
+    <!-- Ritual -->
     <div class="nav-item" onclick="toggleMobileDropdown(this)">
-      <button class="nav-trigger">Desire <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
+      <button class="nav-trigger">Ritual <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
       <div class="nav-dropdown">
         <a href="https://nickxma.github.io/practice-today/" class="nav-dropdown-link">
           <span class="nav-dropdown-icon">&#127769;</span>
@@ -1085,118 +1050,111 @@ body {
   <p class="hero-desc">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
 </section>
 
-<!-- Controls -->
-<div class="controls reveal">
-  <div class="search-wrap">
-    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" id="search" placeholder="Search tools...">
-  </div>
-  <div class="filter-pills">
-    <button class="pill active" data-cat="all" onclick="setFilter('all')">All</button>
-    <button class="pill" data-cat="discover" onclick="setFilter('discover')">Discover</button>
-    <button class="pill" data-cat="explore" onclick="setFilter('explore')">Explore</button>
-    <button class="pill" data-cat="reflect" onclick="setFilter('reflect')">Reflect</button>
-  </div>
-</div>
-
-<!-- Tools Grid -->
-<section class="tools-section">
-  <div class="tools-grid reveal" id="grid">
-
-    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card" data-cat="discover" data-featured data-tool="meditation-quiz">
-      <span class="featured-badge">Start here</span>
+<!-- Start Here -->
+<div class="bento-section">
+  <div class="section-label reveal">Start here</div>
+  <div class="bento-grid reveal" id="grid-start">
+    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card tool-card--hero" data-tool="meditation-quiz">
+      <span class="featured-badge">Recommended</span>
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Discover</div>
       <div class="tool-icon">&#129504;</div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
       <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
       <span class="tool-link">Take the quiz <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
-    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-cat="explore" data-featured data-tool="meditation-debates">
-      <span class="featured-badge">Start here</span>
+    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-tool="meditation-debates">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#9878;&#65039;</div>
       <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
-      <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Five questions where serious practitioners land on different sides.</p>
+      <p class="tool-desc">Five questions where serious practitioners land on different sides.</p>
       <span class="tool-link">Explore the arguments <span class="tool-link-arrow">&rarr;</span></span>
     </a>
+  </div>
+</div>
 
-    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-cat="explore" data-tool="concept-explorer">
+<!-- Explore -->
+<div class="bento-section">
+  <div class="section-label reveal">Explore</div>
+  <div class="bento-grid reveal" id="grid-explore">
+    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-tool="concept-explorer">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128301;</div>
       <h2 class="tool-title">The Nature of Experience</h2>
       <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts easy to understand separately and easy to confuse in practice.</p>
       <span class="tool-link">Begin exploring <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
-    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-cat="explore" data-tool="teacher-debates">
+    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-tool="teacher-debates">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128101;</div>
-      <h2 class="tool-title">26 Teachers, Mapped by Position</h2>
-      <p class="tool-desc">Where do 26 contemplative teachers actually stand on the hardest questions in practice? Mapped by position.</p>
+      <h2 class="tool-title">26 Teachers, Mapped</h2>
+      <p class="tool-desc">Where do 26 contemplative teachers actually stand on the hardest questions in practice?</p>
       <span class="tool-link">See who says what <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-wiki/" class="tool-card" data-cat="explore" data-tool="mindfulness-wiki">
+    <a href="https://nickxma.github.io/mindfulness-wiki/" class="tool-card" data-tool="mindfulness-wiki">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128214;</div>
       <h2 class="tool-title">Wiki</h2>
-      <p class="tool-desc">Nine contemplative concepts — awareness, non-duality, equanimity, and more. What each term actually means and why the distinctions matter.</p>
+      <p class="tool-desc">Nine contemplative concepts — what each term actually means and why the distinctions matter.</p>
       <span class="tool-link">Browse concepts <span class="tool-link-arrow">&rarr;</span></span>
     </a>
+  </div>
+</div>
 
-    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card" data-cat="discover" data-tool="meditation-recommender">
+<!-- Personalize -->
+<div class="bento-section">
+  <div class="section-label reveal">Personalize</div>
+  <div class="bento-grid reveal" id="grid-personalize">
+    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card tool-card--wide" data-tool="meditation-recommender">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Discover</div>
       <div class="tool-icon">&#128506;&#65039;</div>
-      <h2 class="tool-title">What Should I Actually Practice?</h2>
-      <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
-      <span class="tool-link">Get recommendation <span class="tool-link-arrow">&rarr;</span></span>
+      <div class="tool-card-content">
+        <h2 class="tool-title">What Should I Actually Practice?</h2>
+        <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
+        <span class="tool-link">Get recommendation <span class="tool-link-arrow">&rarr;</span></span>
+      </div>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card" data-cat="discover" data-tool="mindfulness-fit">
+    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card tool-card--compact" data-tool="mindfulness-fit">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Discover</div>
       <div class="tool-icon">&#129517;</div>
       <h2 class="tool-title">Should You Get Into Mindfulness?</h2>
-      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. An honest read of the tradeoffs.</p>
+      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't.</p>
       <span class="tool-link">Assess the fit <span class="tool-link-arrow">&rarr;</span></span>
     </a>
+  </div>
+</div>
 
-    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-cat="reflect" data-tool="mindfulness-pointers">
+<!-- Reflect -->
+<div class="bento-section">
+  <div class="section-label reveal">Reflect</div>
+  <div class="bento-grid reveal" id="grid-reflect">
+    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-tool="mindfulness-pointers">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Reflect</div>
       <div class="tool-icon">&#9757;&#65039;</div>
       <h2 class="tool-title">Pointers</h2>
       <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — each with a guided practice you can try right now.</p>
       <span class="tool-link">Try the pointers <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card" data-cat="reflect" data-tool="mindfulness-essays">
+    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card tool-card--hero" data-tool="mindfulness-essays">
       <span class="completed-badge">Done</span>
-      <div class="tool-cat">Reflect</div>
       <div class="tool-icon">&#9999;&#65039;</div>
       <h2 class="tool-title">Essays</h2>
       <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
       <span class="tool-link">Read the essays <span class="tool-link-arrow">&rarr;</span></span>
     </a>
-
   </div>
-
-  <div class="no-results" id="no-results">No tools match that search.</div>
-</section>
+</div>
 
 <!-- Featured dark card -->
 <section class="featured-section reveal">
   <a href="https://nickxma.github.io/practice-today/" class="featured-card">
     <div class="featured-card-inner">
       <div>
-        <div class="featured-tag">Body Practice</div>
+        <div class="featured-tag">Ritual</div>
         <h2 class="featured-title">Today's Practice</h2>
         <p class="featured-desc">A pose for today — what it asks of the body, what arises. Changes with the moon.</p>
         <span class="tool-link">See today's practice <span class="tool-link-arrow">&rarr;</span></span>
@@ -1243,48 +1201,6 @@ body {
     }
   })();
 
-  // ---- Search & Filter ----
-  var cards = document.querySelectorAll('.tool-card');
-  var searchInput = document.getElementById('search');
-  var noResults = document.getElementById('no-results');
-  var activeFilter = 'all';
-  var hasFiltered = false;
-
-  function setFilter(cat) {
-    activeFilter = cat;
-    document.querySelectorAll('.pill').forEach(function(p) {
-      p.classList.toggle('active', p.dataset.cat === cat);
-    });
-    applyFilters();
-  }
-
-  function applyFilters() {
-    var query = searchInput.value.toLowerCase().trim();
-    var visible = 0;
-    hasFiltered = true;
-
-    cards.forEach(function(card) {
-      var matchesCat = activeFilter === 'all' || card.dataset.cat === activeFilter;
-      var text = card.textContent.toLowerCase();
-      var matchesSearch = !query || text.includes(query);
-      var show = matchesCat && matchesSearch;
-
-      card.classList.toggle('hidden', !show);
-      if (show) {
-        // Only animate if actively filtering, not on initial load
-        card.classList.remove('entering');
-        void card.offsetHeight;
-        card.style.animationDelay = (visible * 30) + 'ms';
-        card.classList.add('entering');
-        visible++;
-      }
-    });
-
-    noResults.classList.toggle('show', visible === 0);
-  }
-
-  searchInput.addEventListener('input', applyFilters);
-
   // ---- Mobile Nav ----
   window.toggleMobileNav = function() {
     document.getElementById('nav-links').classList.toggle('mobile-open');
@@ -1295,10 +1211,9 @@ body {
     item.classList.toggle('mobile-expanded');
   };
 
-  // Close dropdowns on outside click (desktop)
+  // Close mobile nav on outside click
   document.addEventListener('click', function(e) {
     if (window.innerWidth <= 768) {
-      // Close mobile nav on outside click
       var navLinks = document.getElementById('nav-links');
       var hamburger = document.querySelector('.nav-hamburger');
       if (navLinks.classList.contains('mobile-open') && !navLinks.contains(e.target) && !hamburger.contains(e.target)) {
