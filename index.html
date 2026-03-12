@@ -77,6 +77,248 @@ body {
 }
 
 /* ---- AUTH (in nav) ---- */
+/* ---- NAV LINKS / DROPDOWNS ---- */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-trigger {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.15s var(--ease);
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+}
+
+.nav-trigger:hover {
+  color: var(--text);
+}
+
+.nav-trigger svg {
+  width: 10px;
+  height: 10px;
+  transition: transform 0.2s var(--ease);
+  opacity: 0.5;
+}
+
+.nav-item:hover .nav-trigger svg,
+.nav-item.open .nav-trigger svg {
+  transform: rotate(180deg);
+  opacity: 0.8;
+}
+
+.nav-item:hover .nav-trigger,
+.nav-item.open .nav-trigger {
+  color: var(--text);
+}
+
+.nav-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  min-width: 240px;
+  box-shadow: 0 4px 12px rgba(50,50,93,.12), 0 1px 3px rgba(0,0,0,.08);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), visibility 0.2s;
+  z-index: 200;
+}
+
+.nav-item:hover .nav-dropdown,
+.nav-item.open .nav-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Triangle pointer */
+.nav-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.nav-dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  text-decoration: none;
+  color: var(--text);
+  transition: background 0.12s var(--ease);
+}
+
+.nav-dropdown-link:hover {
+  background: var(--bg);
+}
+
+.nav-dropdown-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+
+.nav-dropdown-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nav-dropdown-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.nav-dropdown-desc {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.nav-dropdown-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 4px 8px;
+}
+
+/* Wider dropdown for mindfulness (many items) */
+.nav-dropdown.wide {
+  min-width: 320px;
+}
+
+.nav-dropdown.wide .nav-dropdown-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.nav-dropdown.wide .nav-dropdown-link {
+  padding: 8px 10px;
+}
+
+.nav-dropdown.wide .nav-dropdown-icon {
+  font-size: 1rem;
+  width: 24px;
+}
+
+.nav-dropdown.wide .nav-dropdown-title {
+  font-size: 0.78rem;
+}
+
+.nav-dropdown.wide .nav-dropdown-desc {
+  display: none;
+}
+
+/* Mobile nav */
+.nav-hamburger {
+  display: none;
+  border: none;
+  background: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    transform: none;
+    flex-direction: column;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    box-shadow: var(--shadow-md);
+    gap: 0;
+    display: none;
+    z-index: 150;
+  }
+
+  .nav-links.mobile-open {
+    display: flex;
+  }
+
+  .nav-hamburger {
+    display: block;
+  }
+
+  .nav-item {
+    width: 100%;
+  }
+
+  .nav-trigger {
+    width: 100%;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+
+  .nav-dropdown {
+    position: static;
+    transform: none;
+    box-shadow: none;
+    border: none;
+    padding: 0 0 0 16px;
+    min-width: auto;
+    opacity: 1;
+    visibility: visible;
+    display: none;
+    background: transparent;
+  }
+
+  .nav-dropdown::before {
+    display: none;
+  }
+
+  .nav-item.mobile-expanded .nav-dropdown {
+    display: block;
+  }
+
+  .nav-dropdown.wide .nav-dropdown-items {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-dropdown.wide .nav-dropdown-desc {
+    display: block;
+  }
+}
+
 .auth-link {
   font-size: 0.8rem;
   color: var(--text-tertiary);
@@ -706,6 +948,115 @@ body {
 <!-- Sticky Nav -->
 <nav class="site-nav">
   <a href="https://nickxma.github.io/paradox-of-acceptance/" class="site-nav-logo">Paradox of Acceptance</a>
+
+  <!-- Hamburger (mobile) -->
+  <button class="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menu">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
+  </button>
+
+  <!-- Nav Links -->
+  <div class="nav-links" id="nav-links">
+    <!-- Mindfulness -->
+    <div class="nav-item" onclick="toggleMobileDropdown(this)">
+      <button class="nav-trigger">Mindfulness <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
+      <div class="nav-dropdown wide">
+        <div class="nav-dropdown-items">
+          <a href="https://nickxma.github.io/meditation-quiz/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#129504;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Quiz</span>
+              <span class="nav-dropdown-desc">What kind of meditator are you?</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/meditation-debates/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#9878;&#65039;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Debates</span>
+              <span class="nav-dropdown-desc">5 questions the field can't settle</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/concept-explorer/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#128301;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Concepts</span>
+              <span class="nav-dropdown-desc">Nature of experience</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/teacher-debates/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#128101;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Teachers</span>
+              <span class="nav-dropdown-desc">26 teachers, mapped</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/mindfulness-wiki/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#128214;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Wiki</span>
+              <span class="nav-dropdown-desc">Nine core concepts</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/meditation-recommender/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#128506;&#65039;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Recommender</span>
+              <span class="nav-dropdown-desc">What to practice next</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/mindfulness-fit/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#129517;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Fit Check</span>
+              <span class="nav-dropdown-desc">Is mindfulness for you?</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/mindfulness-pointers/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#9757;&#65039;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Pointers</span>
+              <span class="nav-dropdown-desc">Six guided practices</span>
+            </span>
+          </a>
+          <a href="https://nickxma.github.io/mindfulness-essays/" class="nav-dropdown-link">
+            <span class="nav-dropdown-icon">&#9999;&#65039;</span>
+            <span class="nav-dropdown-text">
+              <span class="nav-dropdown-title">Essays</span>
+              <span class="nav-dropdown-desc">Longer-form writing</span>
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Yoga -->
+    <div class="nav-item" onclick="toggleMobileDropdown(this)">
+      <button class="nav-trigger">Yoga <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
+      <div class="nav-dropdown">
+        <a href="https://nickxma.github.io/triangle-pose/" class="nav-dropdown-link">
+          <span class="nav-dropdown-icon">&#128170;</span>
+          <span class="nav-dropdown-text">
+            <span class="nav-dropdown-title">Triangle Pose</span>
+            <span class="nav-dropdown-desc">Interactive hip alignment diagram</span>
+          </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Desire -->
+    <div class="nav-item" onclick="toggleMobileDropdown(this)">
+      <button class="nav-trigger">Desire <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
+      <div class="nav-dropdown">
+        <a href="https://nickxma.github.io/practice-today/" class="nav-dropdown-link">
+          <span class="nav-dropdown-icon">&#127769;</span>
+          <span class="nav-dropdown-text">
+            <span class="nav-dropdown-title">Today's Practice</span>
+            <span class="nav-dropdown-desc">A pose for today, guided by the moon</span>
+          </span>
+        </a>
+      </div>
+    </div>
+  </div>
+
   <div class="site-nav-right">
     <div id="auth-area" style="display:none">
       <div id="auth-prompt">
@@ -934,8 +1285,28 @@ body {
 
   searchInput.addEventListener('input', applyFilters);
 
-  // Dismiss auth form on click outside
+  // ---- Mobile Nav ----
+  window.toggleMobileNav = function() {
+    document.getElementById('nav-links').classList.toggle('mobile-open');
+  };
+
+  window.toggleMobileDropdown = function(item) {
+    if (window.innerWidth > 768) return;
+    item.classList.toggle('mobile-expanded');
+  };
+
+  // Close dropdowns on outside click (desktop)
   document.addEventListener('click', function(e) {
+    if (window.innerWidth <= 768) {
+      // Close mobile nav on outside click
+      var navLinks = document.getElementById('nav-links');
+      var hamburger = document.querySelector('.nav-hamburger');
+      if (navLinks.classList.contains('mobile-open') && !navLinks.contains(e.target) && !hamburger.contains(e.target)) {
+        navLinks.classList.remove('mobile-open');
+      }
+    }
+
+    // Dismiss auth form on click outside
     var form = document.getElementById('auth-form');
     var prompt = document.getElementById('auth-prompt');
     if (form && form.style.display !== 'none' && !form.contains(e.target) && !e.target.classList.contains('auth-link')) {
