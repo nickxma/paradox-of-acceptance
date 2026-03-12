@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paradox of Acceptance — Meditation Tools</title>
+<title>Paradox of Acceptance — Practice Tools</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,9 +26,10 @@ body {
   flex-direction: column;
 }
 
+/* ---- HEADER ---- */
 header {
   text-align: center;
-  padding: 80px 24px 40px;
+  padding: 72px 24px 0;
   max-width: 720px;
   margin: 0 auto;
 }
@@ -51,77 +52,159 @@ h1 {
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.2;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .subtitle {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
   color: var(--text-muted);
   line-height: 1.6;
   margin-bottom: 12px;
 }
 
 .description {
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
   line-height: 1.7;
-  max-width: 600px;
+  max-width: 560px;
   margin: 0 auto;
 }
 
+/* ---- CONTROLS (search + filters) ---- */
+.controls {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 24px 0;
+}
+
+.search-wrap {
+  max-width: 400px;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+#search {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#search:focus {
+  border-color: var(--accent);
+}
+
+#search::placeholder {
+  color: #b0ada8;
+}
+
+.filter-pills {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pill:hover {
+  border-color: #bbb;
+  color: var(--text);
+}
+
+.pill.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+/* ---- MAIN GRID ---- */
 main {
   flex: 1;
-  padding: 60px 24px;
+  padding: 32px 24px 60px;
 }
 
 .tools-grid {
   max-width: 1000px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
 }
 
 .tool-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 36px 28px;
+  padding: 32px 26px;
   display: flex;
   flex-direction: column;
   transition: all 0.2s ease;
   text-decoration: none;
   color: inherit;
+  position: relative;
 }
 
 .tool-card:hover {
   border-color: var(--accent);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
   transform: translateY(-2px);
 }
 
+.tool-card.hidden {
+  display: none;
+}
+
 .tool-icon {
-  font-size: 2.5rem;
-  margin-bottom: 16px;
+  font-size: 2.2rem;
+  margin-bottom: 14px;
 }
 
 .tool-title {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   color: var(--text);
+  line-height: 1.3;
 }
 
 .tool-desc {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1.65;
   color: var(--text-muted);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   flex: 1;
 }
 
 .tool-link {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--accent);
   text-decoration: none;
@@ -130,29 +213,48 @@ main {
   gap: 6px;
 }
 
-.tool-link::after {
-  content: '→';
+.tool-link::after { content: '→'; }
+.tool-card:hover .tool-link { gap: 10px; }
+
+/* Featured badge */
+.featured-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 3px 9px;
+  border-radius: 6px;
 }
 
-.tool-card:hover .tool-link {
-  gap: 10px;
+/* Category tag on card */
+.tool-cat {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b0ada8;
+  margin-bottom: 10px;
 }
 
-footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 24px;
+/* No results */
+.no-results {
   text-align: center;
+  padding: 60px 24px;
   color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.footer-content {
-  max-width: 600px;
+  font-size: 0.95rem;
+  display: none;
+  max-width: 1000px;
   margin: 0 auto;
-  line-height: 1.7;
 }
 
-/* Body Practice featured section */
+.no-results.show { display: block; }
+
+/* ---- BODY PRACTICE ---- */
 .body-practice {
   max-width: 1000px;
   margin: 0 auto;
@@ -184,162 +286,174 @@ footer {
 }
 
 .body-tag {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #7a8e9e;
-  display: inline-block;
   margin-bottom: 12px;
 }
 
 .body-title {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #e8e3dc;
 }
 
 .body-desc {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1.65;
   color: #8a847c;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   max-width: 480px;
 }
 
-.body-card .tool-link {
-  color: #7a8e9e;
-}
-
-.body-card:hover .tool-link {
-  gap: 10px;
-}
+.body-card .tool-link { color: #7a8e9e; }
+.body-card:hover .tool-link { gap: 10px; }
 
 .body-moon {
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: opacity 0.2s ease;
 }
 
-.body-card:hover .body-moon {
-  opacity: 0.9;
+.body-card:hover .body-moon { opacity: 0.85; }
+
+/* ---- FOOTER ---- */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
+.footer-content {
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ---- ANIMATION ---- */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tool-card.entering {
+  animation: cardIn 0.25s ease both;
+}
+
+/* ---- RESPONSIVE ---- */
 @media (max-width: 600px) {
-  header {
-    padding: 60px 20px 30px;
-  }
-
-  h1 {
-    margin-bottom: 16px;
-  }
-
-  main {
-    padding: 40px 20px;
-  }
-
-  .tools-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .tool-card {
-    padding: 28px 24px;
-  }
-
-  .body-practice {
-    padding: 0 20px 40px;
-  }
-
-  .body-card {
-    padding: 32px 24px;
-  }
-
-  .body-moon {
-    display: none;
-  }
+  header { padding: 52px 20px 0; }
+  h1 { margin-bottom: 12px; }
+  .controls { padding: 32px 20px 0; }
+  main { padding: 24px 20px 40px; }
+  .tools-grid { grid-template-columns: 1fr; gap: 14px; }
+  .tool-card { padding: 24px 22px; }
+  .body-practice { padding: 0 20px 40px; }
+  .body-card { padding: 28px 22px; }
+  .body-moon { display: none; }
 }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="header-tag">Meditation Toolkit</div>
+  <div class="header-tag">Practice Toolkit</div>
   <h1>Paradox of Acceptance</h1>
-  <p class="subtitle">Tools for thinking more clearly about meditation practice</p>
+  <p class="subtitle">Tools for thinking more clearly about practice</p>
   <p class="description">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
 </header>
 
+<div class="controls">
+  <div class="search-wrap">
+    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search" placeholder="Search tools...">
+  </div>
+  <div class="filter-pills">
+    <button class="pill active" data-cat="all" onclick="setFilter('all')">All</button>
+    <button class="pill" data-cat="discover" onclick="setFilter('discover')">Discover</button>
+    <button class="pill" data-cat="explore" onclick="setFilter('explore')">Explore</button>
+    <button class="pill" data-cat="reflect" onclick="setFilter('reflect')">Reflect</button>
+  </div>
+</div>
+
 <main>
-  <div class="tools-grid">
+  <div class="tools-grid" id="grid">
 
-    <!-- Concept Explorer -->
-    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card">
-      <div class="tool-icon">🔭</div>
-      <h2 class="tool-title">The Nature of Experience</h2>
-      <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts that are easy to understand separately and easy to confuse in practice. See how they fit together and why the relationship matters.</p>
-      <span class="tool-link">Begin exploring</span>
-    </a>
-
-    <!-- Debates -->
-    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card">
-      <div class="tool-icon">⚖️</div>
-      <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
-      <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Is meditation always safe? Five questions where serious practitioners land on genuinely different sides — with the strongest arguments for each position laid out.</p>
-      <span class="tool-link">Explore the arguments</span>
-    </a>
-
-    <!-- Teacher Debates -->
-    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card">
-      <div class="tool-icon">👥</div>
-      <h2 class="tool-title">26 Teachers, Mapped by Position</h2>
-      <p class="tool-desc">Where do 26 contemplative teachers actually stand? Goldstein, Gangaji, Shinzen Young, and 23 others — mapped by position on the hardest questions in practice. Click any name to read their specific reasoning.</p>
-      <span class="tool-link">See who says what</span>
-    </a>
-
-    <!-- Quiz -->
-    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card">
+    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card" data-cat="discover" data-featured>
+      <span class="featured-badge">Start here</span>
+      <div class="tool-cat">Discover</div>
       <div class="tool-icon">🧠</div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
       <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles, each with a different relationship to effort, ego, and what counts as progress.</p>
       <span class="tool-link">Take the quiz</span>
     </a>
 
-    <!-- Recommender -->
-    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card">
+    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-cat="explore" data-featured>
+      <span class="featured-badge">Start here</span>
+      <div class="tool-cat">Explore</div>
+      <div class="tool-icon">⚖️</div>
+      <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
+      <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Is meditation always safe? Five questions where serious practitioners land on genuinely different sides.</p>
+      <span class="tool-link">Explore the arguments</span>
+    </a>
+
+    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-cat="explore">
+      <div class="tool-cat">Explore</div>
+      <div class="tool-icon">🔭</div>
+      <h2 class="tool-title">The Nature of Experience</h2>
+      <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts that are easy to understand separately and easy to confuse in practice.</p>
+      <span class="tool-link">Begin exploring</span>
+    </a>
+
+    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-cat="explore">
+      <div class="tool-cat">Explore</div>
+      <div class="tool-icon">👥</div>
+      <h2 class="tool-title">26 Teachers, Mapped by Position</h2>
+      <p class="tool-desc">Where do 26 contemplative teachers actually stand? Goldstein, Gangaji, Shinzen Young, and 23 others — mapped on the hardest questions in practice.</p>
+      <span class="tool-link">See who says what</span>
+    </a>
+
+    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card" data-cat="discover">
+      <div class="tool-cat">Discover</div>
       <div class="tool-icon">🗺️</div>
       <h2 class="tool-title">What Should I Actually Practice?</h2>
-      <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation — not a generic "try mindfulness" but a specific approach matched to your situation.</p>
+      <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
       <span class="tool-link">Get recommendation</span>
     </a>
 
-    <!-- Fit Assessment -->
-    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card">
+    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card" data-cat="discover">
+      <div class="tool-cat">Discover</div>
       <div class="tool-icon">🧭</div>
       <h2 class="tool-title">Should You Get Into Mindfulness?</h2>
-      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. Six questions about your baseline, your motivation style, and what you're hoping to change — then an honest read of the tradeoffs.</p>
+      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. Six questions about your baseline and motivation — then an honest read of the tradeoffs.</p>
       <span class="tool-link">Assess the fit</span>
     </a>
 
-    <!-- Pointers -->
-    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card">
+    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-cat="reflect">
+      <div class="tool-cat">Reflect</div>
       <div class="tool-icon">☝️</div>
       <h2 class="tool-title">Pointers</h2>
-      <p class="tool-desc">Some instructions only make sense when you follow them. Each pointer guides you through a contemplative practice — step by step, right from your screen. Start with the most direct one: turn your attention toward its own source.</p>
+      <p class="tool-desc">Some instructions only make sense when you follow them. Each pointer guides you through a contemplative practice — step by step, right from your screen.</p>
       <span class="tool-link">Try the pointers</span>
     </a>
 
-    <!-- Essays -->
-    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card">
+    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card" data-cat="reflect">
+      <div class="tool-cat">Reflect</div>
       <div class="tool-icon">✏️</div>
       <h2 class="tool-title">How Much Infrastructure Do You Need to Remember?</h2>
-      <p class="tool-desc">Once the practice reduces to "just remember" — how much guided instruction do you actually need? An observation about what contemplative teaching implies and what the products built around it don't.</p>
+      <p class="tool-desc">Once the practice reduces to "just remember" — how much guided instruction do you actually need? An observation about what teaching implies and what the products don't.</p>
       <span class="tool-link">Read the essay</span>
     </a>
 
   </div>
+
+  <div class="no-results" id="no-results">No tools match that search.</div>
 </main>
 
 <section class="body-practice">
@@ -363,9 +477,48 @@ footer {
 
 <footer>
   <div class="footer-content">
-    <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative. All tools are free and open-source.</p>
+    <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
   </div>
 </footer>
 
+<script>
+  const cards = document.querySelectorAll('.tool-card');
+  const searchInput = document.getElementById('search');
+  const noResults = document.getElementById('no-results');
+  let activeFilter = 'all';
+
+  function setFilter(cat) {
+    activeFilter = cat;
+    document.querySelectorAll('.pill').forEach(p =>
+      p.classList.toggle('active', p.dataset.cat === cat)
+    );
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const query = searchInput.value.toLowerCase().trim();
+    let visible = 0;
+
+    cards.forEach((card, i) => {
+      const matchesCat = activeFilter === 'all' || card.dataset.cat === activeFilter;
+      const text = card.textContent.toLowerCase();
+      const matchesSearch = !query || text.includes(query);
+      const show = matchesCat && matchesSearch;
+
+      card.classList.toggle('hidden', !show);
+      if (show) {
+        card.classList.remove('entering');
+        void card.offsetHeight;
+        card.style.animationDelay = (visible * 30) + 'ms';
+        card.classList.add('entering');
+        visible++;
+      }
+    });
+
+    noResults.classList.toggle('show', visible === 0);
+  }
+
+  searchInput.addEventListener('input', applyFilters);
+</script>
 </body>
 </html>
