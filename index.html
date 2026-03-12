@@ -19,9 +19,9 @@
   --text: #0a2540;
   --text-secondary: #425466;
   --text-tertiary: #8898aa;
-  --accent: #2d5a27;
-  --accent-soft: #e8f0e6;
-  --accent-glow: rgba(45, 90, 39, 0.08);
+  --accent: #5469d4;
+  --accent-soft: #eef1fb;
+  --accent-glow: rgba(84, 105, 212, 0.08);
 
   --shadow-sm: 0 2px 5px 0 rgba(50,50,93,.1), 0 1px 1px 0 rgba(0,0,0,.07);
   --shadow-md: 0 6px 12px -2px rgba(50,50,93,.12), 0 3px 7px -3px rgba(0,0,0,.08);
@@ -186,11 +186,13 @@ body {
 }
 
 .nav-dropdown-icon {
-  font-size: 1.2rem;
+  font-size: 0.5rem;
   line-height: 1;
   flex-shrink: 0;
-  width: 28px;
+  width: 16px;
   text-align: center;
+  color: var(--accent);
+  opacity: 0.5;
 }
 
 .nav-dropdown-text {
@@ -233,8 +235,8 @@ body {
 }
 
 .nav-dropdown.wide .nav-dropdown-icon {
-  font-size: 1rem;
-  width: 24px;
+  font-size: 0.5rem;
+  width: 16px;
 }
 
 .nav-dropdown.wide .nav-dropdown-title {
@@ -257,7 +259,7 @@ body {
 @media (max-width: 768px) {
   .nav-links {
     position: fixed;
-    top: 56px;
+    top: 52px;
     left: 0;
     right: 0;
     transform: none;
@@ -542,7 +544,7 @@ body {
 }
 
 .bento-section--alt .tool-card .tool-icon {
-  background: var(--bg);
+  background: var(--accent-soft);
 }
 
 .section-label {
@@ -618,9 +620,9 @@ body {
 }
 
 .tool-card--hero .tool-icon {
-  font-size: 1.8rem;
   width: 48px;
   height: 48px;
+  border-radius: 12px;
   margin-bottom: 20px;
 }
 
@@ -641,11 +643,10 @@ body {
 }
 
 .tool-card--wide .tool-icon {
-  font-size: 1.8rem;
   width: 48px;
   height: 48px;
+  border-radius: 12px;
   margin-bottom: 0;
-  flex-shrink: 0;
 }
 
 /* Compact card — smaller, denser */
@@ -654,9 +655,9 @@ body {
 }
 
 .tool-card--compact .tool-icon {
-  font-size: 1.2rem;
   width: 36px;
   height: 36px;
+  border-radius: 9px;
   margin-bottom: 12px;
 }
 
@@ -672,18 +673,16 @@ body {
 }
 
 .tool-icon {
-  font-size: 1.6rem;
   margin-bottom: 16px;
-  display: block;
-  line-height: 1;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
+  background: var(--accent-soft);
+  border-radius: 10px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .tool-title {
@@ -790,7 +789,7 @@ body {
   right: 0;
   width: 40%;
   height: 100%;
-  background: radial-gradient(ellipse at 80% 50%, rgba(45,90,39,0.06) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 80% 50%, rgba(84,105,212,0.06) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -947,34 +946,69 @@ body {
 }
 
 @media (max-width: 600px) {
-  .site-nav { padding: 0 16px; }
-  .hero { padding: clamp(40px, 6vw, 60px) 20px 32px; }
-  .hero h1 { letter-spacing: -0.03em; }
-  .bento-section { padding: 32px 20px 0; }
-  .bento-section--alt { padding: 32px 0 4px; }
+  .site-nav { padding: 0 16px; height: 52px; }
+  .site-nav-logo { font-size: 0.82rem; }
+
+  .hero { padding: 40px 20px 24px; }
+  .hero h1 {
+    font-size: 1.8rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+  .hero-tag { font-size: 0.78rem; margin-bottom: 16px; }
+  .hero-subtitle { font-size: 0.95rem; margin-bottom: 8px; }
+  .hero-desc { font-size: 0.85rem; }
+  .hero-divider { margin: 28px auto 0; width: 32px; }
+
+  .bento-section { padding: 28px 16px 0; }
+  .bento-section--alt { padding: 28px 0 4px; }
   .bento-section--alt > .section-label,
-  .bento-section--alt > .bento-grid { padding-left: 20px; padding-right: 20px; }
+  .bento-section--alt > .bento-grid { padding-left: 16px; padding-right: 16px; }
+
+  .section-label { font-size: 0.9rem; margin-bottom: 14px; }
+
   .bento-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
-    margin-bottom: 40px;
+    gap: 12px;
+    margin-bottom: 0;
   }
-  .tool-card--hero { grid-column: span 1; padding: 28px 24px 24px; }
+
+  .tool-card--hero {
+    grid-column: span 1;
+    padding: 24px 20px 22px;
+  }
+  .tool-card--hero .tool-icon { width: 40px; height: 40px; }
+  .tool-card--hero .tool-title { font-size: 1.05rem; }
+
   .tool-card--wide {
     grid-column: span 1;
     flex-direction: column;
+    gap: 0;
   }
-  .tool-card--wide .tool-icon { margin-bottom: 12px; }
-  .tool-card { padding: 22px 20px 20px; }
-  .featured-section { padding: 0 20px 48px; }
-  .featured-card { padding: 32px 24px; }
+  .tool-card--wide .tool-icon { margin-bottom: 14px; width: 40px; height: 40px; }
+
+  .tool-card { padding: 20px 18px 18px; border-radius: 10px; }
+  .tool-card::before { border-radius: 10px 10px 0 0; }
+  .tool-icon { width: 36px; height: 36px; border-radius: 9px; margin-bottom: 14px; }
+  .tool-title { font-size: 0.95rem; margin-bottom: 8px; }
+  .tool-desc { font-size: 0.82rem; line-height: 1.6; margin-bottom: 16px; }
+  .tool-link { font-size: 0.78rem; }
+
+  .featured-section { padding: 28px 16px 48px; }
+  .featured-card { padding: 28px 22px; border-radius: 10px; }
+  .featured-title { font-size: 1.2rem; }
+  .featured-desc { font-size: 0.82rem; }
+  .featured-tag { font-size: 0.75rem; }
   .featured-moon { display: none; }
-  .site-footer { padding: 40px 20px; }
+
+  .site-footer { padding: 36px 16px; }
+  .site-footer p { font-size: 0.78rem; }
+  .site-footer-brand { font-size: 0.72rem; }
 
   .auth-form {
     flex-direction: column;
     position: fixed;
-    top: 56px;
+    top: 52px;
     right: 0;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -986,6 +1020,21 @@ body {
   }
   .auth-form input { width: 200px; }
   .auth-error { position: static; }
+
+  /* Touch targets: minimum 44px */
+  .tool-card { min-height: 44px; }
+  .nav-trigger { min-height: 44px; }
+
+  /* iPhone safe area */
+  .site-footer { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+}
+
+/* iPhone SE / small screens */
+@media (max-width: 375px) {
+  .hero h1 { font-size: 1.6rem; }
+  .hero-subtitle { font-size: 0.88rem; }
+  .tool-card { padding: 18px 16px 16px; }
+  .featured-card { padding: 24px 18px; }
 }
 </style>
 </head>
@@ -1008,63 +1057,63 @@ body {
       <div class="nav-dropdown wide">
         <div class="nav-dropdown-items">
           <a href="https://nickxma.github.io/meditation-quiz/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#129504;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Quiz</span>
               <span class="nav-dropdown-desc">What kind of meditator are you?</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/meditation-debates/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#9878;&#65039;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Debates</span>
               <span class="nav-dropdown-desc">5 questions the field can't settle</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/concept-explorer/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#128301;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Concepts</span>
               <span class="nav-dropdown-desc">Nature of experience</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/teacher-debates/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#128101;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Teachers</span>
               <span class="nav-dropdown-desc">26 teachers, mapped</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/mindfulness-wiki/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#128214;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Wiki</span>
               <span class="nav-dropdown-desc">Nine core concepts</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/meditation-recommender/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#128506;&#65039;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Recommender</span>
               <span class="nav-dropdown-desc">What to practice next</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/mindfulness-fit/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#129517;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Fit Check</span>
               <span class="nav-dropdown-desc">Is mindfulness for you?</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/mindfulness-pointers/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#9757;&#65039;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Pointers</span>
               <span class="nav-dropdown-desc">Six guided practices</span>
             </span>
           </a>
           <a href="https://nickxma.github.io/mindfulness-essays/" class="nav-dropdown-link">
-            <span class="nav-dropdown-icon">&#9999;&#65039;</span>
+            <span class="nav-dropdown-icon">&bull;</span>
             <span class="nav-dropdown-text">
               <span class="nav-dropdown-title">Essays</span>
               <span class="nav-dropdown-desc">Longer-form writing</span>
@@ -1079,7 +1128,7 @@ body {
       <button class="nav-trigger">Yoga <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
       <div class="nav-dropdown">
         <a href="https://nickxma.github.io/triangle-pose/" class="nav-dropdown-link">
-          <span class="nav-dropdown-icon">&#128170;</span>
+          <span class="nav-dropdown-icon">&bull;</span>
           <span class="nav-dropdown-text">
             <span class="nav-dropdown-title">Triangle Pose</span>
             <span class="nav-dropdown-desc">Interactive hip alignment diagram</span>
@@ -1093,7 +1142,7 @@ body {
       <button class="nav-trigger">Ritual <svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="1,1 5,5 9,1"/></svg></button>
       <div class="nav-dropdown">
         <a href="https://nickxma.github.io/practice-today/" class="nav-dropdown-link">
-          <span class="nav-dropdown-icon">&#127769;</span>
+          <span class="nav-dropdown-icon">&bull;</span>
           <span class="nav-dropdown-text">
             <span class="nav-dropdown-title">Today's Practice</span>
             <span class="nav-dropdown-desc">A pose for today, guided by the moon</span>
@@ -1139,7 +1188,7 @@ body {
     <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card tool-card--hero" data-tool="meditation-quiz">
       <span class="featured-badge">Recommended</span>
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#129504;</div>
+      <div class="tool-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor" stroke="none"/></svg></div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
       <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
       <span class="tool-link">Take the quiz <span class="tool-link-arrow">&rarr;</span></span>
@@ -1147,7 +1196,7 @@ body {
 
     <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-tool="meditation-debates">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#9878;&#65039;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="4"/><path d="M5.6 5.6l2.15 2.15m8.5 8.5l2.15 2.15M5.6 18.4l2.15-2.15m8.5-8.5l2.15-2.15"/></svg></div>
       <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
       <p class="tool-desc">Five questions where serious practitioners land on different sides.</p>
       <span class="tool-link">Explore the arguments <span class="tool-link-arrow">&rarr;</span></span>
@@ -1161,7 +1210,7 @@ body {
   <div class="bento-grid reveal" id="grid-explore">
     <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-tool="concept-explorer">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#128301;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4.5"/><ellipse cx="12" cy="12" rx="4.5" ry="10"/></svg></div>
       <h2 class="tool-title">The Nature of Experience</h2>
       <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts easy to understand separately and easy to confuse in practice.</p>
       <span class="tool-link">Begin exploring <span class="tool-link-arrow">&rarr;</span></span>
@@ -1169,7 +1218,7 @@ body {
 
     <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-tool="teacher-debates">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#128101;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <h2 class="tool-title">26 Teachers, Mapped</h2>
       <p class="tool-desc">Where do 26 contemplative teachers actually stand on the hardest questions in practice?</p>
       <span class="tool-link">See who says what <span class="tool-link-arrow">&rarr;</span></span>
@@ -1177,7 +1226,7 @@ body {
 
     <a href="https://nickxma.github.io/mindfulness-wiki/" class="tool-card" data-tool="mindfulness-wiki">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#128214;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
       <h2 class="tool-title">Wiki</h2>
       <p class="tool-desc">Nine contemplative concepts — what each term actually means and why the distinctions matter.</p>
       <span class="tool-link">Browse concepts <span class="tool-link-arrow">&rarr;</span></span>
@@ -1191,7 +1240,7 @@ body {
   <div class="bento-grid reveal" id="grid-personalize">
     <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card tool-card--wide" data-tool="meditation-recommender">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#128506;&#65039;</div>
+      <div class="tool-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="none"/></svg></div>
       <div class="tool-card-content">
         <h2 class="tool-title">What Should I Actually Practice?</h2>
         <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
@@ -1201,7 +1250,7 @@ body {
 
     <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card tool-card--compact" data-tool="mindfulness-fit">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#129517;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
       <h2 class="tool-title">Should You Get Into Mindfulness?</h2>
       <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't.</p>
       <span class="tool-link">Assess the fit <span class="tool-link-arrow">&rarr;</span></span>
@@ -1215,7 +1264,7 @@ body {
   <div class="bento-grid reveal" id="grid-reflect">
     <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-tool="mindfulness-pointers">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#9757;&#65039;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
       <h2 class="tool-title">Pointers</h2>
       <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — each with a guided practice you can try right now.</p>
       <span class="tool-link">Try the pointers <span class="tool-link-arrow">&rarr;</span></span>
@@ -1223,7 +1272,7 @@ body {
 
     <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card tool-card--hero" data-tool="mindfulness-essays">
       <span class="completed-badge">Done</span>
-      <div class="tool-icon">&#9999;&#65039;</div>
+      <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div>
       <h2 class="tool-title">Essays</h2>
       <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
       <span class="tool-link">Read the essays <span class="tool-link-arrow">&rarr;</span></span>
