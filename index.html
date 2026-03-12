@@ -563,13 +563,18 @@ body {
 }
 
 .tool-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
-  border-color: transparent;
+  border-color: rgba(50, 50, 93, 0.06);
 }
 
 .tool-card:hover::before {
   transform: scaleX(1);
+}
+
+.tool-card:active {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .tool-card.hidden { display: none; }
@@ -583,7 +588,9 @@ body {
 }
 
 .tool-card--hero .tool-icon {
-  font-size: 2.2rem;
+  font-size: 1.8rem;
+  width: 48px;
+  height: 48px;
   margin-bottom: 20px;
 }
 
@@ -604,7 +611,9 @@ body {
 }
 
 .tool-card--wide .tool-icon {
-  font-size: 2rem;
+  font-size: 1.8rem;
+  width: 48px;
+  height: 48px;
   margin-bottom: 0;
   flex-shrink: 0;
 }
@@ -615,7 +624,9 @@ body {
 }
 
 .tool-card--compact .tool-icon {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
+  width: 36px;
+  height: 36px;
   margin-bottom: 12px;
 }
 
@@ -630,20 +641,19 @@ body {
   line-height: 1.6;
 }
 
-.tool-cat {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 14px;
-}
-
 .tool-icon {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   margin-bottom: 16px;
   display: block;
   line-height: 1;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
 }
 
 .tool-title {
