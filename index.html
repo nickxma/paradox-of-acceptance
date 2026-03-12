@@ -13,7 +13,6 @@
 
 :root {
   --bg: #f6f9fc;
-  --bg-warm: #fafaf8;
   --surface: #ffffff;
   --border: #e3e8ee;
   --border-light: #edf0f4;
@@ -31,7 +30,6 @@
   --shadow-xl: 0 30px 60px -12px rgba(50,50,93,.25), 0 18px 36px -18px rgba(0,0,0,.2);
 
   --ease: cubic-bezier(0.215, 0.61, 0.355, 1);
-  --ease-snappy: cubic-bezier(0.45, 0.05, 0.55, 0.95);
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
   --content-width: 1080px;
@@ -95,6 +93,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
 }
 
 .auth-form input {
@@ -544,7 +543,7 @@ body {
 .featured-desc {
   font-size: 0.88rem;
   line-height: 1.7;
-  color: #7a766e;
+  color: #96918a;
   margin-bottom: 20px;
   max-width: 480px;
 }
@@ -594,7 +593,14 @@ body {
 
 .reveal.visible .tool-card {
   opacity: 1;
-  transform: none;
+  transform: translateY(0);
+}
+
+/* Ensure hover overrides scroll-reveal (match specificity) */
+.reveal.visible .tool-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: transparent;
 }
 
 /* Stagger cards within visible grid */
@@ -626,8 +632,40 @@ body {
   animation: cardIn 0.25s var(--ease) both;
 }
 
+/* ---- FOCUS VISIBLE ---- */
+.tool-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.featured-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#search:focus-visible {
+  outline: none; /* already has custom focus style */
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- REDUCED MOTION ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+  .tools-grid .tool-card { opacity: 1; transform: none; }
+}
+
 /* ---- RESPONSIVE ---- */
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .tools-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -643,7 +681,23 @@ body {
   .featured-card { padding: 32px 24px; }
   .featured-moon { display: none; }
   .site-footer { padding: 40px 20px; }
-  .auth-form input { width: 120px; }
+
+  /* Auth: collapse form to stacked on mobile */
+  .auth-form {
+    flex-direction: column;
+    position: fixed;
+    top: 56px;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 0 0 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-lg);
+    gap: 8px;
+    z-index: 99;
+  }
+  .auth-form input { width: 200px; }
+  .auth-error { position: static; }
 }
 </style>
 </head>
@@ -843,6 +897,7 @@ body {
   var searchInput = document.getElementById('search');
   var noResults = document.getElementById('no-results');
   var activeFilter = 'all';
+  var hasFiltered = false;
 
   function setFilter(cat) {
     activeFilter = cat;
@@ -855,6 +910,7 @@ body {
   function applyFilters() {
     var query = searchInput.value.toLowerCase().trim();
     var visible = 0;
+    hasFiltered = true;
 
     cards.forEach(function(card) {
       var matchesCat = activeFilter === 'all' || card.dataset.cat === activeFilter;
@@ -864,6 +920,7 @@ body {
 
       card.classList.toggle('hidden', !show);
       if (show) {
+        // Only animate if actively filtering, not on initial load
         card.classList.remove('entering');
         void card.offsetHeight;
         card.style.animationDelay = (visible * 30) + 'ms';
@@ -876,6 +933,16 @@ body {
   }
 
   searchInput.addEventListener('input', applyFilters);
+
+  // Dismiss auth form on click outside
+  document.addEventListener('click', function(e) {
+    var form = document.getElementById('auth-form');
+    var prompt = document.getElementById('auth-prompt');
+    if (form && form.style.display !== 'none' && !form.contains(e.target) && !e.target.classList.contains('auth-link')) {
+      form.style.display = 'none';
+      prompt.style.display = 'block';
+    }
+  });
 
   // ---- Supabase Auth & Progress ----
   (function() {
