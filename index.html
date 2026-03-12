@@ -59,6 +59,11 @@ body {
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-light);
+  transition: box-shadow 0.25s var(--ease);
+}
+
+.site-nav.scrolled {
+  box-shadow: 0 0 60px rgba(50, 50, 93, 0.08);
 }
 
 .site-nav-logo {
@@ -486,6 +491,16 @@ body {
   text-wrap: pretty;
 }
 
+.hero-divider {
+  position: relative;
+  z-index: 1;
+  width: 40px;
+  height: 2px;
+  background: var(--border);
+  margin: 40px auto 0;
+  border-radius: 1px;
+}
+
 /* ---- BENTO GRID ---- */
 .bento-section {
   max-width: calc(var(--content-width) + 48px);
@@ -513,6 +528,21 @@ body {
   max-width: 100%;
   padding-top: 48px;
   padding-bottom: 8px;
+}
+
+/* Cards on white bg get slightly more border definition */
+.bento-section--alt .tool-card {
+  border-color: var(--border-light);
+  box-shadow: 0 1px 3px 0 rgba(50,50,93,.06), 0 1px 1px 0 rgba(0,0,0,.04);
+}
+
+.bento-section--alt .tool-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(50, 50, 93, 0.06);
+}
+
+.bento-section--alt .tool-card .tool-icon {
+  background: var(--bg);
 }
 
 .section-label {
@@ -1091,6 +1121,7 @@ body {
   <h1>Paradox of Acceptance</h1>
   <p class="hero-subtitle">Tools for thinking more clearly about practice</p>
   <p class="hero-desc">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
+  <div class="hero-divider"></div>
 </section>
 
 <!-- Start Here -->
@@ -1243,6 +1274,19 @@ body {
     } else {
       reveals.forEach(function(el) { el.classList.add('visible'); });
     }
+  })();
+
+  // ---- Nav scroll shadow ----
+  (function() {
+    var nav = document.querySelector('.site-nav');
+    var scrolled = false;
+    window.addEventListener('scroll', function() {
+      var isScrolled = window.scrollY > 8;
+      if (isScrolled !== scrolled) {
+        scrolled = isScrolled;
+        nav.classList.toggle('scrolled', scrolled);
+      }
+    }, { passive: true });
   })();
 
   // ---- Mobile Nav ----
