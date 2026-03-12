@@ -12,23 +12,30 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f8f7f4;
+  --bg: #f6f9fc;
+  --bg-warm: #fafaf8;
   --surface: #ffffff;
-  --border: #e6e3dd;
-  --border-light: #f0eeea;
-  --text: #1a1917;
-  --text-secondary: #5c5954;
-  --text-tertiary: #9b9790;
+  --border: #e3e8ee;
+  --border-light: #edf0f4;
+  --text: #0a2540;
+  --text-secondary: #425466;
+  --text-tertiary: #8898aa;
   --accent: #2d5a27;
-  --accent-soft: #eef3ec;
-  --accent-glow: rgba(45, 90, 39, 0.06);
+  --accent-soft: #e8f0e6;
+  --accent-glow: rgba(45, 90, 39, 0.08);
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.03);
-  --shadow-md: 0 2px 4px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.05);
-  --shadow-lg: 0 4px 8px rgba(0,0,0,0.04), 0 20px 48px rgba(0,0,0,0.07);
+  /* Stripe's signature warm-tinted shadow system */
+  --shadow-sm: 0 2px 5px 0 rgba(50,50,93,.1), 0 1px 1px 0 rgba(0,0,0,.07);
+  --shadow-md: 0 6px 12px -2px rgba(50,50,93,.12), 0 3px 7px -3px rgba(0,0,0,.08);
+  --shadow-lg: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
+  --shadow-xl: 0 30px 60px -12px rgba(50,50,93,.25), 0 18px 36px -18px rgba(0,0,0,.2);
 
   --ease: cubic-bezier(0.215, 0.61, 0.355, 1);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --ease-snappy: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+
+  --content-width: 1080px;
+  --section-padding: clamp(60px, 8vw, 100px);
 }
 
 body {
@@ -36,144 +43,96 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* ---- HEADER ---- */
-header {
-  text-align: center;
-  padding: 80px 24px 0;
-  max-width: 720px;
-  margin: 0 auto;
-  position: relative;
-}
-
-.header-glow {
-  position: absolute;
-  width: 480px;
-  height: 480px;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.header-tag {
-  position: relative;
-  z-index: 1;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-soft);
-  padding: 6px 16px;
-  border-radius: 20px;
-  display: inline-block;
-  margin-bottom: 24px;
-}
-
-h1 {
-  position: relative;
-  z-index: 1;
-  font-size: clamp(2rem, 5vw, 2.8rem);
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.15;
-  margin-bottom: 16px;
-}
-
-.subtitle {
-  position: relative;
-  z-index: 1;
-  font-size: clamp(1rem, 2.5vw, 1.15rem);
-  color: var(--text-secondary);
   line-height: 1.6;
-  margin-bottom: 12px;
-  font-weight: 400;
 }
 
-.description {
-  position: relative;
-  z-index: 1;
-  font-size: 0.9rem;
-  color: var(--text-tertiary);
-  line-height: 1.75;
-  max-width: 520px;
-  margin: 0 auto;
+/* ---- STICKY NAV ---- */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(246, 249, 252, 0.88);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light);
 }
 
-/* ---- AUTH ---- */
-.auth-area {
-  position: relative;
-  z-index: 1;
-  margin-top: 24px;
-  text-align: center;
+.site-nav-logo {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.02em;
 }
 
+.site-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ---- AUTH (in nav) ---- */
 .auth-link {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-tertiary);
   cursor: pointer;
   border: none;
   background: none;
   font-family: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: color 0.25s var(--ease);
+  transition: color 0.15s var(--ease);
 }
 
 .auth-link:hover { color: var(--text); }
 
 .auth-form {
-  max-width: 300px;
-  margin: 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
 .auth-form input {
-  padding: 10px 14px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text);
   outline: none;
-  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
-  box-shadow: var(--shadow-sm);
+  width: 160px;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
 .auth-form input:focus {
   border-color: var(--accent);
-  box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .auth-btn-primary {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
-  background: var(--text);
-  color: var(--bg);
-  border: 1px solid var(--text);
-  transition: opacity 0.2s var(--ease);
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  transition: opacity 0.15s;
+  white-space: nowrap;
 }
 
 .auth-btn-primary:hover { opacity: 0.85; }
 
 .auth-mode-toggle {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-tertiary);
   cursor: pointer;
   border: none;
@@ -181,59 +140,132 @@ h1 {
   font-family: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
-  margin-top: 2px;
 }
 
 .auth-error {
-  font-size: 0.75rem;
-  color: #c44;
-  min-height: 18px;
+  font-size: 0.72rem;
+  color: #cd3d64;
+  position: absolute;
+  bottom: -18px;
+  right: 0;
+  white-space: nowrap;
 }
 
 .auth-user {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
 }
 
 .auth-user-email {
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
-  padding: 5px 12px;
-  border-radius: 16px;
-  font-size: 0.78rem;
-  box-shadow: var(--shadow-sm);
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 0.75rem;
 }
 
 .auth-signout {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-tertiary);
   cursor: pointer;
   border: none;
   background: none;
   font-family: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.auth-signout:hover { color: var(--text); }
+
+/* ---- HERO ---- */
+.hero {
+  text-align: center;
+  padding: var(--section-padding) 24px 48px;
+  max-width: calc(var(--content-width) + 48px);
+  margin: 0 auto;
+  position: relative;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 900px;
+  height: 400px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(45,90,39,0.04) 0%, transparent 70%),
+              radial-gradient(ellipse at 30% 60%, rgba(50,50,93,0.03) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 40%, rgba(45,90,39,0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-tag {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 5px 14px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+}
+
+.hero h1 {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.hero-subtitle {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(1.05rem, 2.5vw, 1.2rem);
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.hero-desc {
+  position: relative;
+  z-index: 1;
+  font-size: 0.92rem;
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
 /* ---- CONTROLS ---- */
 .controls {
-  max-width: 1000px;
+  max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 48px 24px 0;
+  padding: 0 24px 40px;
 }
 
 .search-wrap {
-  max-width: 380px;
+  max-width: 360px;
   margin: 0 auto 20px;
   position: relative;
 }
 
 .search-icon {
   position: absolute;
-  left: 14px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);
@@ -242,31 +274,29 @@ h1 {
 
 #search {
   width: 100%;
-  padding: 11px 14px 11px 40px;
+  padding: 10px 12px 10px 38px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface);
   font-family: inherit;
   font-size: 0.88rem;
   color: var(--text);
   outline: none;
-  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   box-shadow: var(--shadow-sm);
 }
 
 #search:focus {
   border-color: var(--accent);
-  box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-glow);
+  box-shadow: var(--shadow-md), 0 0 0 4px var(--accent-glow);
 }
 
-#search::placeholder {
-  color: var(--text-tertiary);
-}
+#search::placeholder { color: var(--text-tertiary); }
 
 .filter-pills {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -274,40 +304,39 @@ h1 {
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 7px 18px;
+  padding: 6px 16px;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  background: transparent;
+  border-radius: 16px;
+  background: var(--surface);
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.25s var(--ease);
+  transition: all 0.15s var(--ease);
+  box-shadow: 0 1px 2px rgba(50,50,93,.08);
 }
 
 .pill:hover {
-  border-color: var(--text-tertiary);
   color: var(--text-secondary);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .pill.active {
   background: var(--text);
-  color: var(--bg);
+  color: #fff;
   border-color: var(--text);
   box-shadow: var(--shadow-sm);
 }
 
 /* ---- GRID ---- */
-main {
-  flex: 1;
-  padding: 32px 24px 60px;
+.tools-section {
+  max-width: calc(var(--content-width) + 48px);
+  margin: 0 auto;
+  padding: 0 24px 48px;
 }
 
 .tools-grid {
-  max-width: 1000px;
-  margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
@@ -315,21 +344,40 @@ main {
 .tool-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 30px 28px 28px;
+  border-radius: 12px;
+  padding: 28px 26px 26px;
   display: flex;
   flex-direction: column;
-  transition: all 0.35s var(--ease);
   text-decoration: none;
   color: inherit;
   position: relative;
   box-shadow: var(--shadow-sm);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+  overflow: hidden;
+}
+
+.tool-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s var(--ease);
+  border-radius: 12px 12px 0 0;
 }
 
 .tool-card:hover {
-  border-color: var(--accent);
+  transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
-  transform: translateY(-3px);
+  border-color: transparent;
+}
+
+.tool-card:hover::before {
+  transform: scaleX(1);
 }
 
 .tool-card.hidden { display: none; }
@@ -340,27 +388,27 @@ main {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-tertiary);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .tool-icon {
-  font-size: 2rem;
+  font-size: 1.8rem;
   margin-bottom: 16px;
   display: block;
   line-height: 1;
 }
 
 .tool-title {
-  font-size: 1.08rem;
+  font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: 10px;
   color: var(--text);
-  line-height: 1.35;
-  letter-spacing: -0.01em;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
 }
 
 .tool-desc {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   line-height: 1.7;
   color: var(--text-secondary);
   margin-bottom: 20px;
@@ -374,41 +422,45 @@ main {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: gap 0.3s var(--ease);
+  gap: 4px;
 }
 
-.tool-link::after { content: '\2192'; }
-.tool-card:hover .tool-link { gap: 10px; }
+.tool-link-arrow {
+  display: inline-block;
+  transition: transform 0.15s var(--ease);
+}
 
-/* Featured badge */
+.tool-card:hover .tool-link-arrow {
+  transform: translateX(3px);
+}
+
+/* Badges */
 .featured-badge {
   position: absolute;
   top: 14px;
   right: 14px;
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
   background: var(--accent-soft);
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
 }
 
-/* Completion badge */
 .completed-badge {
   position: absolute;
   top: 14px;
   left: 14px;
-  font-size: 0.58rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
   background: var(--accent-soft);
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
   display: none;
 }
 
@@ -421,178 +473,215 @@ main {
   color: var(--text-tertiary);
   font-size: 0.95rem;
   display: none;
-  max-width: 1000px;
-  margin: 0 auto;
 }
 
 .no-results.show { display: block; }
 
-/* ---- BODY PRACTICE (dark card) ---- */
-.body-practice {
-  max-width: 1000px;
+/* ---- FEATURED DARK CARD ---- */
+.featured-section {
+  max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 0 24px 60px;
+  padding: 0 24px var(--section-padding);
 }
 
-.body-card {
+.featured-card {
   display: block;
-  background: linear-gradient(135deg, #1e1b19 0%, #252220 100%);
-  border-radius: 16px;
-  padding: 44px 40px;
+  background: linear-gradient(135deg, #0a0908 0%, #171513 50%, #1e1c19 100%);
+  border-radius: 12px;
+  padding: 48px 44px;
   text-decoration: none;
-  color: #e8e3dc;
-  transition: all 0.35s var(--ease);
+  color: #e2ded6;
   border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25), 0 18px 36px -18px rgba(0,0,0,0.3);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  position: relative;
+  overflow: hidden;
 }
 
-.body-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-  border-color: rgba(255,255,255,0.1);
+.featured-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40%;
+  height: 100%;
+  background: radial-gradient(ellipse at 80% 50%, rgba(45,90,39,0.06) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.body-card-inner {
+.featured-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -8px rgba(0,0,0,0.35), 0 18px 36px -12px rgba(0,0,0,0.35);
+}
+
+.featured-card-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 40px;
+  position: relative;
+  z-index: 1;
 }
 
-.body-tag {
-  font-size: 0.62rem;
+.featured-tag {
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #7a8e9e;
+  color: #6b8f9e;
   margin-bottom: 12px;
 }
 
-.body-title {
-  font-size: 1.35rem;
+.featured-title {
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
-  color: #e8e3dc;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 10px;
+  color: #f0ece4;
 }
 
-.body-desc {
-  font-size: 0.85rem;
+.featured-desc {
+  font-size: 0.88rem;
   line-height: 1.7;
-  color: #8a847c;
-  margin-bottom: 18px;
+  color: #7a766e;
+  margin-bottom: 20px;
   max-width: 480px;
 }
 
-.body-card .tool-link {
-  color: #7a8e9e;
-  transition: gap 0.3s var(--ease);
+.featured-card .tool-link {
+  color: #6b8f9e;
 }
 
-.body-card:hover .tool-link { gap: 10px; }
+.featured-card:hover .tool-link-arrow {
+  transform: translateX(3px);
+}
 
-.body-moon {
+.featured-moon {
   flex-shrink: 0;
-  opacity: 0.4;
-  transition: opacity 0.35s var(--ease);
+  opacity: 0.35;
+  transition: opacity 0.3s var(--ease);
 }
 
-.body-card:hover .body-moon { opacity: 0.85; }
+.featured-card:hover .featured-moon { opacity: 0.8; }
 
 /* ---- FOOTER ---- */
-footer {
+.site-footer {
   border-top: 1px solid var(--border);
-  padding: 44px 24px;
+  padding: 48px 24px;
   text-align: center;
-  color: var(--text-tertiary);
-  font-size: 0.82rem;
-  line-height: 1.7;
 }
 
-.footer-content {
-  max-width: 560px;
+.site-footer p {
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  max-width: 520px;
   margin: 0 auto;
 }
 
-/* ---- ANIMATIONS ---- */
+/* ---- SCROLL ANIMATIONS ---- */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal.visible .tool-card {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger cards within visible grid */
+.tools-grid.visible .tool-card:nth-child(1) { transition-delay: 0s; }
+.tools-grid.visible .tool-card:nth-child(2) { transition-delay: 0.05s; }
+.tools-grid.visible .tool-card:nth-child(3) { transition-delay: 0.1s; }
+.tools-grid.visible .tool-card:nth-child(4) { transition-delay: 0.15s; }
+.tools-grid.visible .tool-card:nth-child(5) { transition-delay: 0.2s; }
+.tools-grid.visible .tool-card:nth-child(6) { transition-delay: 0.25s; }
+.tools-grid.visible .tool-card:nth-child(7) { transition-delay: 0.3s; }
+.tools-grid.visible .tool-card:nth-child(8) { transition-delay: 0.35s; }
+.tools-grid.visible .tool-card:nth-child(9) { transition-delay: 0.4s; }
+.tools-grid.visible .tool-card:nth-child(10) { transition-delay: 0.45s; }
+
+.tools-grid .tool-card {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s var(--ease), transform 0.5s var(--ease),
+              box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+
+/* Filter animation */
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .tool-card.entering {
-  animation: cardIn 0.3s var(--ease) both;
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.tool-card {
-  opacity: 0;
-  animation: fadeUp 0.5s var(--ease) forwards;
-}
-
-.tool-card:nth-child(1) { animation-delay: 0.05s; }
-.tool-card:nth-child(2) { animation-delay: 0.1s; }
-.tool-card:nth-child(3) { animation-delay: 0.15s; }
-.tool-card:nth-child(4) { animation-delay: 0.2s; }
-.tool-card:nth-child(5) { animation-delay: 0.25s; }
-.tool-card:nth-child(6) { animation-delay: 0.3s; }
-.tool-card:nth-child(7) { animation-delay: 0.35s; }
-.tool-card:nth-child(8) { animation-delay: 0.4s; }
-.tool-card:nth-child(9) { animation-delay: 0.45s; }
-.tool-card:nth-child(10) { animation-delay: 0.5s; }
-
-.body-card {
-  opacity: 0;
-  animation: fadeUp 0.5s var(--ease) 0.55s forwards;
+  animation: cardIn 0.25s var(--ease) both;
 }
 
 /* ---- RESPONSIVE ---- */
+@media (max-width: 900px) {
+  .tools-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 600px) {
-  header { padding: 56px 20px 0; }
-  .header-glow { width: 320px; height: 320px; }
-  h1 { margin-bottom: 12px; }
-  .controls { padding: 36px 20px 0; }
-  main { padding: 24px 20px 40px; }
+  .site-nav { padding: 0 16px; }
+  .hero { padding: clamp(40px, 6vw, 60px) 20px 32px; }
+  .hero h1 { letter-spacing: -0.03em; }
+  .controls { padding: 0 20px 32px; }
+  .tools-section { padding: 0 20px 40px; }
   .tools-grid { grid-template-columns: 1fr; gap: 14px; }
-  .tool-card { padding: 24px 22px; }
-  .body-practice { padding: 0 20px 40px; }
-  .body-card { padding: 28px 22px; }
-  .body-moon { display: none; }
+  .tool-card { padding: 22px 20px 20px; }
+  .featured-section { padding: 0 20px 48px; }
+  .featured-card { padding: 32px 24px; }
+  .featured-moon { display: none; }
+  .site-footer { padding: 40px 20px; }
+  .auth-form input { width: 120px; }
 }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="header-glow"></div>
-  <div class="header-tag">Practice Toolkit</div>
-  <h1>Paradox of Acceptance</h1>
-  <p class="subtitle">Tools for thinking more clearly about practice</p>
-  <p class="description">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
-
-  <div class="auth-area" id="auth-area" style="display:none">
-    <div id="auth-prompt">
-      <button class="auth-link" onclick="showAuthForm()">Sign in to track your progress</button>
-    </div>
-    <form id="auth-form" class="auth-form" style="display:none" onsubmit="handleAuth(event)">
-      <input type="email" id="auth-email" placeholder="Email" required>
-      <input type="password" id="auth-password" placeholder="Password" required minlength="6">
-      <button type="submit" class="auth-btn-primary" id="auth-submit">Sign in</button>
-      <button type="button" class="auth-mode-toggle" onclick="toggleAuthMode()" id="auth-toggle">Don't have an account? Create one</button>
-      <div id="auth-error" class="auth-error"></div>
-    </form>
-    <div id="auth-user" class="auth-user" style="display:none">
-      <span class="auth-user-email" id="user-email"></span>
-      <button class="auth-signout" onclick="doSignOut()">Sign out</button>
+<!-- Sticky Nav -->
+<nav class="site-nav">
+  <a href="https://nickxma.github.io/paradox-of-acceptance/" class="site-nav-logo">Paradox of Acceptance</a>
+  <div class="site-nav-right">
+    <div id="auth-area" style="display:none">
+      <div id="auth-prompt">
+        <button class="auth-link" onclick="showAuthForm()">Sign in</button>
+      </div>
+      <form id="auth-form" class="auth-form" style="display:none" onsubmit="handleAuth(event)">
+        <input type="email" id="auth-email" placeholder="Email" required>
+        <input type="password" id="auth-password" placeholder="Password" required minlength="6">
+        <button type="submit" class="auth-btn-primary" id="auth-submit">Sign in</button>
+        <button type="button" class="auth-mode-toggle" onclick="toggleAuthMode()" id="auth-toggle">Create account</button>
+        <div id="auth-error" class="auth-error"></div>
+      </form>
+      <div id="auth-user" class="auth-user" style="display:none">
+        <span class="auth-user-email" id="user-email"></span>
+        <button class="auth-signout" onclick="doSignOut()">Sign out</button>
+      </div>
     </div>
   </div>
-</header>
+</nav>
 
-<div class="controls">
+<!-- Hero -->
+<section class="hero">
+  <span class="hero-tag">Practice Toolkit</span>
+  <h1>Paradox of Acceptance</h1>
+  <p class="hero-subtitle">Tools for thinking more clearly about practice</p>
+  <p class="hero-desc">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
+</section>
+
+<!-- Controls -->
+<div class="controls reveal">
   <div class="search-wrap">
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" id="search" placeholder="Search tools...">
@@ -605,8 +694,9 @@ footer {
   </div>
 </div>
 
-<main>
-  <div class="tools-grid" id="grid">
+<!-- Tools Grid -->
+<section class="tools-section">
+  <div class="tools-grid reveal" id="grid">
 
     <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card" data-cat="discover" data-featured data-tool="meditation-quiz">
       <span class="featured-badge">Start here</span>
@@ -614,8 +704,8 @@ footer {
       <div class="tool-cat">Discover</div>
       <div class="tool-icon">&#129504;</div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
-      <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles, each with a different relationship to effort, ego, and what counts as progress.</p>
-      <span class="tool-link">Take the quiz</span>
+      <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
+      <span class="tool-link">Take the quiz <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-cat="explore" data-featured data-tool="meditation-debates">
@@ -624,8 +714,8 @@ footer {
       <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#9878;&#65039;</div>
       <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
-      <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Is meditation always safe? Five questions where serious practitioners land on genuinely different sides.</p>
-      <span class="tool-link">Explore the arguments</span>
+      <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Five questions where serious practitioners land on different sides.</p>
+      <span class="tool-link">Explore the arguments <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-cat="explore" data-tool="concept-explorer">
@@ -633,8 +723,8 @@ footer {
       <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128301;</div>
       <h2 class="tool-title">The Nature of Experience</h2>
-      <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts that are easy to understand separately and easy to confuse in practice.</p>
-      <span class="tool-link">Begin exploring</span>
+      <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts easy to understand separately and easy to confuse in practice.</p>
+      <span class="tool-link">Begin exploring <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-cat="explore" data-tool="teacher-debates">
@@ -642,8 +732,8 @@ footer {
       <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128101;</div>
       <h2 class="tool-title">26 Teachers, Mapped by Position</h2>
-      <p class="tool-desc">Where do 26 contemplative teachers actually stand? Goldstein, Gangaji, Shinzen Young, and 23 others — mapped on the hardest questions in practice.</p>
-      <span class="tool-link">See who says what</span>
+      <p class="tool-desc">Where do 26 contemplative teachers actually stand on the hardest questions in practice? Mapped by position.</p>
+      <span class="tool-link">See who says what <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/mindfulness-wiki/" class="tool-card" data-cat="explore" data-tool="mindfulness-wiki">
@@ -651,8 +741,8 @@ footer {
       <div class="tool-cat">Explore</div>
       <div class="tool-icon">&#128214;</div>
       <h2 class="tool-title">Wiki</h2>
-      <p class="tool-desc">Nine contemplative concepts — awareness, non-duality, equanimity, and more. What each term actually means, what it doesn't, and why the distinctions matter for practice.</p>
-      <span class="tool-link">Browse concepts</span>
+      <p class="tool-desc">Nine contemplative concepts — awareness, non-duality, equanimity, and more. What each term actually means and why the distinctions matter.</p>
+      <span class="tool-link">Browse concepts <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card" data-cat="discover" data-tool="meditation-recommender">
@@ -661,7 +751,7 @@ footer {
       <div class="tool-icon">&#128506;&#65039;</div>
       <h2 class="tool-title">What Should I Actually Practice?</h2>
       <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
-      <span class="tool-link">Get recommendation</span>
+      <span class="tool-link">Get recommendation <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card" data-cat="discover" data-tool="mindfulness-fit">
@@ -669,8 +759,8 @@ footer {
       <div class="tool-cat">Discover</div>
       <div class="tool-icon">&#129517;</div>
       <h2 class="tool-title">Should You Get Into Mindfulness?</h2>
-      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. Six questions about your baseline and motivation — then an honest read of the tradeoffs.</p>
-      <span class="tool-link">Assess the fit</span>
+      <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. An honest read of the tradeoffs.</p>
+      <span class="tool-link">Assess the fit <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-cat="reflect" data-tool="mindfulness-pointers">
@@ -678,8 +768,8 @@ footer {
       <div class="tool-cat">Reflect</div>
       <div class="tool-icon">&#9757;&#65039;</div>
       <h2 class="tool-title">Pointers</h2>
-      <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — from "look for the looker" to "the awareness is the same" — each with a guided practice you can try right now.</p>
-      <span class="tool-link">Try the pointers</span>
+      <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — each with a guided practice you can try right now.</p>
+      <span class="tool-link">Try the pointers <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
     <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card" data-cat="reflect" data-tool="mindfulness-essays">
@@ -687,65 +777,90 @@ footer {
       <div class="tool-cat">Reflect</div>
       <div class="tool-icon">&#9999;&#65039;</div>
       <h2 class="tool-title">Essays</h2>
-      <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions in teaching, the beliefs that dissolve, and the questions worth sitting with.</p>
-      <span class="tool-link">Read the essays</span>
+      <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
+      <span class="tool-link">Read the essays <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
   </div>
 
   <div class="no-results" id="no-results">No tools match that search.</div>
-</main>
+</section>
 
-<section class="body-practice">
-  <a href="https://nickxma.github.io/practice-today/" class="body-card">
-    <div class="body-card-inner">
-      <div class="body-card-text">
-        <span class="body-tag">Body Practice</span>
-        <h2 class="body-title">Today's Practice</h2>
-        <p class="body-desc">A pose for today — what it asks of the body, what arises. Changes with the moon.</p>
-        <span class="tool-link">See today's practice</span>
+<!-- Featured dark card -->
+<section class="featured-section reveal">
+  <a href="https://nickxma.github.io/practice-today/" class="featured-card">
+    <div class="featured-card-inner">
+      <div>
+        <div class="featured-tag">Body Practice</div>
+        <h2 class="featured-title">Today's Practice</h2>
+        <p class="featured-desc">A pose for today — what it asks of the body, what arises. Changes with the moon.</p>
+        <span class="tool-link">See today's practice <span class="tool-link-arrow">&rarr;</span></span>
       </div>
-      <div class="body-moon" aria-hidden="true">
-        <svg viewBox="0 0 72 72" width="64" height="64">
-          <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(232,227,220,0.1)" stroke-width="0.8"/>
-          <path d="M 36,8 A 28,28 0 0,0 36,64 A 14,28 0 0,1 36,8 Z" fill="rgba(232,227,220,0.7)"/>
+      <div class="featured-moon" aria-hidden="true">
+        <svg viewBox="0 0 80 80" width="72" height="72">
+          <defs>
+            <radialGradient id="moonGlow" cx="40%" cy="40%">
+              <stop offset="0%" stop-color="rgba(240,236,228,0.15)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <circle cx="40" cy="40" r="36" fill="url(#moonGlow)"/>
+          <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(240,236,228,0.08)" stroke-width="0.6"/>
+          <path d="M 40,12 A 28,28 0 0,0 40,68 A 14,28 0 0,1 40,12 Z" fill="rgba(240,236,228,0.6)"/>
         </svg>
       </div>
     </div>
   </a>
 </section>
 
-<footer>
-  <div class="footer-content">
-    <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
-  </div>
+<!-- Footer -->
+<footer class="site-footer">
+  <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  // ---- Intersection Observer for scroll animations ----
+  (function() {
+    var reveals = document.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      reveals.forEach(function(el) { observer.observe(el); });
+    } else {
+      reveals.forEach(function(el) { el.classList.add('visible'); });
+    }
+  })();
+
   // ---- Search & Filter ----
-  const cards = document.querySelectorAll('.tool-card');
-  const searchInput = document.getElementById('search');
-  const noResults = document.getElementById('no-results');
-  let activeFilter = 'all';
+  var cards = document.querySelectorAll('.tool-card');
+  var searchInput = document.getElementById('search');
+  var noResults = document.getElementById('no-results');
+  var activeFilter = 'all';
 
   function setFilter(cat) {
     activeFilter = cat;
-    document.querySelectorAll('.pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.cat === cat)
-    );
+    document.querySelectorAll('.pill').forEach(function(p) {
+      p.classList.toggle('active', p.dataset.cat === cat);
+    });
     applyFilters();
   }
 
   function applyFilters() {
-    const query = searchInput.value.toLowerCase().trim();
-    let visible = 0;
+    var query = searchInput.value.toLowerCase().trim();
+    var visible = 0;
 
-    cards.forEach((card, i) => {
-      const matchesCat = activeFilter === 'all' || card.dataset.cat === activeFilter;
-      const text = card.textContent.toLowerCase();
-      const matchesSearch = !query || text.includes(query);
-      const show = matchesCat && matchesSearch;
+    cards.forEach(function(card) {
+      var matchesCat = activeFilter === 'all' || card.dataset.cat === activeFilter;
+      var text = card.textContent.toLowerCase();
+      var matchesSearch = !query || text.includes(query);
+      var show = matchesCat && matchesSearch;
 
       card.classList.toggle('hidden', !show);
       if (show) {
@@ -766,28 +881,25 @@ footer {
   (function() {
     if (typeof supabase === 'undefined') return;
 
-    const sb = supabase.createClient(
+    var sb = supabase.createClient(
       'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
     );
 
-    const authArea = document.getElementById('auth-area');
-    const authPrompt = document.getElementById('auth-prompt');
-    const authFormEl = document.getElementById('auth-form');
-    const authUser = document.getElementById('auth-user');
-    const authError = document.getElementById('auth-error');
-    let authMode = 'signin';
+    var authArea = document.getElementById('auth-area');
+    var authPrompt = document.getElementById('auth-prompt');
+    var authFormEl = document.getElementById('auth-form');
+    var authUser = document.getElementById('auth-user');
+    var authError = document.getElementById('auth-error');
+    var authMode = 'signin';
 
-    // Show auth area once SDK is ready
     authArea.style.display = 'block';
 
-    // Check existing session
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) setUser(session.user);
+    sb.auth.getSession().then(function(res) {
+      if (res.data.session) setUser(res.data.session.user);
     });
 
-    // React to auth changes
-    sb.auth.onAuthStateChange((_, session) => {
+    sb.auth.onAuthStateChange(function(_, session) {
       if (session) setUser(session.user);
       else clearUser();
     });
@@ -795,7 +907,7 @@ footer {
     function setUser(user) {
       authPrompt.style.display = 'none';
       authFormEl.style.display = 'none';
-      authUser.style.display = 'inline-flex';
+      authUser.style.display = 'flex';
       document.getElementById('user-email').textContent = user.email;
       loadProgress(user.id);
     }
@@ -804,7 +916,7 @@ footer {
       authPrompt.style.display = 'block';
       authFormEl.style.display = 'none';
       authUser.style.display = 'none';
-      document.querySelectorAll('.tool-card').forEach(c => c.classList.remove('completed'));
+      document.querySelectorAll('.tool-card').forEach(function(c) { c.classList.remove('completed'); });
     }
 
     window.showAuthForm = function() {
@@ -818,39 +930,41 @@ footer {
       document.getElementById('auth-submit').textContent =
         authMode === 'signin' ? 'Sign in' : 'Create account';
       document.getElementById('auth-toggle').textContent =
-        authMode === 'signin'
-          ? "Don't have an account? Create one"
-          : 'Already have an account? Sign in';
+        authMode === 'signin' ? 'Create account' : 'Sign in instead';
       authError.textContent = '';
     };
 
-    window.handleAuth = async function(e) {
+    window.handleAuth = function(e) {
       e.preventDefault();
       authError.textContent = '';
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
+      var email = document.getElementById('auth-email').value;
+      var password = document.getElementById('auth-password').value;
 
-      const { error } = authMode === 'signin'
-        ? await sb.auth.signInWithPassword({ email, password })
-        : await sb.auth.signUp({ email, password });
+      var promise = authMode === 'signin'
+        ? sb.auth.signInWithPassword({ email: email, password: password })
+        : sb.auth.signUp({ email: email, password: password });
 
-      if (error) authError.textContent = error.message;
-    };
-
-    window.doSignOut = async function() {
-      await sb.auth.signOut();
-    };
-
-    async function loadProgress(userId) {
-      const { data } = await sb.from('tool_progress')
-        .select('tool_slug')
-        .eq('user_id', userId);
-      if (!data) return;
-      document.querySelectorAll('.tool-card').forEach(c => c.classList.remove('completed'));
-      data.forEach(p => {
-        const card = document.querySelector('[data-tool="' + p.tool_slug + '"]');
-        if (card) card.classList.add('completed');
+      promise.then(function(res) {
+        if (res.error) authError.textContent = res.error.message;
       });
+    };
+
+    window.doSignOut = function() {
+      sb.auth.signOut();
+    };
+
+    function loadProgress(userId) {
+      sb.from('tool_progress')
+        .select('tool_slug')
+        .eq('user_id', userId)
+        .then(function(res) {
+          if (!res.data) return;
+          document.querySelectorAll('.tool-card').forEach(function(c) { c.classList.remove('completed'); });
+          res.data.forEach(function(p) {
+            var card = document.querySelector('[data-tool="' + p.tool_slug + '"]');
+            if (card) card.classList.add('completed');
+          });
+        });
     }
   })();
 </script>
