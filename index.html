@@ -152,6 +152,81 @@ footer {
   line-height: 1.7;
 }
 
+/* Body Practice featured section */
+.body-practice {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+.body-card {
+  display: block;
+  background: #1e1b19;
+  border-radius: 16px;
+  padding: 44px 40px;
+  text-decoration: none;
+  color: #e8e3dc;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.body-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.body-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.body-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a8e9e;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.body-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+  color: #e8e3dc;
+}
+
+.body-desc {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #8a847c;
+  margin-bottom: 20px;
+  max-width: 480px;
+}
+
+.body-card .tool-link {
+  color: #7a8e9e;
+}
+
+.body-card:hover .tool-link {
+  gap: 10px;
+}
+
+.body-moon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.body-card:hover .body-moon {
+  opacity: 0.9;
+}
+
 @media (max-width: 600px) {
   header {
     padding: 60px 20px 30px;
@@ -172,6 +247,18 @@ footer {
 
   .tool-card {
     padding: 28px 24px;
+  }
+
+  .body-practice {
+    padding: 0 20px 40px;
+  }
+
+  .body-card {
+    padding: 32px 24px;
+  }
+
+  .body-moon {
+    display: none;
   }
 }
 </style>
@@ -254,6 +341,25 @@ footer {
 
   </div>
 </main>
+
+<section class="body-practice">
+  <a href="https://nickxma.github.io/practice-today/" class="body-card">
+    <div class="body-card-inner">
+      <div class="body-card-text">
+        <span class="body-tag">Body Practice</span>
+        <h2 class="body-title">Today's Practice</h2>
+        <p class="body-desc">A pose for today — what it asks of the body, what arises. Changes with the moon.</p>
+        <span class="tool-link">See today's practice</span>
+      </div>
+      <div class="body-moon" aria-hidden="true">
+        <svg viewBox="0 0 72 72" width="64" height="64">
+          <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(232,227,220,0.1)" stroke-width="0.8"/>
+          <path d="M 36,8 A 28,28 0 0,0 36,64 A 14,28 0 0,1 36,8 Z" fill="rgba(232,227,220,0.7)"/>
+        </svg>
+      </div>
+    </div>
+  </a>
+</section>
 
 <footer>
   <div class="footer-content">
