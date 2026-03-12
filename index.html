@@ -419,7 +419,7 @@ body {
 /* ---- HERO ---- */
 .hero {
   text-align: center;
-  padding: var(--section-padding) 24px 48px;
+  padding: var(--section-padding) 24px 32px;
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
   position: relative;
@@ -445,15 +445,11 @@ body {
   position: relative;
   z-index: 1;
   display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-secondary);
-  background: rgba(50, 50, 93, 0.06);
-  padding: 5px 14px;
-  border-radius: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .hero h1 {
@@ -494,17 +490,39 @@ body {
 .bento-section {
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 48px 24px 0;
+}
+
+/* Alternating section backgrounds */
+.bento-section--alt {
+  background: var(--surface);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.bento-section--alt > .section-label,
+.bento-section--alt > .bento-grid {
+  max-width: calc(var(--content-width) + 48px);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.bento-section--alt {
+  max-width: 100%;
+  padding-top: 48px;
+  padding-bottom: 8px;
 }
 
 .section-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--accent);
   padding: 0 4px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  line-height: 1.5;
 }
 
 .bento-grid {
@@ -536,7 +554,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 4px;
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
@@ -653,16 +671,23 @@ body {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  transition: opacity 0.15s var(--ease);
+}
+
+.tool-card:hover .tool-link {
+  opacity: 0.85;
 }
 
 .tool-link-arrow {
   display: inline-block;
-  transition: transform 0.15s var(--ease);
+  transition: transform 0.2s var(--ease), opacity 0.2s var(--ease);
+  opacity: 0.6;
 }
 
 .tool-card:hover .tool-link-arrow {
   transform: translateX(3px);
+  opacity: 1;
 }
 
 /* Badges */
@@ -701,7 +726,7 @@ body {
 .featured-section {
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 0 24px var(--section-padding);
+  padding: 48px 24px var(--section-padding);
 }
 
 .featured-card {
@@ -744,10 +769,9 @@ body {
 }
 
 .featured-tag {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: #6b8f9e;
   margin-bottom: 12px;
 }
@@ -788,8 +812,9 @@ body {
 /* ---- FOOTER ---- */
 .site-footer {
   border-top: 1px solid var(--border);
-  padding: 48px 24px;
+  padding: 64px 24px 48px;
   text-align: center;
+  background: var(--surface);
 }
 
 .site-footer p {
@@ -799,6 +824,14 @@ body {
   max-width: 520px;
   margin: 0 auto;
   text-wrap: pretty;
+}
+
+.site-footer-brand {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
 }
 
 /* ---- SCROLL ANIMATIONS ---- */
@@ -1074,7 +1107,7 @@ body {
 </div>
 
 <!-- Explore -->
-<div class="bento-section">
+<div class="bento-section bento-section--alt">
   <div class="section-label reveal">Explore</div>
   <div class="bento-grid reveal" id="grid-explore">
     <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-tool="concept-explorer">
@@ -1128,7 +1161,7 @@ body {
 </div>
 
 <!-- Reflect -->
-<div class="bento-section">
+<div class="bento-section bento-section--alt">
   <div class="section-label reveal">Reflect</div>
   <div class="bento-grid reveal" id="grid-reflect">
     <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-tool="mindfulness-pointers">
@@ -1178,6 +1211,7 @@ body {
 
 <!-- Footer -->
 <footer class="site-footer">
+  <p class="site-footer-brand">Paradox of Acceptance</p>
   <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
 </footer>
 
