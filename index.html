@@ -70,6 +70,109 @@ h1 {
   margin: 0 auto;
 }
 
+/* ---- AUTH ---- */
+.auth-area {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.auth-link {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+
+.auth-link:hover { color: var(--text); }
+
+.auth-form {
+  max-width: 300px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-form input {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-form input:focus { border-color: var(--accent); }
+
+.auth-btn-primary {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--text);
+  color: var(--bg);
+  border: 1px solid var(--text);
+  transition: opacity 0.15s;
+}
+
+.auth-btn-primary:hover { opacity: 0.85; }
+
+.auth-mode-toggle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-top: 2px;
+}
+
+.auth-error {
+  font-size: 0.75rem;
+  color: #c44;
+  min-height: 18px;
+}
+
+.auth-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.auth-user-email {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 0.78rem;
+}
+
+.auth-signout {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---- CONTROLS (search + filters) ---- */
 .controls {
   max-width: 1000px;
@@ -213,7 +316,7 @@ main {
   gap: 6px;
 }
 
-.tool-link::after { content: '→'; }
+.tool-link::after { content: '\2192'; }
 .tool-card:hover .tool-link { gap: 10px; }
 
 /* Featured badge */
@@ -230,6 +333,24 @@ main {
   padding: 3px 9px;
   border-radius: 6px;
 }
+
+/* Completion badge */
+.completed-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 3px 9px;
+  border-radius: 6px;
+  display: none;
+}
+
+.tool-card.completed .completed-badge { display: block; }
 
 /* Category tag on card */
 .tool-cat {
@@ -367,6 +488,23 @@ footer {
   <h1>Paradox of Acceptance</h1>
   <p class="subtitle">Tools for thinking more clearly about practice</p>
   <p class="description">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
+
+  <div class="auth-area" id="auth-area" style="display:none">
+    <div id="auth-prompt">
+      <button class="auth-link" onclick="showAuthForm()">Sign in to track your progress</button>
+    </div>
+    <form id="auth-form" class="auth-form" style="display:none" onsubmit="handleAuth(event)">
+      <input type="email" id="auth-email" placeholder="Email" required>
+      <input type="password" id="auth-password" placeholder="Password" required minlength="6">
+      <button type="submit" class="auth-btn-primary" id="auth-submit">Sign in</button>
+      <button type="button" class="auth-mode-toggle" onclick="toggleAuthMode()" id="auth-toggle">Don't have an account? Create one</button>
+      <div id="auth-error" class="auth-error"></div>
+    </form>
+    <div id="auth-user" class="auth-user" style="display:none">
+      <span class="auth-user-email" id="user-email"></span>
+      <button class="auth-signout" onclick="doSignOut()">Sign out</button>
+    </div>
+  </div>
 </header>
 
 <div class="controls">
@@ -385,67 +523,75 @@ footer {
 <main>
   <div class="tools-grid" id="grid">
 
-    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card" data-cat="discover" data-featured>
+    <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card" data-cat="discover" data-featured data-tool="meditation-quiz">
       <span class="featured-badge">Start here</span>
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Discover</div>
-      <div class="tool-icon">🧠</div>
+      <div class="tool-icon">&#129504;</div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
       <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles, each with a different relationship to effort, ego, and what counts as progress.</p>
       <span class="tool-link">Take the quiz</span>
     </a>
 
-    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-cat="explore" data-featured>
+    <a href="https://nickxma.github.io/meditation-debates/" class="tool-card" data-cat="explore" data-featured data-tool="meditation-debates">
       <span class="featured-badge">Start here</span>
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Explore</div>
-      <div class="tool-icon">⚖️</div>
+      <div class="tool-icon">&#9878;&#65039;</div>
       <h2 class="tool-title">5 Debates the Field Can't Settle</h2>
       <p class="tool-desc">Can you cherry-pick which parts of ego to dissolve? Does practice accumulate? Is meditation always safe? Five questions where serious practitioners land on genuinely different sides.</p>
       <span class="tool-link">Explore the arguments</span>
     </a>
 
-    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-cat="explore">
+    <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-cat="explore" data-tool="concept-explorer">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Explore</div>
-      <div class="tool-icon">🔭</div>
+      <div class="tool-icon">&#128301;</div>
       <h2 class="tool-title">The Nature of Experience</h2>
       <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts that are easy to understand separately and easy to confuse in practice.</p>
       <span class="tool-link">Begin exploring</span>
     </a>
 
-    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-cat="explore">
+    <a href="https://nickxma.github.io/teacher-debates/" class="tool-card" data-cat="explore" data-tool="teacher-debates">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Explore</div>
-      <div class="tool-icon">👥</div>
+      <div class="tool-icon">&#128101;</div>
       <h2 class="tool-title">26 Teachers, Mapped by Position</h2>
       <p class="tool-desc">Where do 26 contemplative teachers actually stand? Goldstein, Gangaji, Shinzen Young, and 23 others — mapped on the hardest questions in practice.</p>
       <span class="tool-link">See who says what</span>
     </a>
 
-    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card" data-cat="discover">
+    <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card" data-cat="discover" data-tool="meditation-recommender">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Discover</div>
-      <div class="tool-icon">🗺️</div>
+      <div class="tool-icon">&#128506;&#65039;</div>
       <h2 class="tool-title">What Should I Actually Practice?</h2>
       <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
       <span class="tool-link">Get recommendation</span>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card" data-cat="discover">
+    <a href="https://nickxma.github.io/mindfulness-fit/" class="tool-card" data-cat="discover" data-tool="mindfulness-fit">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Discover</div>
-      <div class="tool-icon">🧭</div>
+      <div class="tool-icon">&#129517;</div>
       <h2 class="tool-title">Should You Get Into Mindfulness?</h2>
       <p class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't. Six questions about your baseline and motivation — then an honest read of the tradeoffs.</p>
       <span class="tool-link">Assess the fit</span>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-cat="reflect">
+    <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-cat="reflect" data-tool="mindfulness-pointers">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Reflect</div>
-      <div class="tool-icon">☝️</div>
+      <div class="tool-icon">&#9757;&#65039;</div>
       <h2 class="tool-title">Pointers</h2>
       <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — from "look for the looker" to "the awareness is the same" — each with a guided practice you can try right now.</p>
       <span class="tool-link">Try the pointers</span>
     </a>
 
-    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card" data-cat="reflect">
+    <a href="https://nickxma.github.io/mindfulness-essays/" class="tool-card" data-cat="reflect" data-tool="mindfulness-essays">
+      <span class="completed-badge">Done</span>
       <div class="tool-cat">Reflect</div>
-      <div class="tool-icon">✏️</div>
+      <div class="tool-icon">&#9999;&#65039;</div>
       <h2 class="tool-title">Essays</h2>
       <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions in teaching, the beliefs that dissolve, and the questions worth sitting with.</p>
       <span class="tool-link">Read the essays</span>
@@ -481,7 +627,9 @@ footer {
   </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  // ---- Search & Filter ----
   const cards = document.querySelectorAll('.tool-card');
   const searchInput = document.getElementById('search');
   const noResults = document.getElementById('no-results');
@@ -519,6 +667,98 @@ footer {
   }
 
   searchInput.addEventListener('input', applyFilters);
+
+  // ---- Supabase Auth & Progress ----
+  (function() {
+    if (typeof supabase === 'undefined') return;
+
+    const sb = supabase.createClient(
+      'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
+    );
+
+    const authArea = document.getElementById('auth-area');
+    const authPrompt = document.getElementById('auth-prompt');
+    const authFormEl = document.getElementById('auth-form');
+    const authUser = document.getElementById('auth-user');
+    const authError = document.getElementById('auth-error');
+    let authMode = 'signin';
+
+    // Show auth area once SDK is ready
+    authArea.style.display = 'block';
+
+    // Check existing session
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) setUser(session.user);
+    });
+
+    // React to auth changes
+    sb.auth.onAuthStateChange((_, session) => {
+      if (session) setUser(session.user);
+      else clearUser();
+    });
+
+    function setUser(user) {
+      authPrompt.style.display = 'none';
+      authFormEl.style.display = 'none';
+      authUser.style.display = 'inline-flex';
+      document.getElementById('user-email').textContent = user.email;
+      loadProgress(user.id);
+    }
+
+    function clearUser() {
+      authPrompt.style.display = 'block';
+      authFormEl.style.display = 'none';
+      authUser.style.display = 'none';
+      document.querySelectorAll('.tool-card').forEach(c => c.classList.remove('completed'));
+    }
+
+    window.showAuthForm = function() {
+      authPrompt.style.display = 'none';
+      authFormEl.style.display = 'flex';
+      document.getElementById('auth-email').focus();
+    };
+
+    window.toggleAuthMode = function() {
+      authMode = authMode === 'signin' ? 'signup' : 'signin';
+      document.getElementById('auth-submit').textContent =
+        authMode === 'signin' ? 'Sign in' : 'Create account';
+      document.getElementById('auth-toggle').textContent =
+        authMode === 'signin'
+          ? "Don't have an account? Create one"
+          : 'Already have an account? Sign in';
+      authError.textContent = '';
+    };
+
+    window.handleAuth = async function(e) {
+      e.preventDefault();
+      authError.textContent = '';
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      const { error } = authMode === 'signin'
+        ? await sb.auth.signInWithPassword({ email, password })
+        : await sb.auth.signUp({ email, password });
+
+      if (error) authError.textContent = error.message;
+    };
+
+    window.doSignOut = async function() {
+      await sb.auth.signOut();
+    };
+
+    async function loadProgress(userId) {
+      const { data } = await sb.from('tool_progress')
+        .select('tool_slug')
+        .eq('user_id', userId);
+      if (!data) return;
+      document.querySelectorAll('.tool-card').forEach(c => c.classList.remove('completed'));
+      data.forEach(p => {
+        const card = document.querySelector('[data-tool="' + p.tool_slug + '"]');
+        if (card) card.classList.add('completed');
+      });
+    }
+  })();
 </script>
 </body>
 </html>
