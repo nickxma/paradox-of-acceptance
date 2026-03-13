@@ -28,13 +28,13 @@
 
   /* Section color families */
   --c-start: #5469d4;
-  --c-start-soft: #eef1fb;
+  --c-start-soft: #e8edfa;
   --c-explore: #0f9fb0;
-  --c-explore-soft: #e6f6f8;
+  --c-explore-soft: #ddf3f5;
   --c-personalize: #c17a2f;
-  --c-personalize-soft: #faf2e6;
+  --c-personalize-soft: #f6ebd8;
   --c-reflect: #a8507e;
-  --c-reflect-soft: #f8ecf3;
+  --c-reflect-soft: #f3e4ed;
   --c-ritual: #425466;
   --c-ritual-soft: #edf0f4;
 
@@ -48,7 +48,7 @@
   --ease-out-expo: cubic-bezier(0.23, 1, 0.32, 1);
 
   --content-width: 1080px;
-  --section-padding: clamp(48px, 7vw, 80px);
+  --section-padding: clamp(40px, 5vw, 56px);
 }
 
 body {
@@ -443,7 +443,7 @@ body {
 /* ---- HERO ---- */
 .hero {
   text-align: center;
-  padding: var(--section-padding) 24px 32px;
+  padding: var(--section-padding) 24px 16px;
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
   position: relative;
@@ -469,11 +469,14 @@ body {
   position: relative;
   z-index: 1;
   display: inline-block;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   color: var(--accent);
-  margin-bottom: 24px;
+  background: var(--accent-soft);
+  padding: 4px 14px;
+  border-radius: 100px;
+  margin-bottom: 16px;
 }
 
 .hero h1 {
@@ -483,8 +486,11 @@ body {
   font-weight: 700;
   letter-spacing: -0.05em;
   line-height: 1.08;
-  margin-bottom: 16px;
-  color: var(--text);
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, var(--text) 0%, #425466 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   text-wrap: balance;
 }
 
@@ -516,7 +522,7 @@ body {
   width: 40px;
   height: 2px;
   background: var(--border);
-  margin: 32px auto 0;
+  margin: 20px auto 0;
   border-radius: 1px;
 }
 
@@ -524,7 +530,7 @@ body {
 .bento-section {
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 32px 24px 0;
+  padding: 24px 24px 0;
 }
 
 /* Alternating section backgrounds */
@@ -545,8 +551,8 @@ body {
 
 .bento-section--alt {
   max-width: 100%;
-  padding-top: 32px;
-  padding-bottom: 16px;
+  padding-top: 24px;
+  padding-bottom: 8px;
 }
 
 /* Cards on white bg get slightly more border definition */
@@ -602,7 +608,6 @@ body {
 }
 
 .bento-section .section-label { color: var(--section-color, var(--accent)); }
-.bento-section .tool-card::before { background: var(--section-color, var(--accent)); }
 .bento-section .tool-icon {
   background: var(--section-color-soft, var(--accent-soft));
   color: var(--section-color, var(--accent));
@@ -637,10 +642,9 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.4s var(--ease-out-expo);
+  background: var(--section-color, var(--accent));
+  opacity: 0.4;
+  transition: opacity 0.35s var(--ease-out-expo);
   border-radius: 12px 12px 0 0;
 }
 
@@ -651,7 +655,7 @@ body {
 }
 
 .tool-card:hover::before {
-  transform: scaleX(1);
+  opacity: 1;
 }
 
 .tool-card.hidden { display: none; }
@@ -1026,7 +1030,7 @@ body {
   .site-nav { padding: 0 16px; height: 52px; }
   .site-nav-logo { font-size: 0.82rem; }
 
-  .hero { padding: 40px 16px 24px; }
+  .hero { padding: 32px 16px 12px; }
   .hero h1 {
     font-size: 1.8rem;
     letter-spacing: -0.04em;
@@ -1254,7 +1258,6 @@ body {
   <span class="hero-tag">Practice Toolkit</span>
   <h1>Paradox of Acceptance</h1>
   <p class="hero-subtitle">Tools for thinking more clearly about practice</p>
-  <p class="hero-desc">Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.</p>
   <div class="hero-divider"></div>
 </section>
 
