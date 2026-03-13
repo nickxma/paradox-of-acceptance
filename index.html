@@ -23,6 +23,18 @@
   --accent-soft: #eef1fb;
   --accent-glow: rgba(84, 105, 212, 0.08);
 
+  /* Section color families */
+  --c-start: #5469d4;
+  --c-start-soft: #eef1fb;
+  --c-explore: #0f9fb0;
+  --c-explore-soft: #e6f6f8;
+  --c-personalize: #c17a2f;
+  --c-personalize-soft: #faf2e6;
+  --c-reflect: #a8507e;
+  --c-reflect-soft: #f8ecf3;
+  --c-ritual: #425466;
+  --c-ritual-soft: #edf0f4;
+
   --shadow-sm: 0 2px 5px 0 rgba(50,50,93,.1), 0 1px 1px 0 rgba(0,0,0,.07);
   --shadow-md: 0 6px 12px -2px rgba(50,50,93,.12), 0 3px 7px -3px rgba(0,0,0,.08);
   --shadow-lg: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
@@ -507,7 +519,7 @@ body {
 .bento-section {
   max-width: calc(var(--content-width) + 48px);
   margin: 0 auto;
-  padding: 48px 24px 0;
+  padding: 36px 24px 0;
 }
 
 /* Alternating section backgrounds */
@@ -528,8 +540,8 @@ body {
 
 .bento-section--alt {
   max-width: 100%;
-  padding-top: 48px;
-  padding-bottom: 8px;
+  padding-top: 36px;
+  padding-bottom: 12px;
 }
 
 /* Cards on white bg get slightly more border definition */
@@ -561,7 +573,20 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-bottom: 48px;
+  margin-bottom: 0;
+}
+
+/* Section color scoping */
+.bento-section--start { --section-color: var(--c-start); --section-color-soft: var(--c-start-soft); }
+.bento-section--explore { --section-color: var(--c-explore); --section-color-soft: var(--c-explore-soft); }
+.bento-section--personalize { --section-color: var(--c-personalize); --section-color-soft: var(--c-personalize-soft); }
+.bento-section--reflect { --section-color: var(--c-reflect); --section-color-soft: var(--c-reflect-soft); }
+
+.bento-section .section-label { color: var(--section-color, var(--accent)); }
+.bento-section .tool-card::before { background: var(--section-color, var(--accent)); }
+.bento-section .tool-icon {
+  background: var(--section-color-soft, var(--accent-soft));
+  color: var(--section-color, var(--accent));
 }
 
 /* ---- CARDS ---- */
@@ -595,18 +620,12 @@ body {
 }
 
 .tool-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(50, 50, 93, 0.06);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(50, 50, 93, 0.1);
 }
 
 .tool-card:hover::before {
   transform: scaleX(1);
-}
-
-.tool-card:active {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 
 .tool-card.hidden { display: none; }
@@ -706,25 +725,28 @@ body {
 .tool-link {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--section-color, var(--accent));
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: opacity 0.15s var(--ease);
+  padding: 6px 12px;
+  margin: -6px -12px;
+  border-radius: 6px;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.tool-card:hover .tool-link {
-  opacity: 0.85;
+.tool-link:hover {
+  background: var(--section-color-soft, var(--accent-soft));
 }
 
 .tool-link-arrow {
   display: inline-block;
-  transition: transform 0.2s var(--ease), opacity 0.2s var(--ease);
-  opacity: 0.6;
+  transition: transform 0.25s var(--ease);
+  opacity: 0.7;
 }
 
-.tool-card:hover .tool-link-arrow {
+.tool-link:hover .tool-link-arrow {
   transform: translateX(3px);
   opacity: 1;
 }
@@ -770,14 +792,14 @@ body {
 
 .featured-card {
   display: block;
-  background: linear-gradient(135deg, #0a0908 0%, #171513 50%, #1e1c19 100%);
+  background: linear-gradient(135deg, #1a2332 0%, #243044 50%, #2a3750 100%);
   border-radius: 12px;
   padding: 48px 44px;
   text-decoration: none;
-  color: #e2ded6;
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25), 0 18px 36px -18px rgba(0,0,0,0.3);
-  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  color: #c8d6e5;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 13px 27px -5px rgba(50,50,93,.25), 0 8px 16px -8px rgba(0,0,0,.2);
+  transition: box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
   position: relative;
   overflow: hidden;
 }
@@ -789,18 +811,17 @@ body {
   right: 0;
   width: 40%;
   height: 100%;
-  background: radial-gradient(ellipse at 80% 50%, rgba(84,105,212,0.06) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 80% 50%, rgba(84,105,212,0.1) 0%, transparent 70%);
   pointer-events: none;
 }
 
 .featured-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 30px 60px -8px rgba(0,0,0,0.35), 0 18px 36px -12px rgba(0,0,0,0.35);
+  box-shadow: 0 20px 40px -8px rgba(50,50,93,.3), 0 12px 24px -8px rgba(0,0,0,.25);
+  border-color: rgba(255,255,255,0.12);
 }
 
 .featured-card:active {
-  transform: translateY(-1px);
-  box-shadow: 0 20px 40px -8px rgba(0,0,0,0.3), 0 12px 24px -8px rgba(0,0,0,0.25);
+  box-shadow: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
 }
 
 .featured-card-inner {
@@ -816,7 +837,7 @@ body {
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.2px;
-  color: #6b8f9e;
+  color: #7b9cc0;
   margin-bottom: 12px;
 }
 
@@ -826,19 +847,23 @@ body {
   letter-spacing: -0.03em;
   line-height: 1.2;
   margin-bottom: 10px;
-  color: #f0ece4;
+  color: #e8eef5;
 }
 
 .featured-desc {
   font-size: 0.88rem;
   line-height: 1.7;
-  color: #96918a;
+  color: #8a9bb5;
   margin-bottom: 20px;
   max-width: 480px;
 }
 
 .featured-card .tool-link {
-  color: #6b8f9e;
+  color: #7b9cc0;
+}
+
+.featured-card .tool-link:hover {
+  background: rgba(123, 156, 192, 0.1);
 }
 
 .featured-card:hover .tool-link-arrow {
@@ -896,9 +921,8 @@ body {
 }
 
 .reveal.visible .tool-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: transparent;
+  box-shadow: var(--shadow-md);
+  border-color: rgba(50, 50, 93, 0.1);
 }
 
 /* Stagger cards */
@@ -1182,7 +1206,7 @@ body {
 </section>
 
 <!-- Start Here -->
-<div class="bento-section">
+<div class="bento-section bento-section--start">
   <div class="section-label reveal">Start here</div>
   <div class="bento-grid reveal" id="grid-start">
     <a href="https://nickxma.github.io/meditation-quiz/" class="tool-card tool-card--hero" data-tool="meditation-quiz">
@@ -1205,7 +1229,7 @@ body {
 </div>
 
 <!-- Explore -->
-<div class="bento-section bento-section--alt">
+<div class="bento-section bento-section--alt bento-section--explore">
   <div class="section-label reveal">Explore</div>
   <div class="bento-grid reveal" id="grid-explore">
     <a href="https://nickxma.github.io/concept-explorer/" class="tool-card" data-tool="concept-explorer">
@@ -1235,7 +1259,7 @@ body {
 </div>
 
 <!-- Personalize -->
-<div class="bento-section">
+<div class="bento-section bento-section--personalize">
   <div class="section-label reveal">Personalize</div>
   <div class="bento-grid reveal" id="grid-personalize">
     <a href="https://nickxma.github.io/meditation-recommender/" class="tool-card tool-card--wide" data-tool="meditation-recommender">
@@ -1259,7 +1283,7 @@ body {
 </div>
 
 <!-- Reflect -->
-<div class="bento-section bento-section--alt">
+<div class="bento-section bento-section--alt bento-section--reflect">
   <div class="section-label reveal">Reflect</div>
   <div class="bento-grid reveal" id="grid-reflect">
     <a href="https://nickxma.github.io/mindfulness-pointers/" class="tool-card" data-tool="mindfulness-pointers">
@@ -1294,13 +1318,13 @@ body {
         <svg viewBox="0 0 80 80" width="72" height="72">
           <defs>
             <radialGradient id="moonGlow" cx="40%" cy="40%">
-              <stop offset="0%" stop-color="rgba(240,236,228,0.15)"/>
+              <stop offset="0%" stop-color="rgba(200,214,229,0.15)"/>
               <stop offset="100%" stop-color="transparent"/>
             </radialGradient>
           </defs>
           <circle cx="40" cy="40" r="36" fill="url(#moonGlow)"/>
-          <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(240,236,228,0.08)" stroke-width="0.6"/>
-          <path d="M 40,12 A 28,28 0 0,0 40,68 A 14,28 0 0,1 40,12 Z" fill="rgba(240,236,228,0.6)"/>
+          <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(200,214,229,0.1)" stroke-width="0.6"/>
+          <path d="M 40,12 A 28,28 0 0,0 40,68 A 14,28 0 0,1 40,12 Z" fill="rgba(200,214,229,0.5)"/>
         </svg>
       </div>
     </div>
