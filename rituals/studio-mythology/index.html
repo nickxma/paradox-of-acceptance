@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Secret Language of Yoga Poses</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Ritual</p>
+        <h1>The Secret Language of Yoga Poses</h1>
+        <p class="intro">
+          Some poses feel less like exercise and more like an energy. Child&rsquo;s Pose when you want to disappear and come
+          back softer. Tree when you want to feel collected. Triangle when you want the whole room to register your
+          poise before you say a word.
+        </p>
+        <p class="intro">
+          This is the softer, prettier logic of yoga: every shape carries a mood. Rebirth. Clarity. Boundaries.
+          Openness. Confidence. You reach for the one that matches what you want to call in.
+        </p>
+
+        <div class="mode-bar" role="tablist" aria-label="Reading modes">
+          <button class="mode-pill active" type="button" data-mode="myth" aria-pressed="true">The Vibe</button>
+          <button class="mode-pill" type="button" data-mode="body" aria-pressed="false">What It Opens</button>
+          <button class="mode-pill" type="button" data-mode="ritual" aria-pressed="false">Afterglow</button>
+        </div>
+      </div>
+
+      <aside class="hero-aside">
+        <div class="aside-art">
+          <img src="assets/yoga-icons.png" alt="Public-domain illustration of multiple yoga poses.">
+        </div>
+        <div class="aside-note">
+          <p class="aside-label">Why It Hits</p>
+          <p class="aside-copy">The right pose does not just change the body. It changes the energy you walk around in after class.</p>
+        </div>
+      </aside>
+    </header>
+
+    <main>
+      <section class="workspace-card">
+        <div class="card-column">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Pose Deck</p>
+              <h2>Pick the energy first</h2>
+            </div>
+          </div>
+
+          <div class="energy-bar" role="toolbar" aria-label="Energy filters">
+            <span class="energy-label">I want to feel</span>
+            <button class="energy-pill active" type="button" data-vibe="all" aria-pressed="true">Anything</button>
+            <button class="energy-pill" type="button" data-vibe="soft" aria-pressed="false">Softer</button>
+            <button class="energy-pill" type="button" data-vibe="clear" aria-pressed="false">Clearer</button>
+            <button class="energy-pill" type="button" data-vibe="confident" aria-pressed="false">More confident</button>
+            <button class="energy-pill" type="button" data-vibe="open" aria-pressed="false">More open</button>
+            <button class="energy-pill energy-pill--ghost" type="button" id="shuffle-pose">Surprise me</button>
+          </div>
+
+          <div class="pose-grid" id="pose-grid" role="list" aria-label="Pose cards"></div>
+        </div>
+
+        <aside class="detail-panel" id="detail-panel">
+          <div class="detail-art-wrap">
+            <div class="detail-art-glow"></div>
+            <img class="detail-art" id="detail-art" src="assets/triangle.png" alt="Stylized yoga illustration of Triangle Pose.">
+          </div>
+
+          <div class="detail-copy">
+            <p class="section-label" id="detail-tag">Energy</p>
+            <h3 id="detail-title"></h3>
+            <p class="detail-sanskrit" id="detail-sanskrit"></p>
+            <p class="detail-summary" id="detail-summary"></p>
+
+            <div class="detail-body">
+              <p class="mini-label" id="detail-mode-label"></p>
+              <p class="detail-main" id="detail-main"></p>
+            </div>
+
+            <div class="detail-footer">
+              <div class="detail-chip">
+                <span class="chip-label">Energy</span>
+                <span class="chip-value" id="detail-represents"></span>
+              </div>
+              <div class="detail-chip">
+                <span class="chip-label">Leaves You</span>
+                <span class="chip-value" id="detail-mood"></span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="note-grid">
+        <article class="note-card">
+          <p class="section-label">The Vibe</p>
+          <h3>The line everyone carries out of class</h3>
+          <p>
+            The pose stands in for a feeling: surrender, confidence, softness, receptivity, release. This is the part
+            that lingers when someone asks how class was.
+          </p>
+        </article>
+
+        <article class="note-card">
+          <p class="section-label">What It Opens</p>
+          <h3>Where the feeling lands in the body</h3>
+          <p>
+            Breath, pressure, support, line of sight, stretch, release. This is usually what makes the energy feel so
+            convincing once you are actually inside the pose.
+          </p>
+        </article>
+
+        <article class="note-card">
+          <p class="section-label">Afterglow</p>
+          <h3>Who the pose lets you be for the rest of the day</h3>
+          <p>
+            Sometimes a pose is a shape. Sometimes it is a tiny rehearsal. Softer in conversation. Clearer in a room.
+            More open with yourself. More held inside your own body.
+          </p>
+        </article>
+      </section>
+
+      <footer class="source-note">
+        <p>
+          Illustrations are public-domain yoga pose images from FreeSVG / OpenClipart:
+          <a href="https://freesvg.org/vector-drawing-of-seated-yoga-pose">Seated</a>,
+          <a href="https://freesvg.org/vector-drawing-of-triangle-yoga-pose">Triangle</a>,
+          <a href="https://freesvg.org/vector-drawing-of-bow-yoga-pose">Bow</a>,
+          <a href="https://freesvg.org/vector-drawing-of-warrior-ii-yoga-pose">Warrior II</a>,
+          <a href="https://freesvg.org/vector-drawing-of-vrksasana-yoga-pose">Tree</a>,
+          plus the
+          <a href="https://freesvg.org/vector-icons-of-yoga-positions">pose icon sheet</a>.
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
