@@ -6,8 +6,11 @@ const poses = [
     image: "assets/seated.png",
     alt: "Stylized yoga illustration of a seated pose.",
     vibes: ["soft", "clear"],
+    palette: { accent: "#b06a86", soft: "rgba(215, 148, 164, 0.22)" },
     represents: "arrival",
     mood: "soft and gathered",
+    bestFor: "resetting your energy",
+    mantra: "Come back to yourself beautifully.",
     summary: "For the days when you want your energy to feel cleaner, quieter, and less scattered.",
     myth: "This is the pose of return. Cross the legs, lengthen the spine, soften the face, and everything starts to feel a little more graceful. It reads as calm before you even say anything.",
     body: "The body gets still enough for the breath to become the main event. Your jaw eases, your shoulders stop performing, and your attention has somewhere lovely to land.",
@@ -20,8 +23,11 @@ const poses = [
     image: "assets/tree.png",
     alt: "Stylized yoga illustration of Tree Pose.",
     vibes: ["confident", "clear"],
+    palette: { accent: "#8b8f57", soft: "rgba(182, 190, 124, 0.24)" },
     represents: "self-possession",
     mood: "collected and luminous",
+    bestFor: "poise before you walk in",
+    mantra: "Steady can still be stunning.",
     summary: "For the days when you want to feel composed, upright, and a little bit unbothered.",
     myth: "Tree Pose is rooted elegance. The kind of balance that feels feminine without feeling fragile. It gives poised, centered, quietly expensive energy.",
     body: "One point to look at. One standing leg to trust. One clean line rising through the body. That simplicity is what makes the confidence feel real instead of forced.",
@@ -34,8 +40,11 @@ const poses = [
     image: "assets/warrior-ii.png",
     alt: "Stylized yoga illustration of Warrior II.",
     vibes: ["confident", "open"],
+    palette: { accent: "#b85b72", soft: "rgba(216, 145, 162, 0.24)" },
     represents: "boundaries",
     mood: "steady and magnetic",
+    bestFor: "protecting your peace",
+    mantra: "Soft eyes. Strong standards.",
     summary: "For the days when you want strength, but in a way that still feels elegant.",
     myth: "Warrior II is pure boundary magic. Strong legs, level arms, soft eyes. It is the pose version of knowing exactly what you are available for and what you are not.",
     body: "The legs create heat, the back foot anchors the shape, and the arms pull the whole body into one long decision. You feel clearer because the pose is clear.",
@@ -48,8 +57,11 @@ const poses = [
     image: "assets/triangle.png",
     alt: "Stylized yoga illustration of Triangle Pose.",
     vibes: ["clear", "confident"],
+    palette: { accent: "#cf9662", soft: "rgba(231, 193, 142, 0.24)" },
     represents: "clarity",
     mood: "precise and polished",
+    bestFor: "clean, elevated focus",
+    mantra: "Length first. Then glow.",
     summary: "For the days when you want your energy to feel cleaner, sharper, and impossibly well put together.",
     myth: "Triangle is clarity in a beautiful outfit. One long line, one open chest, one body arranged into clean geometry. It feels polished, elevated, and very sure of itself.",
     body: "When the pose is supported well, the breath gets quieter and the whole shape starts to glow instead of strain. That is where the polished feeling comes from.",
@@ -62,8 +74,11 @@ const poses = [
     image: "assets/bow.png",
     alt: "Stylized yoga illustration of Bow Pose.",
     vibes: ["open", "confident"],
+    palette: { accent: "#c66d8f", soft: "rgba(222, 159, 182, 0.24)" },
     represents: "openness",
     mood: "radiant and brave",
+    bestFor: "heart-opening days",
+    mantra: "Open on purpose.",
     summary: "For the days when you want a heart opener that feels a little bit cinematic.",
     myth: "Bow Pose is heart-opening with a little drama, which is exactly why people love it. The chest lifts, the thighs rise, and suddenly the whole front body feels bright, vulnerable, and alive.",
     body: "Quads, shoulders, chest, and spine all light up at once. It is effortful, but in a way that makes the openness feel earned and delicious.",
@@ -77,21 +92,33 @@ const modeLabels = {
   ritual: "Afterglow"
 };
 
+const modeTitles = {
+  myth: "What the pose is giving",
+  body: "Where the shift lands",
+  ritual: "How it follows you out"
+};
+
 const grid = document.getElementById("pose-grid");
 const modeButtons = [...document.querySelectorAll("[data-mode]")];
 const vibeButtons = [...document.querySelectorAll("[data-vibe]")];
 const shuffleButton = document.getElementById("shuffle-pose");
+const detailPanel = document.getElementById("detail-panel");
 
 const detailTargets = {
   art: document.getElementById("detail-art"),
   tag: document.getElementById("detail-tag"),
   title: document.getElementById("detail-title"),
   sanskrit: document.getElementById("detail-sanskrit"),
+  aura: document.getElementById("detail-aura"),
   summary: document.getElementById("detail-summary"),
+  body: document.getElementById("detail-body"),
   modeLabel: document.getElementById("detail-mode-label"),
+  modeTitle: document.getElementById("detail-mode-title"),
   main: document.getElementById("detail-main"),
   represents: document.getElementById("detail-represents"),
-  mood: document.getElementById("detail-mood")
+  mood: document.getElementById("detail-mood"),
+  bestFor: document.getElementById("detail-best-for"),
+  mantra: document.getElementById("detail-mantra")
 };
 
 let activeMode = "myth";
@@ -110,7 +137,7 @@ function renderCards() {
   const visiblePoses = getVisiblePoses();
 
   grid.innerHTML = visiblePoses.map((pose) => `
-    <button class="pose-card${pose.key === activePoseKey ? " active" : ""}" type="button" data-pose="${pose.key}" role="listitem">
+    <button class="pose-card${pose.key === activePoseKey ? " active" : ""}" type="button" data-pose="${pose.key}" role="listitem" style="--card-accent:${pose.palette.accent};--card-soft:${pose.palette.soft};">
       <div class="pose-art">
         <img src="${pose.image}" alt="${pose.alt}">
       </div>
@@ -145,11 +172,18 @@ function renderDetail() {
   detailTargets.tag.textContent = "Energy";
   detailTargets.title.textContent = pose.name;
   detailTargets.sanskrit.textContent = pose.sanskrit;
+  detailTargets.aura.textContent = `${pose.represents} energy`;
   detailTargets.summary.textContent = pose.summary;
+  detailTargets.body.dataset.mode = activeMode;
   detailTargets.modeLabel.textContent = modeLabels[activeMode];
+  detailTargets.modeTitle.textContent = modeTitles[activeMode];
   detailTargets.main.textContent = pose[activeMode];
   detailTargets.represents.textContent = pose.represents;
   detailTargets.mood.textContent = pose.mood;
+  detailTargets.bestFor.textContent = pose.bestFor;
+  detailTargets.mantra.textContent = pose.mantra;
+  detailPanel.style.setProperty("--pose-accent", pose.palette.accent);
+  detailPanel.style.setProperty("--pose-soft", pose.palette.soft);
 }
 
 function setMode(mode) {
