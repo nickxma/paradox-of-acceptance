@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Paradox of Acceptance — Practice Tools</title>
-<meta name="description" content="Honest exploration of what mindfulness actually does — the benefits, the tensions, and the questions that serious practitioners eventually face.">
+<meta name="description" content="Honest exploration of what mindfulness does to a person — the benefits, the tensions, and the questions that serious practitioners eventually face.">
 <meta property="og:title" content="Paradox of Acceptance — Practice Tools">
-<meta property="og:description" content="Tools for thinking more clearly about mindfulness practice.">
+<meta property="og:description" content="Making mindfulness more legible without pretending it is simple.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -516,14 +516,36 @@ body {
   text-wrap: pretty;
 }
 
-.hero-divider {
+.hero-breath {
   position: relative;
   z-index: 1;
-  width: 40px;
-  height: 2px;
-  background: var(--border);
-  margin: 20px auto 0;
-  border-radius: 1px;
+  width: 48px;
+  height: 48px;
+  margin: 24px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-breath-ring {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(84, 105, 212, 0.2);
+  animation: breathe 8s var(--ease) infinite;
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+    border-color: rgba(84, 105, 212, 0.15);
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.7;
+    border-color: rgba(84, 105, 212, 0.35);
+  }
 }
 
 /* ---- BENTO GRID ---- */
@@ -562,7 +584,7 @@ body {
 }
 
 .bento-section--alt .tool-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--section-color-soft, rgba(50, 50, 93, 0.06));
   border-color: var(--section-color-soft, rgba(50, 50, 93, 0.06));
 }
 
@@ -590,21 +612,21 @@ body {
 /* Section color scoping */
 .bento-section--start {
   --section-color: var(--c-start); --section-color-soft: var(--c-start-soft);
-  background: radial-gradient(ellipse at 15% 50%, rgba(84,105,212,0.03) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 15% 50%, rgba(84,105,212,0.045) 0%, transparent 60%);
 }
 .bento-section--explore {
   --section-color: var(--c-explore); --section-color-soft: var(--c-explore-soft);
   background: linear-gradient(180deg, #fafcfe 0%, var(--surface) 40%),
-              radial-gradient(ellipse at 80% 40%, rgba(15,159,176,0.025) 0%, transparent 60%);
+              radial-gradient(ellipse at 80% 40%, rgba(15,159,176,0.04) 0%, transparent 60%);
 }
 .bento-section--personalize {
   --section-color: var(--c-personalize); --section-color-soft: var(--c-personalize-soft);
-  background: radial-gradient(ellipse at 85% 50%, rgba(193,122,47,0.025) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 85% 50%, rgba(193,122,47,0.04) 0%, transparent 60%);
 }
 .bento-section--reflect {
   --section-color: var(--c-reflect); --section-color-soft: var(--c-reflect-soft);
   background: linear-gradient(180deg, #fdfafe 0%, var(--surface) 40%),
-              radial-gradient(ellipse at 20% 60%, rgba(168,80,126,0.025) 0%, transparent 60%);
+              radial-gradient(ellipse at 20% 60%, rgba(168,80,126,0.04) 0%, transparent 60%);
 }
 
 .bento-section .section-label { color: var(--section-color, var(--accent)); }
@@ -643,14 +665,14 @@ body {
   right: 0;
   height: 3px;
   background: var(--section-color, var(--accent));
-  opacity: 0.4;
+  opacity: 0.55;
   transition: opacity 0.35s var(--ease-out-expo);
   border-radius: 12px 12px 0 0;
 }
 
 .tool-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--section-color-soft, rgba(50, 50, 93, 0.06));
   border-color: var(--section-color-soft, rgba(50, 50, 93, 0.08));
 }
 
@@ -841,12 +863,12 @@ body {
 
 .featured-card {
   display: block;
-  background: linear-gradient(135deg, #1a2332 0%, #243044 50%, #2a3750 100%);
+  background: linear-gradient(135deg, #f8f9fb 0%, #edf0f5 50%, #e8ecf2 100%);
   border-radius: 12px;
   padding: 40px;
   text-decoration: none;
-  color: #c8d6e5;
-  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  border: 1px solid var(--border);
   box-shadow: 0 13px 27px -5px rgba(50,50,93,.25), 0 8px 16px -8px rgba(0,0,0,.2);
   transition: transform 0.35s var(--ease-out-expo), box-shadow 0.35s var(--ease-out-expo), border-color 0.35s var(--ease-out-expo);
   position: relative;
@@ -860,10 +882,10 @@ body {
   right: 0;
   width: 40%;
   height: 100%;
-  background: radial-gradient(ellipse at 80% 50%, rgba(84,105,212,0.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 80% 50%, rgba(66, 84, 102, 0.06) 0%, transparent 70%);
   pointer-events: none;
   transition: opacity 0.4s var(--ease);
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .featured-card:hover::after {
@@ -872,12 +894,12 @@ body {
 
 .featured-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 20px 40px -8px rgba(50,50,93,.3), 0 12px 24px -8px rgba(0,0,0,.25);
-  border-color: rgba(255,255,255,0.15);
+  box-shadow: 0 20px 40px -8px rgba(50,50,93,.2), 0 12px 24px -8px rgba(0,0,0,.15);
+  border-color: var(--border);
 }
 
 .featured-card:active {
-  box-shadow: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
+  box-shadow: 0 13px 27px -5px rgba(50,50,93,.15), 0 8px 16px -8px rgba(0,0,0,.1);
 }
 
 .featured-card-inner {
@@ -893,7 +915,7 @@ body {
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.2px;
-  color: #7b9cc0;
+  color: var(--c-ritual);
   margin-bottom: 12px;
 }
 
@@ -903,23 +925,23 @@ body {
   letter-spacing: -0.03em;
   line-height: 1.2;
   margin-bottom: 10px;
-  color: #e8eef5;
+  color: var(--text);
 }
 
 .featured-desc {
   font-size: 0.88rem;
   line-height: 1.7;
-  color: #8a9bb5;
+  color: var(--text-secondary);
   margin-bottom: 20px;
   max-width: 480px;
 }
 
 .featured-card .tool-link {
-  color: #7b9cc0;
+  color: var(--c-ritual);
 }
 
 .featured-card .tool-link:hover {
-  background: rgba(123, 156, 192, 0.1);
+  background: var(--c-ritual-soft);
 }
 
 .featured-card:hover .tool-link-arrow {
@@ -928,35 +950,68 @@ body {
 
 .featured-moon {
   flex-shrink: 0;
-  opacity: 0.35;
+  opacity: 0.6;
   transition: opacity 0.3s var(--ease);
 }
 
-.featured-card:hover .featured-moon { opacity: 0.8; }
+.featured-card:hover .featured-moon { opacity: 0.9; }
 
 /* ---- FOOTER ---- */
 .site-footer {
   border-top: 1px solid var(--border);
-  padding: 64px 24px 48px;
-  text-align: center;
+  padding: 56px 24px 48px;
   background: var(--surface);
 }
 
-.site-footer p {
-  font-size: 0.82rem;
-  color: var(--text-tertiary);
-  line-height: 1.7;
-  max-width: 520px;
+.footer-inner {
+  max-width: var(--content-width);
   margin: 0 auto;
-  text-wrap: pretty;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
 }
 
 .site-footer-brand {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.footer-tagline {
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.footer-link {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-secondary);
-  letter-spacing: -0.01em;
-  margin-bottom: 12px;
+  text-decoration: none;
+  transition: color 0.15s var(--ease);
+}
+
+.footer-link:hover {
+  color: var(--text);
+}
+
+.footer-disclaimer {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.7;
+  max-width: 480px;
+  text-wrap: pretty;
 }
 
 /* ---- SCROLL ANIMATIONS ---- */
@@ -978,7 +1033,7 @@ body {
 
 .reveal.visible .tool-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--section-color-soft, rgba(50, 50, 93, 0.06));
   border-color: var(--section-color-soft, rgba(50, 50, 93, 0.08));
 }
 
@@ -1039,7 +1094,7 @@ body {
   .hero-tag { font-size: 0.78rem; margin-bottom: 16px; }
   .hero-subtitle { font-size: 0.95rem; margin-bottom: 8px; }
   .hero-desc { font-size: 0.85rem; }
-  .hero-divider { margin: 24px auto 0; width: 32px; }
+  .hero-breath { margin: 20px auto 0; }
 
   .bento-section { padding: 24px 16px 0; }
   .bento-section--alt { padding: 24px 0 8px; }
@@ -1082,9 +1137,11 @@ body {
   .featured-tag { font-size: 0.75rem; }
   .featured-moon { display: none; }
 
-  .site-footer { padding: 36px 16px; }
-  .site-footer p { font-size: 0.78rem; }
-  .site-footer-brand { font-size: 0.72rem; }
+  .site-footer { padding: 32px 16px; }
+  .footer-links { gap: 16px; }
+  .footer-tagline { font-size: 0.78rem; }
+  .footer-disclaimer { font-size: 0.72rem; }
+  .site-footer-brand { font-size: 0.82rem; }
 
   .auth-form {
     flex-direction: column;
@@ -1107,7 +1164,7 @@ body {
   .nav-trigger { min-height: 44px; }
 
   /* iPhone safe area */
-  .site-footer { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+  .site-footer { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
 }
 
 /* iPhone SE / small screens */
@@ -1257,8 +1314,8 @@ body {
 <section class="hero">
   <span class="hero-tag">Practice Toolkit</span>
   <h1>Paradox of Acceptance</h1>
-  <p class="hero-subtitle">Tools for thinking more clearly about practice</p>
-  <div class="hero-divider"></div>
+  <p class="hero-subtitle">Making mindfulness more legible without pretending it is simple</p>
+  <div class="hero-breath" aria-hidden="true"><div class="hero-breath-ring"></div></div>
 </section>
 
 <!-- Start Here -->
@@ -1270,7 +1327,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor" stroke="none"/></svg></div>
       <h2 class="tool-title">What Kind of Meditator Are You?</h2>
-      <p class="tool-desc">Seven questions about how you actually practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
+      <p class="tool-desc">Seven questions about how you practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
       <span class="tool-link">Take the quiz <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
@@ -1292,7 +1349,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4.5"/><ellipse cx="12" cy="12" rx="4.5" ry="10"/></svg></div>
       <h2 class="tool-title">The Nature of Experience</h2>
-      <p class="tool-desc">An interactive walkthrough of awareness, appearances, and the observer — three concepts easy to understand separately and easy to confuse in practice.</p>
+      <p class="tool-desc">Awareness, appearances, and the observer — three concepts easy to understand separately and easy to confuse in practice.</p>
       <span class="tool-link">Begin exploring <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
@@ -1300,7 +1357,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <h2 class="tool-title">26 Teachers, Mapped</h2>
-      <p class="tool-desc">Where do 26 contemplative teachers actually stand on the hardest questions in practice?</p>
+      <p class="tool-desc">Where 26 contemplative teachers land on the hardest questions in practice.</p>
       <span class="tool-link">See who says what <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
@@ -1308,7 +1365,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
       <h2 class="tool-title">Wiki</h2>
-      <p class="tool-desc">Nine contemplative concepts — what each term actually means and why the distinctions matter.</p>
+      <p class="tool-desc">Nine contemplative concepts — what each term means, and why the distinctions matter.</p>
       <span class="tool-link">Browse concepts <span class="tool-link-arrow">&rarr;</span></span>
     </a>
   </div>
@@ -1322,8 +1379,8 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="none"/></svg></div>
       <div class="tool-card-content">
-        <h2 class="tool-title">What Should I Actually Practice?</h2>
-        <p class="tool-desc">Tell us what you're looking for, what you've tried, and where you get stuck. Get a concrete recommendation matched to your situation.</p>
+        <h2 class="tool-title">What Should I Practice Next?</h2>
+        <p class="tool-desc">What you're looking for, what you've tried, where you get stuck. One concrete recommendation.</p>
         <span class="tool-link">Get recommendation <span class="tool-link-arrow">&rarr;</span></span>
       </div>
     </a>
@@ -1346,7 +1403,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
       <h2 class="tool-title">Pointers</h2>
-      <p class="tool-desc">Some instructions only make sense when you follow them. Six contemplative pointers — each with a guided practice you can try right now.</p>
+      <p class="tool-desc">Six contemplative pointers — each with a guided practice. Some instructions only make sense when you follow them.</p>
       <span class="tool-link">Try the pointers <span class="tool-link-arrow">&rarr;</span></span>
     </a>
 
@@ -1354,7 +1411,7 @@ body {
       <span class="completed-badge">Done</span>
       <div class="tool-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div>
       <h2 class="tool-title">Essays</h2>
-      <p class="tool-desc">Longer-form writing about what mindfulness actually does — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
+      <p class="tool-desc">Longer-form writing on what mindfulness does to a person — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
       <span class="tool-link">Read the essays <span class="tool-link-arrow">&rarr;</span></span>
     </a>
   </div>
@@ -1374,13 +1431,13 @@ body {
         <svg viewBox="0 0 80 80" width="72" height="72">
           <defs>
             <radialGradient id="moonGlow" cx="40%" cy="40%">
-              <stop offset="0%" stop-color="rgba(200,214,229,0.15)"/>
+              <stop offset="0%" stop-color="rgba(66, 84, 102, 0.08)"/>
               <stop offset="100%" stop-color="transparent"/>
             </radialGradient>
           </defs>
           <circle cx="40" cy="40" r="36" fill="url(#moonGlow)"/>
-          <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(200,214,229,0.1)" stroke-width="0.6"/>
-          <path d="M 40,12 A 28,28 0 0,0 40,68 A 14,28 0 0,1 40,12 Z" fill="rgba(200,214,229,0.5)"/>
+          <circle cx="40" cy="40" r="28" fill="none" stroke="rgba(66, 84, 102, 0.15)" stroke-width="0.6"/>
+          <path d="M 40,12 A 28,28 0 0,0 40,68 A 14,28 0 0,1 40,12 Z" fill="rgba(66, 84, 102, 0.2)"/>
         </svg>
       </div>
     </div>
@@ -1389,8 +1446,19 @@ body {
 
 <!-- Footer -->
 <footer class="site-footer">
-  <p class="site-footer-brand">Paradox of Acceptance</p>
-  <p>These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <p class="site-footer-brand">Paradox of Acceptance</p>
+      <p class="footer-tagline">Making mindfulness more legible without pretending it is simple.</p>
+    </div>
+    <div class="footer-links">
+      <a href="https://nickxma.github.io/meditation-quiz/" class="footer-link">Quiz</a>
+      <a href="https://nickxma.github.io/mindfulness-wiki/" class="footer-link">Wiki</a>
+      <a href="https://nickxma.github.io/mindfulness-essays/" class="footer-link">Essays</a>
+      <a href="https://nickxma.github.io/mindfulness-pointers/" class="footer-link">Pointers</a>
+    </div>
+    <p class="footer-disclaimer">These tools draw on a wide survey of contemplative teachers — their published conversations, lessons, and teachings. The content is original and analytical, not derivative.</p>
+  </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
