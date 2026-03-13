@@ -1839,17 +1839,15 @@ body {
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
     );
 
-    sb.from('subscribers').insert({ email: email }).then(function(res) {
+    sb.rpc('subscribe', { p_email: email }).then(function(res) {
       btn.disabled = false;
       btn.textContent = 'Subscribe';
       if (res.error) {
-        if (res.error.code === '23505') {
-          msg.textContent = "You're already subscribed.";
-          msg.className = 'subscribe-msg success';
-        } else {
-          msg.textContent = 'Something went wrong. Try again.';
-          msg.className = 'subscribe-msg error';
-        }
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = 'subscribe-msg error';
+      } else if (res.data && res.data.already_subscribed) {
+        msg.textContent = "You're already subscribed.";
+        msg.className = 'subscribe-msg success';
       } else {
         msg.textContent = "You're in. Welcome.";
         msg.className = 'subscribe-msg success';
