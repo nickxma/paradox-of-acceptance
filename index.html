@@ -71,6 +71,8 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .poa-nav { background: rgba(22, 22, 26, 0.88); }
+  .card { box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.3); }
 }
 
 .poa-nav-brand {
@@ -149,51 +151,62 @@ body {
 .card-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.card-grid--3 {
-  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
 /* ---- CARDS ---- */
 .card {
   display: flex;
   flex-direction: column;
-  padding: 20px 24px;
-  border: 1px solid var(--border);
+  padding: 24px;
+  border: 2px solid var(--border);
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  transition: all 0.15s ease;
   position: relative;
 }
 
 .card:hover {
   border-color: var(--accent);
-  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.card-meta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
 }
 
 .card-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
   color: var(--text);
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
 
+.card:hover .card-title {
+  color: var(--accent);
+}
+
 .card-desc {
   font-size: 0.84rem;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.65;
   flex: 1;
 }
 
 .card-arrow {
   font-size: 0.82rem;
   color: var(--accent);
-  margin-top: 12px;
+  margin-top: 14px;
+  font-weight: 500;
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.15s, transform 0.15s;
@@ -211,10 +224,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--accent);
-  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
   padding: 2px 8px;
   border-radius: 4px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   width: fit-content;
 }
 
@@ -223,8 +236,8 @@ body {
 .card.completed::after {
   content: '\2713';
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: 14px;
+  right: 16px;
   font-size: 0.82rem;
   color: var(--accent);
   font-weight: 700;
@@ -325,44 +338,55 @@ body {
 
 /* ---- SUBSCRIBE ---- */
 .subscribe-section {
-  border-top: 1px solid var(--border);
-  padding: 48px 24px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
 }
 
 .subscribe-inner {
-  max-width: 480px;
-  margin: 0 auto;
-  text-align: center;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.subscribe-text {
+  flex-shrink: 0;
 }
 
 .subscribe-heading {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.02em;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .subscribe-subtext {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.subscribe-form-wrap {
+  flex: 1;
+  max-width: 320px;
 }
 
 .subscribe-form {
   display: flex;
   gap: 8px;
-  max-width: 360px;
-  margin: 0 auto;
 }
 
 .subscribe-form input[type="email"] {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 6px;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-family: var(--font-sans);
   color: var(--text);
   background: var(--surface);
@@ -390,9 +414,9 @@ body {
 .subscribe-form button:disabled { opacity: 0.5; cursor: default; }
 
 .subscribe-msg {
-  font-size: 0.82rem;
-  margin-top: 10px;
-  min-height: 1.4em;
+  font-size: 0.78rem;
+  margin-top: 8px;
+  min-height: 1.2em;
 }
 
 .subscribe-msg.success { color: #2e7d32; }
@@ -471,9 +495,12 @@ body {
   .page-header h1 { font-size: 1.6rem; }
   .page-desc { font-size: 0.95rem; }
 
-  .card-grid, .card-grid--3 { grid-template-columns: 1fr; }
-  .card { padding: 16px 20px; }
+  .card-grid { grid-template-columns: 1fr; }
+  .card { padding: 20px; }
 
+  .subscribe-section { padding: 0 16px 40px; }
+  .subscribe-inner { flex-direction: column; padding: 24px; gap: 16px; }
+  .subscribe-form-wrap { max-width: 100%; }
   .subscribe-form { flex-direction: column; }
   .subscribe-form button { width: 100%; }
 
@@ -551,11 +578,13 @@ body {
     <div class="card-grid">
       <a href="https://paradoxofacceptance.xyz/meditation-quiz/" class="card" data-tool="meditation-quiz">
         <span class="badge">Recommended</span>
+        <span class="card-meta">Quiz &middot; 7 questions</span>
         <h3 class="card-title">What Kind of Meditator Are You?</h3>
         <p class="card-desc">Seven questions about how you practice — not how you think you should. Get matched to one of six practitioner profiles.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/meditation-debates/" class="card" data-tool="meditation-debates">
+        <span class="card-meta">Interactive &middot; 5 debates</span>
         <h3 class="card-title">5 Debates the Field Can't Settle</h3>
         <p class="card-desc">Five questions where serious practitioners land on different sides.</p>
         <span class="card-arrow">&rarr;</span>
@@ -565,18 +594,21 @@ body {
 
   <section class="content-section">
     <h2 class="section-label">Explore</h2>
-    <div class="card-grid card-grid--3">
+    <div class="card-grid">
       <a href="https://paradoxofacceptance.xyz/concept-explorer/" class="card" data-tool="concept-explorer">
+        <span class="card-meta">Interactive &middot; 3 concepts</span>
         <h3 class="card-title">The Nature of Experience</h3>
         <p class="card-desc">Awareness, appearances, and the observer — three concepts easy to understand separately, easy to confuse in practice.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/teacher-debates/" class="card" data-tool="teacher-debates">
+        <span class="card-meta">Interactive &middot; 26 teachers</span>
         <h3 class="card-title">26 Teachers, Mapped</h3>
         <p class="card-desc">Where 26 contemplative teachers land on the hardest questions in practice.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/mindfulness-wiki/" class="card" data-tool="mindfulness-wiki">
+        <span class="card-meta">Reference &middot; 9 entries</span>
         <h3 class="card-title">Wiki</h3>
         <p class="card-desc">Nine contemplative concepts — what each term means, and why the distinctions matter.</p>
         <span class="card-arrow">&rarr;</span>
@@ -588,11 +620,13 @@ body {
     <h2 class="section-label">Personalize</h2>
     <div class="card-grid">
       <a href="https://paradoxofacceptance.xyz/meditation-recommender/" class="card" data-tool="meditation-recommender">
+        <span class="card-meta">Interactive</span>
         <h3 class="card-title">What Should I Practice Next?</h3>
         <p class="card-desc">What you're looking for, what you've tried, where you get stuck. One concrete recommendation.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/mindfulness-fit/" class="card" data-tool="mindfulness-fit">
+        <span class="card-meta">Assessment</span>
         <h3 class="card-title">Should You Get Into Mindfulness?</h3>
         <p class="card-desc">Most mindfulness content assumes the answer is yes. This tool doesn't.</p>
         <span class="card-arrow">&rarr;</span>
@@ -604,11 +638,13 @@ body {
     <h2 class="section-label">Reflect</h2>
     <div class="card-grid">
       <a href="https://paradoxofacceptance.xyz/mindfulness-pointers/" class="card" data-tool="mindfulness-pointers">
+        <span class="card-meta">Guided &middot; 6 practices</span>
         <h3 class="card-title">Pointers</h3>
         <p class="card-desc">Six contemplative pointers — each with a guided practice. Some instructions only make sense when you follow them.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/mindfulness-essays/" class="card" data-tool="mindfulness-essays">
+        <span class="card-meta">Long-form</span>
         <h3 class="card-title">Essays</h3>
         <p class="card-desc">Longer-form writing on what mindfulness does to a person — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</p>
         <span class="card-arrow">&rarr;</span>
@@ -620,11 +656,13 @@ body {
     <h2 class="section-label">Ritual</h2>
     <div class="card-grid">
       <a href="https://paradoxofacceptance.xyz/practice-today/" class="card">
+        <span class="card-meta">Daily &middot; Moon-guided</span>
         <h3 class="card-title">Today's Practice</h3>
         <p class="card-desc">A pose for today — what it asks of the body, what arises. Changes with the moon.</p>
         <span class="card-arrow">&rarr;</span>
       </a>
       <a href="https://paradoxofacceptance.xyz/paradox-of-acceptance/rituals/studio-mythology/" class="card">
+        <span class="card-meta">Pose deck</span>
         <h3 class="card-title">Yoga Studio Mythology</h3>
         <p class="card-desc">A pose deck on the energy each shape carries: rebirth, clarity, boundaries, confidence, openness.</p>
         <span class="card-arrow">&rarr;</span>
@@ -635,13 +673,17 @@ body {
 
 <section class="subscribe-section">
   <div class="subscribe-inner">
-    <p class="subscribe-heading">Stay in the loop</p>
-    <p class="subscribe-subtext">New tools, essays, and honest takes on practice — no spam, unsubscribe anytime.</p>
-    <form class="subscribe-form" id="subscribe-form" onsubmit="return handleSubscribe(event)">
-      <input type="email" id="subscribe-email" placeholder="you@example.com" required>
-      <button type="submit" id="subscribe-btn">Subscribe</button>
-    </form>
-    <p class="subscribe-msg" id="subscribe-msg"></p>
+    <div class="subscribe-text">
+      <p class="subscribe-heading">Stay in the loop</p>
+      <p class="subscribe-subtext">New tools and essays. No spam.</p>
+    </div>
+    <div class="subscribe-form-wrap">
+      <form class="subscribe-form" id="subscribe-form" onsubmit="return handleSubscribe(event)">
+        <input type="email" id="subscribe-email" placeholder="you@example.com" required>
+        <button type="submit" id="subscribe-btn">Subscribe</button>
+      </form>
+      <p class="subscribe-msg" id="subscribe-msg"></p>
+    </div>
   </div>
 </section>
 
