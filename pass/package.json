@@ -1,0 +1,22 @@
+{
+  "name": "pass",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "type": "module",
+  "dependencies": {
+    "@privy-io/react-auth": "^3.18.0",
+    "@tanstack/react-query": "^5.91.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "viem": "^2.47.4",
+    "vite": "^8.0.1",
+    "wagmi": "^3.5.0"
+  }
+}

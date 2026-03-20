@@ -1,1 +1,12 @@
 .env
+.env.local
+
+# Frontend
+pass/node_modules/
+pass/dist/
+
+# Contracts
+contracts/out/
+contracts/cache/
+contracts/lib/
+contracts/broadcast/

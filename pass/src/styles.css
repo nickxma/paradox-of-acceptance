@@ -1,0 +1,76 @@
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout — matches main site */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page { padding: 64px 280px 80px; max-width: 100%; }
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding: 24px 280px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+.nav-links a.active { color: #111; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* Hero */
+.pass-hero { text-align: center; max-width: 560px; margin: 0 auto 48px; }
+.pass-headline { font-family: 'Newsreader', serif; font-size: 40px; font-weight: 400; color: #111; line-height: 1.2; margin-bottom: 16px; }
+.pass-subtitle { font-size: 16px; color: #666; line-height: 1.65; }
+
+/* Card */
+.pass-card { border: 1px solid #E0E0E0; border-radius: 8px; background: #FAFAFA; padding: 32px; max-width: 480px; margin: 0 auto 40px; }
+.pass-card-label { font-size: 10px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
+.pass-card-text { font-size: 15px; color: #444; line-height: 1.65; margin-bottom: 20px; }
+.pass-card-text:last-child { margin-bottom: 0; }
+
+/* Buttons */
+.btn-primary { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; padding: 14px 32px; background: #111; color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 8px; }
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #999; cursor: default; }
+
+.btn-secondary { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 10px 20px; background: transparent; color: #666; border: 1px solid #DDD; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+.btn-secondary:hover { border-color: #999; color: #111; }
+
+/* Status */
+.status-line { font-size: 13px; color: #999; margin-top: 12px; }
+.status-line.success { color: #22C55E; }
+.status-line.error { color: #DC2626; }
+
+/* Member badge */
+.member-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #ECFDF5; border-radius: 20px; font-size: 13px; font-weight: 500; color: #22C55E; margin-bottom: 24px; }
+
+/* Members area */
+.members-section { max-width: 640px; margin: 0 auto; }
+.members-label { font-size: 12px; font-weight: 600; color: #999; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; }
+.members-content { font-size: 16px; color: #444; line-height: 1.7; }
+.members-content h3 { font-family: 'Newsreader', serif; font-size: 24px; font-weight: 400; color: #111; margin: 32px 0 12px; }
+.members-content h3:first-child { margin-top: 0; }
+.members-content p { margin-bottom: 16px; }
+.members-content blockquote { border-left: 2px solid #DDD; padding-left: 16px; color: #666; font-style: italic; margin: 16px 0; }
+
+/* Footer */
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Mint stats */
+.mint-stats { font-size: 13px; color: #999; text-align: center; margin-top: 32px; }
+
+/* Loading spinner */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav, .page, .footer { padding-left: 24px; padding-right: 24px; }
+  .pass-headline { font-size: 32px; }
+  .nav-links { gap: 20px; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+}
