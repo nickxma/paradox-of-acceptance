@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/pass/',
   build: {
-    outDir: 'dist',
+    outDir: '../pass',
+    emptyOutDir: true,
   },
 });

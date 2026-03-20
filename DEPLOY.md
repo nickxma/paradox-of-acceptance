@@ -29,7 +29,7 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 BASE_RPC_URL=https://mainnet.base.org
 ```
 
-### `pass/.env`
+### `pass-src/.env`
 ```
 VITE_PRIVY_APP_ID=cmmyfvex101cy0clawnzxpur2
 VITE_CONTRACT_ADDRESS=0x9691107411AFB05b81CfDE537Efc4a00b9b1bB69
@@ -48,22 +48,22 @@ For production (Base mainnet):
 forge script script/Deploy.s.sol --rpc-url base --broadcast
 ```
 
-Then update `VITE_CONTRACT_ADDRESS` in `pass/.env` and `VITE_CHAIN_ENV=production`.
+Then update `VITE_CONTRACT_ADDRESS` in `pass-src/.env` and `VITE_CHAIN_ENV=production`.
 
 ## Build Frontend
 
 ```bash
-cd pass
+cd pass-src
 npm install
 npm run build
 ```
 
-Output is in `pass/dist/`. Deploy to GitHub Pages alongside the rest of the site.
+Output goes to `pass/` (served by GitHub Pages at `/pass/`). Commit the built output and push to deploy.
 
 ## Dev Server
 
 ```bash
-cd pass
+cd pass-src
 npm run dev
 ```
 
@@ -97,10 +97,10 @@ cast call $CONTRACT_ADDRESS "totalMinted()(uint256)" --rpc-url $RPC_URL
 ## Production Checklist
 
 - [ ] Deploy contract to Base mainnet
-- [ ] Update `VITE_CONTRACT_ADDRESS` and `VITE_CHAIN_ENV=production` in `pass/.env`
+- [ ] Update `VITE_CONTRACT_ADDRESS` and `VITE_CHAIN_ENV=production` in `pass-src/.env`
 - [ ] Configure Privy paymaster policy for gas sponsorship on Base mainnet
-- [ ] Rebuild frontend (`npm run build` in `pass/`)
-- [ ] Deploy `pass/dist/` to GitHub Pages
+- [ ] Rebuild frontend (`npm run build` in `pass-src/`)
+- [ ] Commit built `pass/` output and push to deploy
 - [ ] Verify contract on Basescan
 - [ ] Test end-to-end: connect → mint → members area
 - [ ] Verify metadata renders on Basescan/OpenSea
