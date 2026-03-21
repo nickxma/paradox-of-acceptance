@@ -1,0 +1,38 @@
+/*
+ * theme-green-cool.css
+ * Cool green theme — Paradox of Acceptance
+ * Used by: mindfulness-wiki, mindfulness-pointers
+ *
+ * CDN: https://cdn.jsdelivr.net/gh/nickxma/paradox-of-acceptance@main/shared/theme-green-cool.css
+ *
+ * To update all sites using this theme, edit this file and push to main.
+ * CDN cache refreshes within ~24h (or instantly via https://www.jsdelivr.com/tools/purge).
+ */
+
+:root {
+  /* Backgrounds */
+  --bg: #f6f9fc;
+  --surface: #ffffff;
+
+  /* Borders */
+  --border: #e3e8ee;
+  --border-light: #edf2f7;
+
+  /* Text */
+  --text: #0a2540;
+  --text-secondary: #425466;
+  --text-tertiary: #8898aa;
+
+  /* Accent — forest green */
+  --accent: #2d5a27;
+  --accent-soft: #eef3ec;
+  --accent-glow: rgba(45, 90, 39, 0.06);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 5px 0 rgba(50,50,93,.1), 0 1px 1px 0 rgba(0,0,0,.07);
+  --shadow-md: 0 6px 12px -2px rgba(50,50,93,.12), 0 3px 7px -3px rgba(0,0,0,.08);
+  --shadow-lg: 0 13px 27px -5px rgba(50,50,93,.2), 0 8px 16px -8px rgba(0,0,0,.15);
+
+  /* Layout */
+  --content-width: 1080px;
+}

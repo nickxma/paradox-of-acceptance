@@ -1,0 +1,28 @@
+/*
+ * theme-mono.css
+ * Monochrome theme — Paradox of Acceptance
+ * Used by: paradox-of-acceptance (main), mindfulness-essays
+ *
+ * CDN: https://cdn.jsdelivr.net/gh/nickxma/paradox-of-acceptance@main/shared/theme-mono.css
+ *
+ * To update all sites using this theme, edit this file and push to main.
+ * CDN cache refreshes within ~24h (or instantly via https://www.jsdelivr.com/tools/purge).
+ */
+
+:root {
+  /* Backgrounds */
+  --bg: #ffffff;
+  --surface: #fafafa;
+
+  /* Borders */
+  --border: #eeeeee;
+
+  /* Text */
+  --text: #111111;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+
+  /* Accent — near-black */
+  --accent: #111111;
+  --accent-soft: #f5f5f5;
+}

@@ -1,0 +1,27 @@
+/*
+ * theme-green-warm.css
+ * Warm green theme — Paradox of Acceptance
+ * Used by: mindfulness-fit, concept-explorer
+ *
+ * CDN: https://cdn.jsdelivr.net/gh/nickxma/paradox-of-acceptance@main/shared/theme-green-warm.css
+ *
+ * To update all sites using this theme, edit this file and push to main.
+ * CDN cache refreshes within ~24h (or instantly via https://www.jsdelivr.com/tools/purge).
+ */
+
+:root {
+  /* Backgrounds */
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+
+  /* Borders */
+  --border: #e4e2dc;
+
+  /* Text */
+  --text: #1a1a18;
+  --text-muted: #6b6966;
+
+  /* Accent — forest green */
+  --accent: #2d5a27;
+  --accent-light: #eef3ec;
+}
