@@ -420,7 +420,7 @@ document.addEventListener('click', function(e) {
       });
   };
 
-  /* Subscribe */
+  // SWAP: Replace sb.rpc call below with email platform API (Resend or Buttondown) once backend IC (OLU-109) completes setup
   window.handleSubscribe = function(e) {
     e.preventDefault();
     var email = document.getElementById('subscribe-email').value.trim();

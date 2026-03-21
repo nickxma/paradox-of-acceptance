@@ -418,6 +418,85 @@
 
     #submit-assessment:hover { background: var(--sage-dark); }
 
+    /* ─── Subscribe widget ─── */
+    .essay-subscribe {
+      border-top: 1px solid var(--rule);
+      padding: 56px 0 0;
+      margin-bottom: 56px;
+      text-align: center;
+    }
+
+    .essay-subscribe-headline {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .essay-subscribe-sub {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      color: var(--ink-light);
+      margin-bottom: 20px;
+    }
+
+    .essay-subscribe-form {
+      display: inline-flex;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .essay-subscribe-form input[type="email"] {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      padding: 11px 16px;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--ink);
+      width: 260px;
+    }
+
+    .essay-subscribe-form input[type="email"]::placeholder { color: #AAAAAA; }
+
+    .essay-subscribe-btn {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 11px 20px;
+      background: var(--sage);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .essay-subscribe-btn:hover { background: var(--sage-dark); }
+    .essay-subscribe-btn:disabled { background: var(--sage-light); cursor: default; }
+
+    .essay-subscribe-msg {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      margin-top: 10px;
+      min-height: 18px;
+      color: var(--ink-light);
+    }
+
+    .essay-subscribe-msg.success { color: var(--sage-dark); }
+    .essay-subscribe-msg.error { color: #DC2626; }
+
+    @media (max-width: 560px) {
+      .essay-subscribe-form { flex-direction: column; width: 100%; }
+      .essay-subscribe-form input[type="email"] { width: 100%; }
+      .essay-subscribe-btn { width: 100%; }
+    }
+
+    [data-theme="dark"] .essay-subscribe-form input[type="email"] { background: #1A1A1A; }
+
     /* ─── Footer ─── */
     footer {
       border-top: 1px solid var(--rule);
@@ -828,6 +907,16 @@
 
     </article>
 
+    <div class="essay-subscribe">
+      <div class="essay-subscribe-headline">Stay with the questions</div>
+      <p class="essay-subscribe-sub">New essays and tools, when they're ready. No spam.</p>
+      <form class="essay-subscribe-form" onsubmit="handleEssaySubscribe(event)">
+        <input type="email" id="essay-subscribe-email" placeholder="you@email.com" required>
+        <button class="essay-subscribe-btn" type="submit" id="essay-subscribe-btn">Subscribe</button>
+      </form>
+      <div class="essay-subscribe-msg" id="essay-subscribe-msg"></div>
+    </div>
+
     <footer>
       <p>© 2026 Paradox of Acceptance · <a href="/mindfulness-essays/">More essays</a> · <a href="https://paradoxofacceptance.xyz">paradoxofacceptance.xyz</a></p>
     </footer>
@@ -920,6 +1009,44 @@
     result.style.display = 'block';
     result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  if (typeof supabase === 'undefined') return;
+  var sb = supabase.createClient(
+    'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
+  );
+
+  // SWAP: Replace sb.rpc call with email platform API (Resend or Buttondown) once backend IC (OLU-109) completes setup
+  window.handleEssaySubscribe = function(e) {
+    e.preventDefault();
+    var email = document.getElementById('essay-subscribe-email').value.trim();
+    var btn = document.getElementById('essay-subscribe-btn');
+    var msg = document.getElementById('essay-subscribe-msg');
+    if (!email) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    msg.textContent = '';
+    msg.className = 'essay-subscribe-msg';
+    sb.rpc('subscribe', { p_email: email }).then(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe';
+      if (res.error) {
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = 'essay-subscribe-msg error';
+      } else if (res.data && res.data.already_subscribed) {
+        msg.textContent = "You're already subscribed.";
+        msg.className = 'essay-subscribe-msg success';
+      } else {
+        msg.textContent = "You're in. Welcome.";
+        msg.className = 'essay-subscribe-msg success';
+        document.getElementById('essay-subscribe-email').value = '';
+      }
+    });
+  };
+})();
 </script>
 <script>
 (function() {

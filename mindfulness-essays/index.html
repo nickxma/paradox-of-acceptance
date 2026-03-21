@@ -51,10 +51,26 @@ a { color: inherit; text-decoration: none; }
 .footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
 .footer-links a:hover { color: #111; }
 
+/* Subscribe */
+.subscribe-section { padding: 80px 280px; text-align: center; }
+.subscribe-headline { font-family: 'Newsreader', serif; font-size: 28px; color: #111; margin-bottom: 10px; }
+.subscribe-sub { font-size: 15px; color: #666; margin-bottom: 24px; }
+.subscribe-form { display: inline-flex; border: 1px solid #DDD; border-radius: 4px; overflow: hidden; }
+.subscribe-input { font-family: 'Inter', sans-serif; font-size: 14px; padding: 11px 16px; border: none; outline: none; width: 280px; }
+.subscribe-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; padding: 11px 22px; background: #111; color: #fff; border: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.subscribe-btn:hover { background: #333; }
+.subscribe-btn:disabled { background: #666; cursor: default; }
+.subscribe-msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+.subscribe-msg.success { color: #22C55E; }
+.subscribe-msg.error { color: #DC2626; }
+
 /* Responsive */
 @media (max-width: 900px) {
-  .nav, .page-header, .section, .footer { padding-left: 24px; padding-right: 24px; }
+  .nav, .page-header, .section, .subscribe-section, .footer { padding-left: 24px; padding-right: 24px; }
   .page-title { font-size: 32px; }
+  .subscribe-form { flex-direction: column; width: 100%; }
+  .subscribe-input { width: 100%; }
+  .subscribe-btn { width: 100%; }
   .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
   .footer-links { gap: 16px; }
   .nav-links { gap: 20px; }
@@ -113,6 +129,19 @@ a { color: inherit; text-decoration: none; }
 
 <hr class="divider">
 
+<!-- Subscribe -->
+<section class="subscribe-section">
+  <h2 class="subscribe-headline">Stay with the questions</h2>
+  <p class="subscribe-sub">New essays and tools, when they're ready. No spam.</p>
+  <form class="subscribe-form" onsubmit="handleSubscribe(event)">
+    <input class="subscribe-input" type="email" id="subscribe-email" placeholder="you@email.com" required>
+    <button class="subscribe-btn" type="submit" id="subscribe-btn">Subscribe</button>
+  </form>
+  <div class="subscribe-msg" id="subscribe-msg"></div>
+</section>
+
+<hr class="divider">
+
 <!-- Footer -->
 <footer class="footer">
   <div class="footer-logo">Paradox of Acceptance</div>
@@ -129,5 +158,43 @@ a { color: inherit; text-decoration: none; }
   </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  if (typeof supabase === 'undefined') return;
+  var sb = supabase.createClient(
+    'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
+  );
+
+  // SWAP: Replace sb.rpc call with email platform API (Resend or Buttondown) once backend IC (OLU-109) completes setup
+  window.handleSubscribe = function(e) {
+    e.preventDefault();
+    var email = document.getElementById('subscribe-email').value.trim();
+    var btn = document.getElementById('subscribe-btn');
+    var msg = document.getElementById('subscribe-msg');
+    if (!email) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    msg.textContent = '';
+    msg.className = 'subscribe-msg';
+    sb.rpc('subscribe', { p_email: email }).then(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe';
+      if (res.error) {
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = 'subscribe-msg error';
+      } else if (res.data && res.data.already_subscribed) {
+        msg.textContent = "You're already subscribed.";
+        msg.className = 'subscribe-msg success';
+      } else {
+        msg.textContent = "You're in. Welcome.";
+        msg.className = 'subscribe-msg success';
+        document.getElementById('subscribe-email').value = '';
+      }
+    });
+  };
+})();
+</script>
 </body>
 </html>
