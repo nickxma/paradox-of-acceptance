@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newsletter Admin — Paradox of Acceptance</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+.auth-card p {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 24px;
+}
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error {
+  font-size: 12px;
+  color: #dc2626;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.header-meta {
+  font-size: 13px;
+  color: #888;
+}
+#subscriber-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f0f0;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
+#subscriber-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+/* ─── Content area ──────────────────────────────────────────── */
+.content {
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ─── Compose section ───────────────────────────────────────── */
+.compose-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #999;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.subject-row {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+}
+.subject-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  white-space: nowrap;
+}
+#subject {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 14px 0;
+  color: #111;
+  background: transparent;
+}
+#subject::placeholder { color: #ccc; }
+
+.editor-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 420px;
+}
+.pane-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #bbb;
+  padding: 10px 20px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.markdown-pane {
+  border-right: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+}
+#markdown-body {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 16px 20px;
+  resize: none;
+  color: #333;
+  background: transparent;
+  min-height: 380px;
+}
+#markdown-body::placeholder { color: #ccc; }
+.preview-pane {
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+}
+#html-preview {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.75;
+  color: #2c2c2c;
+}
+#html-preview:empty::before {
+  content: 'Preview will appear here…';
+  color: #ccc;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+}
+#html-preview h1 { font-size: 24px; margin: 0 0 16px; }
+#html-preview h2 { font-size: 20px; margin: 24px 0 12px; }
+#html-preview h3 { font-size: 17px; margin: 20px 0 10px; }
+#html-preview p { margin: 0 0 16px; }
+#html-preview a { color: #7d8c6e; }
+#html-preview blockquote {
+  border-left: 3px solid #e2ddd6;
+  padding-left: 16px;
+  margin: 0 0 16px;
+  color: #666;
+  font-style: italic;
+}
+#html-preview ul, #html-preview ol { padding-left: 24px; margin: 0 0 16px; }
+#html-preview li { margin-bottom: 6px; }
+#html-preview hr { border: none; border-top: 1px solid #e2ddd6; margin: 24px 0; }
+#html-preview code {
+  background: #f0f0f0;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+#html-preview pre code { background: none; padding: 0; }
+#html-preview pre {
+  background: #f0f0f0;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+
+/* ─── Send controls ─────────────────────────────────────────── */
+.send-bar {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.send-bar-info {
+  flex: 1;
+  font-size: 13px;
+  color: #666;
+}
+.btn-test {
+  padding: 9px 18px;
+  background: #fff;
+  color: #111;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.btn-test:hover { border-color: #aaa; background: #f5f5f5; }
+.btn-test:disabled { color: #aaa; border-color: #eee; cursor: not-allowed; background: #fff; }
+.btn-send {
+  padding: 9px 18px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn-send:hover { background: #333; }
+.btn-send:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Analytics summary bar ─────────────────────────────────── */
+.analytics-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.analytics-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px 20px;
+  flex: 1;
+}
+.analytics-card .ac-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #999;
+  margin-bottom: 4px;
+}
+.analytics-card .ac-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+  letter-spacing: -0.5px;
+}
+.analytics-card .ac-sub {
+  font-size: 12px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+/* ─── History ───────────────────────────────────────────────── */
+.history-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.history-table th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #999;
+  text-align: left;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.history-table td {
+  padding: 12px 20px;
+  font-size: 13px;
+  color: #444;
+  border-bottom: 1px solid #f8f8f8;
+  vertical-align: middle;
+}
+.history-table tr:last-child td { border-bottom: none; }
+.history-table tr:hover td { background: #fafafa; }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge-test { background: #fef3c7; color: #92400e; }
+.badge-live { background: #dcfce7; color: #166534; }
+.badge-sent { background: #dcfce7; color: #166534; }
+.badge-failed { background: #fee2e2; color: #991b1b; }
+.history-empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: #bbb;
+  font-size: 13px;
+}
+.btn-details {
+  padding: 3px 8px;
+  background: #fff;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s, background 0.1s;
+}
+.btn-details:hover { border-color: #aaa; background: #f5f5f5; }
+.details-row td {
+  background: #fafafa;
+  padding: 12px 20px 14px;
+}
+.details-row.hidden { display: none; }
+.analytics-inline {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.analytics-inline .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.analytics-inline .stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #aaa;
+}
+.analytics-inline .stat-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+}
+
+/* ─── Modal ─────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal-backdrop.hidden { display: none; }
+.modal-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 32px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.2px;
+}
+.modal-card p {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.modal-card strong { color: #111; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.btn-cancel {
+  padding: 9px 18px;
+  background: #fff;
+  color: #555;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-cancel:hover { background: #f5f5f5; }
+.btn-confirm {
+  padding: 9px 18px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-confirm:hover { background: #b91c1c; }
+.btn-confirm:disabled { background: #f87171; cursor: not-allowed; }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 340px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  animation: slideIn 0.2s ease;
+}
+.toast-success { background: #111; color: #fff; }
+.toast-error { background: #dc2626; color: #fff; }
+@keyframes slideIn {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Auth gate ─────────────────────────────────────────────── -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Newsletter Admin</h1>
+    <p>paradoxofacceptance.xyz</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ─── Main UI ───────────────────────────────────────────────── -->
+<div id="main">
+  <header>
+    <div class="header-title">Newsletter Admin</div>
+    <div id="subscriber-badge">
+      <span class="dot"></span>
+      <span id="subscriber-count">Loading…</span>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- Analytics summary -->
+    <div class="analytics-bar" id="analytics-bar" style="display:none;">
+      <div class="analytics-card">
+        <div class="ac-label">Avg Open Rate</div>
+        <div class="ac-value" id="ac-open-rate">—</div>
+        <div class="ac-sub" id="ac-open-sub"></div>
+      </div>
+      <div class="analytics-card">
+        <div class="ac-label">Avg Click Rate</div>
+        <div class="ac-value" id="ac-click-rate">—</div>
+        <div class="ac-sub" id="ac-click-sub"></div>
+      </div>
+      <div class="analytics-card">
+        <div class="ac-label">Total Bounced</div>
+        <div class="ac-value" id="ac-bounced">—</div>
+        <div class="ac-sub" id="ac-bounced-sub"></div>
+      </div>
+    </div>
+
+    <!-- Compose -->
+    <div class="compose-section">
+      <div class="section-label">Compose</div>
+      <div class="subject-row">
+        <span class="subject-label">Subject</span>
+        <input type="text" id="subject" placeholder="Newsletter subject line…" />
+      </div>
+      <div class="editor-panes">
+        <div class="markdown-pane">
+          <div class="pane-header">Markdown</div>
+          <textarea id="markdown-body" placeholder="Write your newsletter in Markdown…&#10;&#10;Supports **bold**, *italic*, [links](url), headings, blockquotes, and lists."></textarea>
+        </div>
+        <div class="preview-pane">
+          <div class="pane-header">Preview</div>
+          <div id="html-preview"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Send bar -->
+    <div class="send-bar">
+      <div class="send-bar-info" id="send-bar-info">
+        Ready to send.
+      </div>
+      <button class="btn-test" id="test-send-btn">Send Test</button>
+      <button class="btn-send" id="send-all-btn">Send to All</button>
+    </div>
+
+    <!-- History -->
+    <div class="history-section">
+      <div class="section-label">Send History</div>
+      <div id="history-container">
+        <div class="history-empty">Loading history…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Confirm modal ─────────────────────────────────────────── -->
+<div id="confirm-modal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h2>Send to all subscribers?</h2>
+    <p id="confirm-body">This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toast container ───────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+// ─── State ────────────────────────────────────────────────────
+let adminSecret = '';
+let subscriberCount = null;
+let previewDebounceTimer = null;
+
+// ─── Helpers ──────────────────────────────────────────────────
+function toast(message, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function formatDate(isoStr) {
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+// ─── Email HTML wrapper (matches server's wrapEmailHtml) ──────
+function wrapEmailHtml(bodyHtml) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paradox of Acceptance</title>
+</head>
+<body style="margin:0;padding:0;background:#faf8f4;font-family:Georgia,'Times New Roman',serif;">
+  <div style="max-width:640px;margin:0 auto;padding:48px 24px;color:#2c2c2c;font-size:18px;line-height:1.8;">
+    ${bodyHtml}
+    <hr style="margin:48px 0;border:none;border-top:1px solid #e2ddd6;" />
+    <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#999;line-height:1.5;">
+      You're receiving this because you subscribed to the Paradox of Acceptance newsletter.<br/>
+      <a href="{{unsubscribe}}" style="color:#7d8c6e;">Unsubscribe</a>
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Auth ─────────────────────────────────────────────────────
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadStats();
+  loadAnalyticsSummary();
+  loadHistory();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────
+async function loadStats() {
+  const { ok, data } = await apiRequest('/api/newsletter/stats');
+  const el = document.getElementById('subscriber-count');
+  if (ok) {
+    subscriberCount = data.subscriberCount;
+    el.textContent = `${subscriberCount} subscriber${subscriberCount !== 1 ? 's' : ''}`;
+    updateSendBarInfo();
+  } else {
+    el.textContent = 'Stats unavailable';
+  }
+}
+
+function updateSendBarInfo() {
+  const infoEl = document.getElementById('send-bar-info');
+  if (subscriberCount !== null) {
+    infoEl.textContent = `Sending to ${subscriberCount} subscriber${subscriberCount !== 1 ? 's' : ''}.`;
+  }
+}
+
+// ─── Preview ──────────────────────────────────────────────────
+document.getElementById('markdown-body').addEventListener('input', () => {
+  clearTimeout(previewDebounceTimer);
+  previewDebounceTimer = setTimeout(updatePreview, 250);
+});
+
+function updatePreview() {
+  const md = document.getElementById('markdown-body').value;
+  const preview = document.getElementById('html-preview');
+  if (!md.trim()) {
+    preview.innerHTML = '';
+    return;
+  }
+  preview.innerHTML = marked.parse(md);
+}
+
+// ─── Analytics summary ────────────────────────────────────────
+async function loadAnalyticsSummary() {
+  const { ok, data } = await apiRequest('/api/newsletter/analytics/summary');
+  if (!ok || !data.totalSends) return;
+
+  document.getElementById('analytics-bar').style.display = 'flex';
+  document.getElementById('ac-open-rate').textContent = data.avgOpenRate != null ? data.avgOpenRate + '%' : '—';
+  document.getElementById('ac-open-sub').textContent = `${(data.totalOpened || 0).toLocaleString()} total opens`;
+  document.getElementById('ac-click-rate').textContent = data.avgClickRate != null ? data.avgClickRate + '%' : '—';
+  document.getElementById('ac-click-sub').textContent = `${(data.totalClicked || 0).toLocaleString()} total clicks`;
+  document.getElementById('ac-bounced').textContent = (data.totalBounced || 0).toLocaleString();
+  document.getElementById('ac-bounced-sub').textContent = `across ${data.totalSends} send${data.totalSends !== 1 ? 's' : ''}`;
+}
+
+// ─── History ──────────────────────────────────────────────────
+async function loadHistory() {
+  const container = document.getElementById('history-container');
+  const { ok, data } = await apiRequest('/api/newsletter/sends');
+  if (!ok) {
+    container.innerHTML = '<div class="history-empty">Could not load history.</div>';
+    return;
+  }
+  const sends = data.sends || [];
+  if (sends.length === 0) {
+    container.innerHTML = '<div class="history-empty">No sends yet.</div>';
+    return;
+  }
+
+  // Fetch analytics for all sends in parallel
+  const analyticsMap = {};
+  await Promise.all(sends.map(async (s) => {
+    const { ok: aok, data: adata } = await apiRequest(`/api/newsletter/analytics?sendId=${s.id}`);
+    if (aok) analyticsMap[s.id] = adata;
+  }));
+
+  const rows = sends.map((s) => {
+    const a = analyticsMap[s.id];
+    const modeBadge = s.test_mode
+      ? '<span class="badge badge-test">Test</span>'
+      : '<span class="badge badge-live">Live</span>';
+    const statusBadge = s.status === 'sent'
+      ? '<span class="badge badge-sent">Sent</span>'
+      : '<span class="badge badge-failed">Failed</span>';
+    const recipients = s.test_mode ? '1 (test)' : (s.recipient_count ?? '—');
+    const openedPct = a && a.openRate != null ? a.openRate + '%' : '—';
+    const clickedPct = a && a.clickRate != null ? a.clickRate + '%' : '—';
+    const bounced = a ? (a.bounced ?? 0) : '—';
+    const detailsId = `details-${s.id}`;
+
+    return `<tr>
+      <td>${formatDate(s.sent_at)}</td>
+      <td>${escapeHtml(s.subject)}</td>
+      <td>${modeBadge}</td>
+      <td>${recipients}</td>
+      <td>${statusBadge}</td>
+      <td>${openedPct}</td>
+      <td>${clickedPct}</td>
+      <td>${bounced}</td>
+      <td><button class="btn-details" onclick="toggleDetails('${detailsId}', this)">▶ Details</button></td>
+    </tr>
+    <tr id="${detailsId}" class="details-row hidden">
+      <td colspan="9">
+        ${a ? renderAnalyticsDetail(a) : '<span style="color:#bbb;font-size:13px;">No analytics data yet.</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<table class="history-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Subject</th>
+        <th>Mode</th>
+        <th>Recipients</th>
+        <th>Status</th>
+        <th>Opened</th>
+        <th>Clicked</th>
+        <th>Bounced</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderAnalyticsDetail(a) {
+  const pct = (v) => v != null ? v + '%' : '—';
+  return `<div class="analytics-inline">
+    <div class="stat"><div class="stat-label">Sent</div><div class="stat-value">${(a.sent || 0).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Opened</div><div class="stat-value">${(a.opened || 0).toLocaleString()} <span style="color:#aaa;font-size:12px;">(${pct(a.openRate)})</span></div></div>
+    <div class="stat"><div class="stat-label">Clicked</div><div class="stat-value">${(a.clicked || 0).toLocaleString()} <span style="color:#aaa;font-size:12px;">(${pct(a.clickRate)})</span></div></div>
+    <div class="stat"><div class="stat-label">Bounced</div><div class="stat-value">${(a.bounced || 0).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Complained</div><div class="stat-value">${(a.complained || 0).toLocaleString()}</div></div>
+  </div>`;
+}
+
+function toggleDetails(id, btn) {
+  const row = document.getElementById(id);
+  const hidden = row.classList.toggle('hidden');
+  btn.textContent = hidden ? '▶ Details' : '▼ Details';
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Send actions ─────────────────────────────────────────────
+function getComposedHtml() {
+  const md = document.getElementById('markdown-body').value.trim();
+  if (!md) return null;
+  const bodyHtml = marked.parse(md);
+  return wrapEmailHtml(bodyHtml);
+}
+
+function validateCompose() {
+  const subject = document.getElementById('subject').value.trim();
+  const md = document.getElementById('markdown-body').value.trim();
+  if (!subject) { toast('Enter a subject line.', 'error'); return false; }
+  if (!md) { toast('Write some content before sending.', 'error'); return false; }
+  return true;
+}
+
+// Test send
+document.getElementById('test-send-btn').addEventListener('click', async () => {
+  if (!validateCompose()) return;
+  const btn = document.getElementById('test-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { ok, data } = await apiRequest('/api/newsletter/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: document.getElementById('subject').value.trim(),
+      htmlBody: getComposedHtml(),
+      testMode: true,
+    }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Send Test';
+
+  if (ok) {
+    toast(`Test sent to ${data.to || 'test address'}.`);
+    loadHistory();
+  } else {
+    toast(data.error || 'Test send failed.', 'error');
+  }
+});
+
+// Send to all — open modal
+document.getElementById('send-all-btn').addEventListener('click', () => {
+  if (!validateCompose()) return;
+  const subject = document.getElementById('subject').value.trim();
+  const count = subscriberCount !== null ? subscriberCount : '?';
+  document.getElementById('confirm-body').innerHTML =
+    `Send <strong>${escapeHtml(subject)}</strong> to <strong>${count} subscriber${count !== 1 ? 's' : ''}</strong>? This cannot be undone.`;
+  document.getElementById('confirm-modal').classList.remove('hidden');
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-modal').classList.add('hidden');
+});
+
+document.getElementById('confirm-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('confirm-modal')) {
+    document.getElementById('confirm-modal').classList.add('hidden');
+  }
+});
+
+document.getElementById('modal-confirm').addEventListener('click', async () => {
+  const confirmBtn = document.getElementById('modal-confirm');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Sending…';
+
+  const { ok, data } = await apiRequest('/api/newsletter/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: document.getElementById('subject').value.trim(),
+      htmlBody: getComposedHtml(),
+      testMode: false,
+    }),
+  });
+
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = 'Send';
+  document.getElementById('confirm-modal').classList.add('hidden');
+
+  if (ok) {
+    toast(`Sent to ${data.sent ?? data.recipientCount ?? '?'} subscribers.`);
+    loadHistory();
+    loadStats();
+  } else {
+    toast(data.error || 'Broadcast failed.', 'error');
+  }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>

@@ -9,11 +9,14 @@
  *   npm run server
  *
  * Endpoints:
- *   POST /send        — send newsletter (test or full list)
- *   GET  /health      — health check
- *   GET  /status/:id  — check broadcast status
+ *   POST /send                — send newsletter (test or full list) — legacy
+ *   POST /api/newsletter/send — send newsletter (admin, with send log)
+ *   GET  /health              — health check
+ *   GET  /status/:id          — check broadcast status
  *
- * Auth: X-Api-Key header required on all /send endpoints.
+ * Auth:
+ *   /send endpoints use X-Api-Key header
+ *   /api/newsletter/send uses X-Admin-Secret header
  *
  * IMPORTANT: Full-list sends are blocked unless ALLOW_FULL_LIST_SEND=true.
  *            Nick must explicitly approve before setting this.
@@ -24,6 +27,7 @@ import { Resend } from "resend";
 import { marked } from "marked";
 import * as cheerio from "cheerio";
 import { createHmac, timingSafeEqual } from "crypto";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -35,10 +39,20 @@ const RESEND_AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID;
 const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO;
 const SEND_API_KEY = process.env.SEND_API_KEY;
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+const TEST_EMAIL = process.env.TEST_EMAIL;
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET;
 const SERVER_URL = (process.env.SERVER_URL ?? "https://paradoxofacceptance.xyz").replace(/\/$/, "");
 const ALLOW_FULL_LIST_SEND = process.env.ALLOW_FULL_LIST_SEND === "true";
 const PORT = parseInt(process.env.PORT || "3200", 10);
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
+
+// ─── Supabase (optional — for send log) ──────────────────────────────────────
+
+let supabase: SupabaseClient | null = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 // Validate required config at startup
 function validateConfig() {
@@ -56,6 +70,15 @@ function validateConfig() {
   }
   if (!process.env.SERVER_URL) {
     console.warn("⚠️  SERVER_URL not set — unsubscribe links in welcome emails will use https://paradoxofacceptance.xyz");
+  }
+  if (!ADMIN_SECRET) {
+    console.warn("⚠️  ADMIN_SECRET not set — POST /api/newsletter/send will be disabled");
+  }
+  if (!supabase) {
+    console.warn("⚠️  SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set — send log will not be persisted");
+  }
+  if (!RESEND_WEBHOOK_SECRET) {
+    console.warn("⚠️  RESEND_WEBHOOK_SECRET not set — webhook signature validation is disabled (dev/test only)");
   }
 }
 
@@ -89,10 +112,45 @@ function verifyUnsubscribeToken(token: string): string | null {
   return email;
 }
 
+// ─── Resend webhook signature verification ───────────────────────────────────
+
+/**
+ * Verify the svix-signature header on incoming Resend webhook requests.
+ * Returns true if valid (or if RESEND_WEBHOOK_SECRET is not set — dev/test mode).
+ * Always returns false if the secret is set but the signature is missing or wrong.
+ */
+function verifyResendWebhookSignature(rawBody: string, headers: Record<string, string | string[] | undefined>): boolean {
+  if (!RESEND_WEBHOOK_SECRET) return true; // Allow unsigned in dev/test
+
+  const svixId = String(headers["svix-id"] ?? "");
+  const svixTs = String(headers["svix-timestamp"] ?? "");
+  const svixSig = String(headers["svix-signature"] ?? "");
+  if (!svixId || !svixTs || !svixSig) return false;
+
+  const toSign = `${svixId}.${svixTs}.${rawBody}`;
+
+  // Resend signing secrets are prefixed "whsec_" — the actual key is base64-decoded bytes after the prefix
+  const secretBytes = RESEND_WEBHOOK_SECRET.startsWith("whsec_")
+    ? Buffer.from(RESEND_WEBHOOK_SECRET.slice("whsec_".length), "base64")
+    : Buffer.from(RESEND_WEBHOOK_SECRET);
+
+  const expected = createHmac("sha256", secretBytes).update(toSign).digest("base64");
+
+  // svix-signature header is space-separated "v1,<base64sig>" values
+  return svixSig.split(" ").some((s) => s.replace(/^v\d+,/, "") === expected);
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+
+// Capture raw body for webhook signature verification
+app.use(express.json({
+  limit: "2mb",
+  verify: (_req, _res, buf) => {
+    (_req as any).rawBody = buf.toString("utf8");
+  },
+}));
 
 // Request logger
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -112,6 +170,56 @@ function requireApiKey(req: Request, res: Response, next: NextFunction) {
     return;
   }
   next();
+}
+
+function requireAdminSecret(req: Request, res: Response, next: NextFunction) {
+  if (!ADMIN_SECRET) {
+    res.status(503).json({ error: "ADMIN_SECRET not configured — endpoint unavailable" });
+    return;
+  }
+  const secret = req.headers["x-admin-secret"];
+  if (!secret || secret !== ADMIN_SECRET) {
+    res.status(401).json({ error: "Unauthorized — invalid or missing X-Admin-Secret header" });
+    return;
+  }
+  next();
+}
+
+// ─── Send log ─────────────────────────────────────────────────────────────────
+
+type SendLogEntry = {
+  subject: string;
+  sentAt: Date;
+  recipientCount: number;
+  testMode: boolean;
+  broadcastId?: string;
+  emailId?: string;
+  status: "sent" | "failed";
+  error?: string;
+};
+
+async function logSend(entry: SendLogEntry): Promise<void> {
+  console.log(`[send-log] subject="${entry.subject}" mode=${entry.testMode ? "test" : "live"} recipients=${entry.recipientCount} status=${entry.status}`);
+
+  if (!supabase) {
+    console.warn("[send-log] Supabase not configured — skipping DB write");
+    return;
+  }
+
+  const { error } = await supabase.from("newsletter_sends").insert({
+    subject: entry.subject,
+    sent_at: entry.sentAt.toISOString(),
+    recipient_count: entry.recipientCount,
+    test_mode: entry.testMode,
+    broadcast_id: entry.broadcastId ?? null,
+    email_id: entry.emailId ?? null,
+    status: entry.status,
+    error: entry.error ?? null,
+  });
+
+  if (error) {
+    console.error("[send-log] Failed to write to newsletter_sends:", error);
+  }
 }
 
 // ─── Content fetching ─────────────────────────────────────────────────────────
@@ -539,6 +647,612 @@ app.get("/status/:broadcastId", requireApiKey, async (req: Request, res: Respons
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+// ─── POST /api/newsletter/send ────────────────────────────────────────────────
+
+/**
+ * Fetch all subscribed contacts from the Resend audience.
+ * Handles pagination automatically.
+ */
+async function fetchAllAudienceContacts(resend: Resend): Promise<Array<{ email: string; firstName?: string }>> {
+  // Resend's contacts.list doesn't paginate the same way for large audiences;
+  // we fetch the full list and filter to subscribed contacts only.
+  const { data, error } = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID! });
+  if (error || !data?.data) {
+    throw new Error(`Failed to fetch audience contacts: ${JSON.stringify(error)}`);
+  }
+  return (data.data as Array<{ email: string; firstName?: string; unsubscribed: boolean }>)
+    .filter((c) => !c.unsubscribed)
+    .map((c) => ({ email: c.email, firstName: c.firstName }));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Send emails in batches of up to 100 via resend.batch.send().
+ * Each recipient gets an individually addressed email with their own unsubscribe link.
+ * Returns total sent count and error count.
+ */
+async function sendBatched(
+  resend: Resend,
+  contacts: Array<{ email: string; firstName?: string }>,
+  opts: { subject: string; html: string; text?: string }
+): Promise<{ sent: number; errors: number }> {
+  const BATCH_SIZE = 100;
+  const DELAY_MS = 500;
+  let sent = 0;
+  let errors = 0;
+
+  for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
+    const batch = contacts.slice(i, i + BATCH_SIZE);
+
+    const emails = batch.map((contact) => {
+      const token = generateUnsubscribeToken(contact.email);
+      const unsubscribeUrl = `${SERVER_URL}/api/unsubscribe?token=${token}`;
+      const personalizedHtml = opts.html.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
+
+      return {
+        from: EMAIL_FROM!,
+        to: contact.email,
+        replyTo: EMAIL_REPLY_TO || undefined,
+        subject: opts.subject,
+        html: personalizedHtml,
+        text: opts.text,
+      };
+    });
+
+    try {
+      const { data, error } = await resend.batch.send(emails as any);
+      if (error) {
+        console.error(`[batch] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, error);
+        errors += batch.length;
+      } else {
+        const batchSent = Array.isArray(data) ? data.length : batch.length;
+        sent += batchSent;
+        console.log(`[batch] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(contacts.length / BATCH_SIZE)} — sent ${batchSent}`);
+      }
+    } catch (err) {
+      console.error(`[batch] Batch ${Math.floor(i / BATCH_SIZE) + 1} threw:`, err);
+      errors += batch.length;
+    }
+
+    // Delay between batches (skip after the last batch)
+    if (i + BATCH_SIZE < contacts.length) {
+      await sleep(DELAY_MS);
+    }
+  }
+
+  return { sent, errors };
+}
+
+/**
+ * POST /api/newsletter/send
+ *
+ * Admin-only endpoint for broadcasting newsletters.
+ * Auth: X-Admin-Secret header must match ADMIN_SECRET env var.
+ *
+ * Body (JSON):
+ *   subject    {string}   — Email subject line (required)
+ *   htmlBody   {string}   — Full HTML content (required)
+ *   textBody   {string}   — Plain text fallback (optional)
+ *   testMode   {boolean}  — If true, sends to TEST_EMAIL only (default: false)
+ *
+ * Use {{unsubscribe}} in htmlBody — it will be replaced with each recipient's
+ * HMAC-signed unsubscribe URL.
+ *
+ * Full-list sends require ALLOW_FULL_LIST_SEND=true in .env.
+ */
+app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: Response) => {
+  const { subject, htmlBody, textBody, testMode } = req.body as {
+    subject?: string;
+    htmlBody?: string;
+    textBody?: string;
+    testMode?: boolean;
+  };
+
+  if (!subject?.trim()) {
+    res.status(400).json({ error: "subject is required" });
+    return;
+  }
+  if (!htmlBody?.trim()) {
+    res.status(400).json({ error: "htmlBody is required" });
+    return;
+  }
+
+  const isTestMode = testMode === true;
+
+  if (!isTestMode && !ALLOW_FULL_LIST_SEND) {
+    res.status(403).json({
+      error: "Full-list send is blocked. Set ALLOW_FULL_LIST_SEND=true in .env after Nick approves.",
+    });
+    return;
+  }
+
+  if (isTestMode && !TEST_EMAIL) {
+    res.status(500).json({ error: "TEST_EMAIL env var is not configured" });
+    return;
+  }
+
+  const resend = new Resend(RESEND_API_KEY!);
+
+  // ── Test mode ────────────────────────────────────────────────────────────────
+  if (isTestMode) {
+    const token = generateUnsubscribeToken(TEST_EMAIL!);
+    const unsubscribeUrl = `${SERVER_URL}/api/unsubscribe?token=${token}`;
+    const html = htmlBody.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
+
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_FROM!,
+      to: TEST_EMAIL!,
+      replyTo: EMAIL_REPLY_TO || undefined,
+      subject: `[TEST] ${subject}`,
+      html,
+      text: textBody,
+    });
+
+    const logEntry: SendLogEntry = {
+      subject,
+      sentAt: new Date(),
+      recipientCount: 1,
+      testMode: true,
+      status: error ? "failed" : "sent",
+      emailId: data?.id,
+      error: error ? JSON.stringify(error) : undefined,
+    };
+    await logSend(logEntry);
+
+    if (error || !data) {
+      res.status(500).json({ error: "Test send failed", detail: error });
+      return;
+    }
+
+    res.json({ status: "sent", mode: "test", emailId: data.id, to: TEST_EMAIL, subject });
+    return;
+  }
+
+  // ── Live mode — batch send to full audience ───────────────────────────────
+  let contacts: Array<{ email: string; firstName?: string }>;
+  try {
+    contacts = await fetchAllAudienceContacts(resend);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[newsletter/send] Failed to fetch contacts:", msg);
+    res.status(500).json({ error: "Failed to fetch audience contacts", detail: msg });
+    return;
+  }
+
+  console.log(`[newsletter/send] Starting broadcast to ${contacts.length} subscribers — "${subject}"`);
+
+  const { sent, errors } = await sendBatched(resend, contacts, {
+    subject,
+    html: htmlBody,
+    text: textBody,
+  });
+
+  const logEntry: SendLogEntry = {
+    subject,
+    sentAt: new Date(),
+    recipientCount: sent,
+    testMode: false,
+    status: errors === contacts.length ? "failed" : "sent",
+    error: errors > 0 ? `${errors} batches failed out of ${contacts.length} recipients` : undefined,
+  };
+  await logSend(logEntry);
+
+  console.log(`[newsletter/send] Done — sent: ${sent}, errors: ${errors}`);
+  res.json({
+    status: errors === contacts.length ? "failed" : "sent",
+    mode: "broadcast",
+    subject,
+    recipientCount: contacts.length,
+    sent,
+    errors,
+  });
+});
+
+// ─── GET /api/newsletter/stats ────────────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/stats
+ *
+ * Returns subscriber count from the Resend audience.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/newsletter/stats", requireAdminSecret, async (_req: Request, res: Response) => {
+  const resend = new Resend(RESEND_API_KEY!);
+  const { data, error } = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID! });
+  if (error || !data?.data) {
+    res.status(500).json({ error: "Failed to fetch subscribers", detail: error });
+    return;
+  }
+
+  type Contact = { unsubscribed: boolean; createdAt?: string; email?: string };
+  const contacts = data.data as Contact[];
+  const active = contacts.filter((c) => !c.unsubscribed);
+  const now = Date.now();
+  const day7 = now - 7 * 24 * 60 * 60 * 1000;
+  const day30 = now - 30 * 24 * 60 * 60 * 1000;
+
+  const newLast7Days = active.filter((c) => c.createdAt && new Date(c.createdAt).getTime() >= day7).length;
+  const newLast30Days = active.filter((c) => c.createdAt && new Date(c.createdAt).getTime() >= day30).length;
+
+  res.json({ subscriberCount: active.length, newLast7Days, newLast30Days });
+});
+
+// ─── GET /api/newsletter/subscribers ─────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/subscribers
+ *
+ * Returns the 20 most recently added subscribers with masked email and date.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/newsletter/subscribers", requireAdminSecret, async (_req: Request, res: Response) => {
+  const resend = new Resend(RESEND_API_KEY!);
+  const { data, error } = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID! });
+  if (error || !data?.data) {
+    res.status(500).json({ error: "Failed to fetch subscribers", detail: error });
+    return;
+  }
+
+  type Contact = { unsubscribed: boolean; createdAt?: string; email?: string };
+  const contacts = (data.data as Contact[]).filter((c) => !c.unsubscribed);
+
+  contacts.sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  const recent = contacts.slice(0, 20).map((c) => {
+    let masked = "***";
+    if (c.email) {
+      const atIdx = c.email.lastIndexOf("@");
+      const local = atIdx > -1 ? c.email.slice(0, atIdx) : c.email;
+      const domain = atIdx > -1 ? c.email.slice(atIdx + 1) : "";
+      const prefix = local.length > 2 ? local.slice(0, 2) + "***" : local[0] + "***";
+      masked = domain ? `${prefix}@${domain}` : prefix;
+    }
+    return { email: masked, subscribedAt: c.createdAt ?? null };
+  });
+
+  res.json({ subscribers: recent });
+});
+
+// ─── GET /api/newsletter/sends ────────────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/sends
+ *
+ * Returns the 20 most recent entries from newsletter_sends (Supabase).
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/newsletter/sends", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured — send history unavailable" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("newsletter_sends")
+    .select("id, subject, sent_at, recipient_count, test_mode, broadcast_id, status, error")
+    .order("sent_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch send history", detail: error });
+    return;
+  }
+  res.json({ sends: data ?? [] });
+});
+
+// ─── POST /api/track-view ─────────────────────────────────────────────────────
+
+/**
+ * POST /api/track-view
+ *
+ * Increments the page view counter for an essay slug.
+ * Body: { slug: string }
+ * No auth required — called from public essay pages.
+ * Persists to Supabase page_views table if configured; falls back to in-memory.
+ */
+
+// In-memory fallback store (resets on server restart)
+const pageViewsMemory = new Map<string, number>();
+
+// CORS pre-flight for track-view (called from the static site)
+app.options("/api/track-view", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.post("/api/track-view", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  const { slug } = req.body ?? {};
+  if (!slug || typeof slug !== "string" || !/^[a-z0-9-]+$/.test(slug)) {
+    res.status(400).json({ error: "Invalid or missing slug" });
+    return;
+  }
+
+  if (supabase) {
+    const { error } = await supabase.rpc("increment_page_view", { p_slug: slug });
+    if (error) {
+      console.error("[track-view] Supabase error:", error);
+      // Fall through to in-memory on failure
+      pageViewsMemory.set(slug, (pageViewsMemory.get(slug) ?? 0) + 1);
+    }
+  } else {
+    pageViewsMemory.set(slug, (pageViewsMemory.get(slug) ?? 0) + 1);
+  }
+
+  res.json({ ok: true });
+});
+
+// ─── GET /api/essays/stats ────────────────────────────────────────────────────
+
+/**
+ * GET /api/essays/stats
+ *
+ * Returns a list of essays with their page view counts, sorted by views desc.
+ * Auth: X-Admin-Secret header.
+ */
+
+const ESSAYS = [
+  { slug: "paradox-of-acceptance", title: "The Paradox of Acceptance", path: "/mindfulness-essays/paradox-of-acceptance/" },
+  { slug: "should-you-get-into-mindfulness", title: "Should You Get Into Mindfulness?", path: "/mindfulness-essays/should-you-get-into-mindfulness/" },
+  { slug: "the-avoidance-problem", title: "The Avoidance Problem", path: "/mindfulness-essays/the-avoidance-problem/" },
+  { slug: "the-cherry-picking-problem", title: "The Cherry-Picking Problem", path: "/mindfulness-essays/the-cherry-picking-problem/" },
+  { slug: "when-to-quit", title: "When to Quit", path: "/mindfulness-essays/when-to-quit/" },
+];
+
+app.get("/api/essays/stats", requireAdminSecret, async (_req: Request, res: Response) => {
+  let viewsMap: Record<string, number> = {};
+
+  if (supabase) {
+    const slugs = ESSAYS.map((e) => e.slug);
+    const { data, error } = await supabase
+      .from("page_views")
+      .select("slug, views")
+      .in("slug", slugs);
+    if (!error && data) {
+      for (const row of data as Array<{ slug: string; views: number }>) {
+        viewsMap[row.slug] = row.views;
+      }
+    }
+  } else {
+    for (const [slug, views] of pageViewsMemory) {
+      viewsMap[slug] = views;
+    }
+  }
+
+  const essays = ESSAYS.map((e) => ({ ...e, views: viewsMap[e.slug] ?? 0 }));
+  essays.sort((a, b) => b.views - a.views);
+
+  res.json({ essays });
+});
+
+// ─── POST /api/webhooks/resend ────────────────────────────────────────────────
+
+/**
+ * POST /api/webhooks/resend
+ *
+ * Receives Resend email webhook events and persists them to the email_events table.
+ * Handles: email.opened, email.clicked, email.bounced, email.complained.
+ *
+ * Validates the svix-signature header when RESEND_WEBHOOK_SECRET is configured.
+ * Returns 401 for unsigned requests if the secret is set.
+ *
+ * No auth key required — this endpoint is called by Resend's infrastructure.
+ */
+const TRACKED_EVENT_TYPES = new Set(["email.opened", "email.clicked", "email.bounced", "email.complained"]);
+
+app.post("/api/webhooks/resend", async (req: Request, res: Response) => {
+  const rawBody: string = (req as any).rawBody ?? JSON.stringify(req.body);
+
+  if (!verifyResendWebhookSignature(rawBody, req.headers as Record<string, string | string[] | undefined>)) {
+    console.warn("[webhook/resend] Rejected — invalid svix signature");
+    res.status(401).json({ error: "Invalid webhook signature" });
+    return;
+  }
+
+  const payload = req.body as Record<string, unknown>;
+  const eventType = String(payload.type ?? "");
+  const data = (payload.data as Record<string, unknown>) ?? {};
+
+  if (!TRACKED_EVENT_TYPES.has(eventType)) {
+    res.json({ received: true, ignored: true });
+    return;
+  }
+
+  const emailId = String(data.email_id ?? "") || null;
+  const toField = data.to;
+  const recipientEmail = Array.isArray(toField) ? String(toField[0]) : (toField ? String(toField) : null);
+  const occurredAt = String(data.created_at ?? payload.created_at ?? new Date().toISOString());
+
+  if (!supabase) {
+    console.warn("[webhook/resend] Supabase not configured — event not stored");
+    res.json({ received: true });
+    return;
+  }
+
+  // Attempt to link this event to a newsletter_sends record
+  let sendId: string | null = null;
+
+  if (emailId) {
+    // Test sends: newsletter_sends.email_id matches Resend's email_id
+    const { data: bySingle } = await supabase
+      .from("newsletter_sends")
+      .select("id")
+      .eq("email_id", emailId)
+      .limit(1);
+    if (bySingle && bySingle.length > 0) sendId = bySingle[0].id;
+  }
+
+  if (!sendId) {
+    // Broadcast sends: look for broadcast_id in Resend tags
+    const tags = (data.tags as Record<string, string>) ?? {};
+    const broadcastId = tags.broadcast_id ?? null;
+    if (broadcastId) {
+      const { data: byBroadcast } = await supabase
+        .from("newsletter_sends")
+        .select("id")
+        .eq("broadcast_id", broadcastId)
+        .limit(1);
+      if (byBroadcast && byBroadcast.length > 0) sendId = byBroadcast[0].id;
+    }
+  }
+
+  const { error } = await supabase.from("email_events").insert({
+    send_id: sendId,
+    email_id: emailId,
+    type: eventType,
+    recipient_email: recipientEmail,
+    metadata: data,
+    created_at: occurredAt,
+  });
+
+  if (error) {
+    console.error("[webhook/resend] Failed to store event:", error);
+    res.status(500).json({ error: "Failed to store event" });
+    return;
+  }
+
+  console.log(`[webhook/resend] ${eventType} stored — send=${sendId ?? "unlinked"}`);
+  res.json({ received: true });
+});
+
+// ─── GET /api/newsletter/analytics ───────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/analytics?sendId=<id>
+ *
+ * Returns open/click/bounce/complaint counts and rates for a specific newsletter send.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/newsletter/analytics", requireAdminSecret, async (req: Request, res: Response) => {
+  const { sendId } = req.query as { sendId?: string };
+
+  if (!sendId) {
+    res.status(400).json({ error: "sendId query param is required" });
+    return;
+  }
+
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { data: send, error: sendError } = await supabase
+    .from("newsletter_sends")
+    .select("id, recipient_count, test_mode")
+    .eq("id", sendId)
+    .single();
+
+  if (sendError || !send) {
+    res.status(404).json({ error: "Send not found" });
+    return;
+  }
+
+  const { data: events, error: eventsError } = await supabase
+    .from("email_events")
+    .select("type")
+    .eq("send_id", sendId);
+
+  if (eventsError) {
+    res.status(500).json({ error: "Failed to fetch events", detail: eventsError });
+    return;
+  }
+
+  const counts: Record<string, number> = {};
+  for (const ev of events ?? []) {
+    counts[ev.type] = (counts[ev.type] ?? 0) + 1;
+  }
+
+  const sent = send.recipient_count ?? 0;
+  const opened = counts["email.opened"] ?? 0;
+  const clicked = counts["email.clicked"] ?? 0;
+  const bounced = counts["email.bounced"] ?? 0;
+  const complained = counts["email.complained"] ?? 0;
+
+  res.json({
+    sendId,
+    sent,
+    opened,
+    openRate: sent > 0 ? parseFloat(((opened / sent) * 100).toFixed(1)) : null,
+    clicked,
+    clickRate: sent > 0 ? parseFloat(((clicked / sent) * 100).toFixed(1)) : null,
+    bounced,
+    complained,
+  });
+});
+
+// ─── GET /api/newsletter/analytics/summary ────────────────────────────────────
+
+/**
+ * GET /api/newsletter/analytics/summary
+ *
+ * Returns aggregate open/click rates across all live sends.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/newsletter/analytics/summary", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { data: sends, error: sendsError } = await supabase
+    .from("newsletter_sends")
+    .select("id, recipient_count")
+    .eq("test_mode", false)
+    .eq("status", "sent");
+
+  if (sendsError) {
+    res.status(500).json({ error: "Failed to fetch send data", detail: sendsError });
+    return;
+  }
+
+  const liveIds = (sends ?? []).map((s) => s.id);
+  const totalSent = (sends ?? []).reduce((sum, s) => sum + (s.recipient_count ?? 0), 0);
+
+  if (liveIds.length === 0) {
+    res.json({ totalSends: 0, totalSent: 0, avgOpenRate: null, avgClickRate: null, totalOpened: 0, totalClicked: 0, totalBounced: 0, totalComplained: 0 });
+    return;
+  }
+
+  const { data: events, error: eventsError } = await supabase
+    .from("email_events")
+    .select("type")
+    .in("send_id", liveIds);
+
+  if (eventsError) {
+    res.status(500).json({ error: "Failed to fetch events", detail: eventsError });
+    return;
+  }
+
+  const counts: Record<string, number> = {};
+  for (const ev of events ?? []) {
+    counts[ev.type] = (counts[ev.type] ?? 0) + 1;
+  }
+
+  const totalOpened = counts["email.opened"] ?? 0;
+  const totalClicked = counts["email.clicked"] ?? 0;
+  const totalBounced = counts["email.bounced"] ?? 0;
+  const totalComplained = counts["email.complained"] ?? 0;
+
+  res.json({
+    totalSends: liveIds.length,
+    totalSent,
+    totalOpened,
+    totalClicked,
+    totalBounced,
+    totalComplained,
+    avgOpenRate: totalSent > 0 ? parseFloat(((totalOpened / totalSent) * 100).toFixed(1)) : null,
+    avgClickRate: totalSent > 0 ? parseFloat(((totalClicked / totalSent) * 100).toFixed(1)) : null,
+  });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
