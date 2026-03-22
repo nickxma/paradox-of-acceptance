@@ -42,6 +42,8 @@
       .then(function () {
         localStorage.setItem('poa_subscribed', 'true');
         localStorage.setItem('poa_course_unlocked', 'true');
+        window.plausible && window.plausible('Subscribe');
+        window.plausible && window.plausible('CourseUnlock');
         document.documentElement.classList.remove('poa-gated');
         gate.style.display = 'none';
       })

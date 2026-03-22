@@ -180,6 +180,7 @@
     <!-- Sentry error monitoring (https://sentry.io) -->
     <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
     <script src="/shared/sentry-init.js"></script>
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 
@@ -394,6 +395,7 @@
         msg.textContent = 'Something went wrong. Try again.'; msg.className = 'error';
       } else {
         localStorage.setItem('poa_subscribed', 'true');
+        window.plausible && window.plausible('Subscribe');
         msg.textContent = "You\u2019re in. Welcome.";
         document.getElementById('poa-modal-email').value = '';
         setTimeout(function() { hideModal(false); }, 1800);
@@ -403,5 +405,30 @@
 })();
 </script>
 
+<script>
+(function() {
+  var slug = location.pathname.replace(/^\/mindfulness-essays\//, '').replace(/\/$/, '');
+  if (!slug) return;
+  fetch('https://paradoxofacceptance.xyz/api/track-view', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug: slug }),
+    keepalive: true
+  }).catch(function() {});
+})();
+</script>
+<script>
+(function() {
+  var essayReadFired = false;
+  window.addEventListener('scroll', function() {
+    if (essayReadFired) return;
+    var total = document.body.scrollHeight - window.innerHeight;
+    if (total > 0 && window.scrollY / total >= 0.8) {
+      essayReadFired = true;
+      window.plausible && window.plausible('EssayRead');
+    }
+  }, { passive: true });
+})();
+</script>
 </body>
 </html>
