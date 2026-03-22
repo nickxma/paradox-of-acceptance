@@ -62,6 +62,8 @@ const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
 const TWITTER_ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN;
 const TWITTER_ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET;
 const SITE_URL_SOCIAL = "https://paradoxofacceptance.xyz";
+const GOOGLE_SEARCH_CONSOLE_SITE_TOKEN = process.env.GOOGLE_SEARCH_CONSOLE_SITE_TOKEN;
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL;
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
 
@@ -2886,6 +2888,106 @@ app.post("/api/admin/essays/:slug/versions/:versionId/revert", requireAdminSecre
 
   res.json({ essay: updated, reverted_to: targetVersion.created_at });
 });
+
+// ─── POST /api/admin/essays/:slug/ping-search-engines ─────────────────────────
+
+/**
+ * POST /api/admin/essays/:slug/ping-search-engines
+ *
+ * Manually triggers a search engine ping for the given essay.
+ * Notifies Google and Bing of the updated sitemap, and optionally calls
+ * the Google Indexing API to request immediate re-crawl of the essay URL.
+ *
+ * Auth: X-Admin-Secret header.
+ *
+ * Response:
+ *   { ok: true, pings: [{ engine, url, status_code }] }
+ */
+app.options("/api/admin/essays/:slug/ping-search-engines", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", SERVER_URL);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Secret");
+  res.sendStatus(204);
+});
+
+app.post(
+  "/api/admin/essays/:slug/ping-search-engines",
+  requireAdminSecret,
+  async (req: Request, res: Response) => {
+    const { slug } = req.params;
+
+    // Look up the essay path from Supabase
+    const { data: essay, error } = await supabase
+      .from("essays")
+      .select("slug, path, deployed_at")
+      .eq("slug", slug)
+      .single();
+
+    if (error || !essay) {
+      res.status(404).json({ error: "Essay not found" });
+      return;
+    }
+
+    if (!essay.deployed_at) {
+      res.status(422).json({ error: "Essay has not been deployed yet — deploy before pinging" });
+      return;
+    }
+
+    const SITE_URL = "https://paradoxofacceptance.xyz";
+    const sitemapUrl = `${SITE_URL}/sitemap.xml`;
+    const encodedSitemap = encodeURIComponent(sitemapUrl);
+    const essayUrl = `${SITE_URL}${essay.path}`;
+
+    type PingResult = { engine: string; url: string; status_code: number | null };
+    const results: PingResult[] = [];
+
+    async function pingGet(url: string): Promise<number | null> {
+      try {
+        const r = await fetch(url, { method: "GET" });
+        return r.status;
+      } catch {
+        return null;
+      }
+    }
+
+    // Google sitemap ping
+    const googleUrl = `https://www.google.com/ping?sitemap=${encodedSitemap}`;
+    results.push({ engine: "google", url: googleUrl, status_code: await pingGet(googleUrl) });
+
+    // Bing sitemap ping
+    const bingUrl = `https://www.bing.com/ping?sitemap=${encodedSitemap}`;
+    results.push({ engine: "bing", url: bingUrl, status_code: await pingGet(bingUrl) });
+
+    // Google Indexing API (optional)
+    if (GOOGLE_SEARCH_CONSOLE_SITE_TOKEN) {
+      let indexingStatus: number | null = null;
+      try {
+        const r = await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GOOGLE_SEARCH_CONSOLE_SITE_TOKEN}`,
+          },
+          body: JSON.stringify({ url: essayUrl, type: "URL_UPDATED" }),
+        });
+        indexingStatus = r.status;
+      } catch (err) {
+        console.error("[ping-search-engines] Google Indexing API error:", err);
+      }
+      results.push({ engine: "google_indexing", url: essayUrl, status_code: indexingStatus });
+    }
+
+    // Log outcomes to sitemap_pings
+    const now = new Date().toISOString();
+    await supabase.from("sitemap_pings").insert(
+      results.map((r) => ({ url: r.url, engine: r.engine, status_code: r.status_code, pinged_at: now })),
+    );
+
+    console.log(`[ping-search-engines] ${slug}:`, results.map((r) => `${r.engine}=${r.status_code}`).join(", "));
+
+    res.json({ ok: true, pings: results });
+  },
+);
 
 // ─── Email preference center ──────────────────────────────────────────────────
 
@@ -5763,6 +5865,344 @@ app.post("/api/social/tweet", requireAdminSecret, async (req: Request, res: Resp
 
     return res.status(500).json({ error: errMsg });
   }
+});
+
+// ─── Guest Essay Submissions ──────────────────────────────────────────────────
+
+/**
+ * POST /api/submissions
+ *
+ * Public — allows readers to submit essay drafts for consideration.
+ *
+ * Body: { name, email, title, content (markdown), bio? }
+ *
+ * - Rate limited to 1 submission per email per 7 days (checked via Supabase).
+ * - Saves to essay_submissions table with status "pending".
+ * - Sends confirmation email to submitter (gated on RESEND_API_KEY).
+ * - Notifies ADMIN_NOTIFY_EMAIL of new submission (gated on RESEND_API_KEY + ADMIN_NOTIFY_EMAIL).
+ */
+app.options("/api/submissions", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.post("/api/submissions", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { name, email, title, content, bio } = req.body as {
+    name?: string;
+    email?: string;
+    title?: string;
+    content?: string;
+    bio?: string;
+  };
+
+  // Validate required fields
+  if (!name || typeof name !== "string" || !name.trim()) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    res.status(400).json({ error: "A valid email is required" });
+    return;
+  }
+  if (!title || typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" });
+    return;
+  }
+  if (!content || typeof content !== "string" || content.trim().length < 100) {
+    res.status(400).json({ error: "content is required and must be at least 100 characters" });
+    return;
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Rate limit: 1 submission per email per 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentSubmission, error: rateCheckError } = await supabase
+    .from("essay_submissions")
+    .select("id, submitted_at")
+    .eq("email", normalizedEmail)
+    .gte("submitted_at", sevenDaysAgo)
+    .maybeSingle();
+
+  if (rateCheckError) {
+    console.error("[submissions] rate-limit check error:", rateCheckError);
+    res.status(500).json({ error: "Submission failed — please try again later" });
+    return;
+  }
+
+  if (recentSubmission) {
+    res.status(429).json({
+      error: "You have already submitted an essay in the past 7 days. Please wait before submitting again.",
+    });
+    return;
+  }
+
+  // Insert submission
+  const { data: submission, error: insertError } = await supabase
+    .from("essay_submissions")
+    .insert({
+      name: name.trim(),
+      email: normalizedEmail,
+      title: title.trim(),
+      content: content.trim(),
+      bio: bio?.trim() ?? null,
+      status: "pending",
+    })
+    .select("id, submitted_at")
+    .single();
+
+  if (insertError) {
+    console.error("[submissions] insert error:", insertError);
+    res.status(500).json({ error: "Submission failed — please try again later" });
+    return;
+  }
+
+  console.log(`[submissions] New submission from ${normalizedEmail}: "${title.trim()}" (id: ${submission.id})`);
+
+  // Send emails non-blocking
+  if (RESEND_API_KEY && EMAIL_FROM) {
+    const resend = new Resend(RESEND_API_KEY);
+
+    // Confirmation email to submitter
+    resend.emails.send({
+      from: EMAIL_FROM,
+      to: normalizedEmail,
+      subject: "We received your essay submission",
+      html: `
+        <p>Hi ${name.trim()},</p>
+        <p>Thanks for submitting <strong>${title.trim()}</strong> to Paradox of Acceptance.</p>
+        <p>We review all submissions personally and will get back to you if it's a good fit. This can take a few weeks.</p>
+        <p>— Nick</p>
+      `.trim(),
+    }).catch((err: unknown) => {
+      console.error(`[submissions] confirmation email error for ${normalizedEmail}:`, err);
+    });
+
+    // Admin notification email to Nick
+    if (ADMIN_NOTIFY_EMAIL) {
+      resend.emails.send({
+        from: EMAIL_FROM,
+        to: ADMIN_NOTIFY_EMAIL,
+        subject: `New essay submission: "${title.trim()}"`,
+        html: `
+          <p>A new essay has been submitted for review.</p>
+          <ul>
+            <li><strong>Name:</strong> ${name.trim()}</li>
+            <li><strong>Email:</strong> ${normalizedEmail}</li>
+            <li><strong>Title:</strong> ${title.trim()}</li>
+            ${bio ? `<li><strong>Bio:</strong> ${bio.trim()}</li>` : ""}
+            <li><strong>Submission ID:</strong> ${submission.id}</li>
+          </ul>
+          <p><strong>Content preview:</strong></p>
+          <pre style="white-space:pre-wrap;font-family:inherit">${content.trim().slice(0, 500)}${content.trim().length > 500 ? "…" : ""}</pre>
+        `.trim(),
+      }).catch((err: unknown) => {
+        console.error(`[submissions] admin notification email error:`, err);
+      });
+    }
+  }
+
+  res.status(201).json({ status: "received", id: submission.id });
+});
+
+// ─── GET /api/admin/submissions ───────────────────────────────────────────────
+
+/**
+ * GET /api/admin/submissions?status=pending
+ *
+ * Admin — list all submissions, optionally filtered by status.
+ * Status values: pending | reviewed | accepted | rejected
+ */
+app.get("/api/admin/submissions", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { status } = req.query as { status?: string };
+  const validStatuses = ["pending", "reviewed", "accepted", "rejected"];
+
+  let query = supabase
+    .from("essay_submissions")
+    .select("id, name, email, title, bio, status, admin_notes, submitted_at, updated_at")
+    .order("submitted_at", { ascending: false });
+
+  if (status) {
+    if (!validStatuses.includes(status)) {
+      res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+      return;
+    }
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[admin/submissions] list error:", error);
+    res.status(500).json({ error: "Failed to fetch submissions" });
+    return;
+  }
+
+  res.json({ submissions: data ?? [] });
+});
+
+// ─── PATCH /api/admin/submissions/:id ─────────────────────────────────────────
+
+/**
+ * PATCH /api/admin/submissions/:id
+ *
+ * Admin — update submission status and/or admin notes.
+ * Body: { status?, admin_notes? }
+ */
+app.patch("/api/admin/submissions/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid submission id" });
+    return;
+  }
+
+  const { status, admin_notes } = req.body as { status?: string; admin_notes?: string };
+  const validStatuses = ["pending", "reviewed", "accepted", "rejected"];
+
+  if (status !== undefined && !validStatuses.includes(status)) {
+    res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+    return;
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (status !== undefined) updates.status = status;
+  if (admin_notes !== undefined) updates.admin_notes = admin_notes;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No fields to update. Provide status and/or admin_notes." });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("essay_submissions")
+    .update(updates)
+    .eq("id", id)
+    .select("id, name, email, title, bio, status, admin_notes, submitted_at, updated_at")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin/submissions] update error:", error);
+    res.status(500).json({ error: "Failed to update submission" });
+    return;
+  }
+
+  if (!data) {
+    res.status(404).json({ error: "Submission not found" });
+    return;
+  }
+
+  res.json({ submission: data });
+});
+
+// ─── POST /api/admin/submissions/:id/promote ──────────────────────────────────
+
+/**
+ * POST /api/admin/submissions/:id/promote
+ *
+ * Admin — promote an accepted submission to a draft essay.
+ * Copies title + content to the essays table with status draft (published_at = null).
+ * The submission status is set to "accepted" if not already.
+ * Returns the new essay row.
+ */
+app.post("/api/admin/submissions/:id/promote", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid submission id" });
+    return;
+  }
+
+  // Fetch the submission
+  const { data: submission, error: fetchError } = await supabase
+    .from("essay_submissions")
+    .select("id, name, email, title, content, bio, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("[admin/submissions/promote] fetch error:", fetchError);
+    res.status(500).json({ error: "Failed to fetch submission" });
+    return;
+  }
+
+  if (!submission) {
+    res.status(404).json({ error: "Submission not found" });
+    return;
+  }
+
+  // Build a slug from the title
+  const slug = submission.title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 80);
+
+  if (!slug) {
+    res.status(400).json({ error: "Could not generate a valid slug from the submission title" });
+    return;
+  }
+
+  const path = `/mindfulness-essays/${slug}/`;
+
+  // Insert draft essay (published_at = null → draft)
+  const { data: essay, error: insertError } = await supabase
+    .from("essays")
+    .insert({
+      slug,
+      title: submission.title,
+      kicker: null,
+      description: submission.bio ?? null,
+      read_time: null,
+      path,
+      published_at: null,
+    })
+    .select("id, slug, title, kicker, description, path, published_at, created_at")
+    .single();
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      res.status(409).json({ error: `An essay with slug "${slug}" already exists` });
+      return;
+    }
+    console.error("[admin/submissions/promote] insert essay error:", insertError);
+    res.status(500).json({ error: "Failed to promote submission to essay" });
+    return;
+  }
+
+  // Mark submission as accepted
+  await supabase
+    .from("essay_submissions")
+    .update({ status: "accepted" })
+    .eq("id", id);
+
+  console.log(`[admin/submissions/promote] Submission ${id} promoted to essay slug="${slug}"`);
+
+  res.status(201).json({ essay, submissionId: id });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
