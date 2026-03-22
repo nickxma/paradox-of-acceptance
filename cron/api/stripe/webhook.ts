@@ -7,8 +7,16 @@
  *   customer.subscription.created   — update row to active when subscription is created
  *   customer.subscription.updated   — sync status and period end
  *   customer.subscription.deleted   — set status = 'cancelled' (downgrade to free)
- *   invoice.payment_failed          — set status = 'past_due', send payment failure email
- *   invoice.payment_succeeded       — set status = 'active', update period end
+ *   invoice.payment_failed          — set status = 'past_due', open 7-day grace period,
+ *                                     schedule dunning emails (day 0/3/7), send day-0 email
+ *   invoice.payment_succeeded       — set status = 'active', clear grace period,
+ *                                     cancel any pending dunning emails
+ *
+ * Dunning grace period:
+ *   When payment fails the user keeps Pro access for 7 days (grace_period_end = now+7d).
+ *   Reminder emails are sent at day 3 and day 7 by /api/cron/dunning.
+ *   At day 7 the cron downgrades to free if payment is still outstanding.
+ *   Email sends are gated on RESEND_API_KEY; the grace-period DB logic ships independently.
  *
  * Note: The initial subscription row (with wallet_address) is inserted by
  * POST /api/webhooks/stripe when handling checkout.session.completed. This
@@ -19,7 +27,7 @@
  *   STRIPE_WEBHOOK_SECRET     — Stripe webhook signing secret (whsec_...)
  *   SUPABASE_URL              — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY — Supabase service role key
- *   RESEND_API_KEY            — Resend API key (for payment failure emails)
+ *   RESEND_API_KEY            — Resend API key (optional — gates email sends)
  *   EMAIL_FROM                — verified sender address
  *   SITE_URL                  — base URL for links in notification emails (optional)
  */
@@ -36,6 +44,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "hello@paradoxofacceptance.xyz";
 const SITE_URL = process.env.SITE_URL ?? "https://paradoxofacceptance.xyz";
+
+const GRACE_PERIOD_DAYS = 7;
 
 // Vercel: must disable body parser to get raw bytes for HMAC verification
 export const config = {
@@ -145,13 +155,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const { error } = await supabase
           .from("subscriptions")
-          .update({ status: "cancelled", current_period_end: currentPeriodEnd })
+          .update({ status: "cancelled", current_period_end: currentPeriodEnd, grace_period_end: null })
           .eq("stripe_subscription_id", sub.id);
 
         if (error) {
           console.error("stripe-webhook: subscription.deleted failed:", error.message);
           return res.status(500).json({ error: "Database write failed" });
         }
+
+        // Cancel any pending dunning emails for this subscription
+        await cancelPendingDunningEmails(supabase, sub.id);
 
         console.log(`stripe-webhook: subscription.deleted sub=${sub.id} — downgraded to free`);
         break;
@@ -169,19 +182,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           break;
         }
 
-        // Set subscription to past_due
-        const { error } = await supabase
+        // Open 7-day grace period: set status = past_due, grace_period_end = now + 7 days
+        const gracePeriodEnd = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+        const { error: subError } = await supabase
           .from("subscriptions")
-          .update({ status: "past_due" })
+          .update({ status: "past_due", grace_period_end: gracePeriodEnd })
           .eq("stripe_subscription_id", stripeSubscriptionId);
 
-        if (error) {
-          console.error("stripe-webhook: invoice.payment_failed update failed:", error.message);
+        if (subError) {
+          console.error("stripe-webhook: invoice.payment_failed update failed:", subError.message);
           return res.status(500).json({ error: "Database write failed" });
         }
 
-        // Send payment failure notification (non-fatal if it fails)
         const customerEmail = invoice.customer_email;
+
+        // Schedule dunning emails (day 0, day 3, day 7) — upsert so re-fires are idempotent
+        if (customerEmail) {
+          const now = Date.now();
+          const dunningRows = [
+            { day: 0, scheduled_at: new Date(now).toISOString() },
+            { day: 3, scheduled_at: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString() },
+            { day: 7, scheduled_at: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString() },
+          ].map((r) => ({
+            stripe_subscription_id: stripeSubscriptionId,
+            customer_email: customerEmail,
+            day: r.day,
+            scheduled_at: r.scheduled_at,
+            status: "pending" as const,
+          }));
+
+          const { error: dunningError } = await supabase
+            .from("dunning_emails")
+            .upsert(dunningRows, { onConflict: "stripe_subscription_id,day", ignoreDuplicates: false });
+
+          if (dunningError) {
+            // Non-fatal — grace period is already set; cron can re-derive
+            console.error("stripe-webhook: failed to upsert dunning_emails:", dunningError.message);
+          }
+        }
+
+        // Send day-0 payment failure email immediately (gated on RESEND_API_KEY)
         if (customerEmail && RESEND_API_KEY) {
           try {
             const resend = new Resend(RESEND_API_KEY);
@@ -189,20 +230,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               from: EMAIL_FROM,
               to: customerEmail,
               subject: "Payment failed — update your payment method",
-              html: buildPaymentFailedEmail(SITE_URL),
+              html: buildPaymentFailedEmail(SITE_URL, 0),
             });
-            console.log(`stripe-webhook: payment failure email sent to ${customerEmail}`);
+
+            // Mark day-0 as sent
+            await supabase
+              .from("dunning_emails")
+              .update({ status: "sent", sent_at: new Date().toISOString() })
+              .eq("stripe_subscription_id", stripeSubscriptionId)
+              .eq("day", 0);
+
+            console.log(`stripe-webhook: day-0 dunning email sent to ${customerEmail}`);
           } catch (emailErr: unknown) {
             const message = emailErr instanceof Error ? emailErr.message : String(emailErr);
-            console.error("stripe-webhook: failed to send payment failure email:", message);
+            console.error("stripe-webhook: failed to send day-0 dunning email:", message);
           }
         } else if (!customerEmail) {
-          console.warn("stripe-webhook: invoice.payment_failed — no customer_email, skipping notification");
+          console.warn("stripe-webhook: invoice.payment_failed — no customer_email, skipping day-0 email");
         } else {
-          console.warn("stripe-webhook: RESEND_API_KEY not set — skipping payment failure email");
+          console.warn("stripe-webhook: RESEND_API_KEY not set — skipping day-0 dunning email (grace period active)");
         }
 
-        console.log(`stripe-webhook: invoice.payment_failed sub=${stripeSubscriptionId} set to past_due`);
+        console.log(
+          `stripe-webhook: invoice.payment_failed sub=${stripeSubscriptionId} past_due grace_period_end=${gracePeriodEnd}`
+        );
         break;
       }
 
@@ -233,7 +284,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.warn("stripe-webhook: could not fetch subscription for period end:", message);
         }
 
-        const updateData: Record<string, unknown> = { status: "active" };
+        const updateData: Record<string, unknown> = {
+          status: "active",
+          grace_period_end: null, // clear grace period on recovery
+        };
         if (currentPeriodEnd) updateData.current_period_end = currentPeriodEnd;
 
         const { error } = await supabase
@@ -245,6 +299,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.error("stripe-webhook: invoice.payment_succeeded update failed:", error.message);
           return res.status(500).json({ error: "Database write failed" });
         }
+
+        // Cancel any pending dunning emails — user has paid
+        await cancelPendingDunningEmails(supabase, stripeSubscriptionId);
 
         console.log(`stripe-webhook: invoice.payment_succeeded sub=${stripeSubscriptionId} confirmed active`);
         break;
@@ -283,10 +340,101 @@ function mapStripeStatus(
 }
 
 /**
- * Builds the HTML body for a payment failure notification email.
+ * Cancels all pending dunning emails for a subscription (called on recovery or cancellation).
+ * Non-fatal — logs errors but does not throw.
  */
-function buildPaymentFailedEmail(siteUrl: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cancelPendingDunningEmails(
+  supabase: any,
+  stripeSubscriptionId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("dunning_emails")
+    .update({ status: "cancelled" } as Record<string, string>)
+    .eq("stripe_subscription_id", stripeSubscriptionId)
+    .eq("status", "pending");
+
+  if (error) {
+    console.error(
+      `stripe-webhook: failed to cancel dunning emails for sub=${stripeSubscriptionId}:`,
+      error.message
+    );
+  }
+}
+
+/**
+ * Builds the HTML body for a dunning email.
+ * day=0: immediate payment failure notice
+ * day=3: reminder with 4 days remaining
+ * day=7: final notice (access revoked)
+ */
+function buildPaymentFailedEmail(siteUrl: string, day: 0 | 3 | 7): string {
   const portalUrl = `${siteUrl}/pass/`;
+
+  if (day === 7) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a; background: #fff;">
+  <h2 style="font-size: 22px; font-weight: normal; margin-bottom: 24px;">Your access has been paused</h2>
+  <p style="line-height: 1.7; margin-bottom: 16px;">
+    We were unable to collect payment after several attempts, so your Paradox of Acceptance
+    membership has been paused. Your reading history and account are still here.
+  </p>
+  <p style="line-height: 1.7; margin-bottom: 24px;">
+    To restore access, please update your payment method.
+  </p>
+  <p style="margin-bottom: 32px;">
+    <a href="${portalUrl}"
+       style="display: inline-block; padding: 12px 24px; background: #1a1a1a; color: #fff; text-decoration: none; font-size: 14px;">
+      Restore access &rarr;
+    </a>
+  </p>
+  <p style="font-size: 13px; color: #666; line-height: 1.6;">
+    If you have questions, reply to this email and we'll help you sort it out.
+  </p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+  <p style="font-size: 12px; color: #999;">
+    Paradox of Acceptance &middot; <a href="${siteUrl}/privacy/" style="color: #999;">Privacy</a>
+  </p>
+</body>
+</html>`;
+  }
+
+  if (day === 3) {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #1a1a1a; background: #fff;">
+  <h2 style="font-size: 22px; font-weight: normal; margin-bottom: 24px;">Payment still outstanding — 4 days left</h2>
+  <p style="line-height: 1.7; margin-bottom: 16px;">
+    Your payment for Paradox of Acceptance hasn't come through yet.
+    You still have 4 days of access remaining — please update your payment method before then.
+  </p>
+  <p style="margin-bottom: 32px;">
+    <a href="${portalUrl}"
+       style="display: inline-block; padding: 12px 24px; background: #1a1a1a; color: #fff; text-decoration: none; font-size: 14px;">
+      Update payment method &rarr;
+    </a>
+  </p>
+  <p style="font-size: 13px; color: #666; line-height: 1.6;">
+    If you have questions, reply to this email and we'll help you sort it out.
+  </p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+  <p style="font-size: 12px; color: #999;">
+    Paradox of Acceptance &middot; <a href="${siteUrl}/privacy/" style="color: #999;">Privacy</a>
+  </p>
+</body>
+</html>`;
+  }
+
+  // day === 0: immediate payment failure notice
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -297,7 +445,7 @@ function buildPaymentFailedEmail(siteUrl: string): string {
   <h2 style="font-size: 22px; font-weight: normal; margin-bottom: 24px;">Payment failed</h2>
   <p style="line-height: 1.7; margin-bottom: 16px;">
     We couldn't process your payment for your Paradox of Acceptance membership.
-    Your access remains active for now, but your subscription will be cancelled
+    Your access remains active for the next 7 days, but your subscription will be paused
     if payment continues to fail.
   </p>
   <p style="line-height: 1.7; margin-bottom: 24px;">

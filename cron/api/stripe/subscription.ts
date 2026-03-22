@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { data, error } = await supabase
     .from("subscriptions")
-    .select("status, current_period_end, stripe_customer_id")
+    .select("status, current_period_end, grace_period_end, stripe_customer_id")
     .eq("wallet_address", wallet.toLowerCase())
     .single();
 
@@ -64,9 +64,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ isSubscriber: false, currentPeriodEnd: null, last4: null });
   }
 
-  const isActive =
+  const now = new Date();
+
+  // Active: paid and within billing period
+  const isPaidActive =
     data.status === "active" &&
-    (data.current_period_end === null || new Date(data.current_period_end) > new Date());
+    (data.current_period_end === null || new Date(data.current_period_end) > now);
+
+  // Grace period: payment failed but within 7-day grace window
+  const isInGracePeriod =
+    data.status === "past_due" &&
+    data.grace_period_end !== null &&
+    new Date(data.grace_period_end) > now;
+
+  const isActive = isPaidActive || isInGracePeriod;
 
   if (!isActive) {
     return res.status(200).json({ isSubscriber: false, currentPeriodEnd: null, last4: null });
