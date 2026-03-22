@@ -343,11 +343,195 @@ header {
 /* ─── Loading ───────────────────────────────────────────────── */
 .loading-row td { padding: 32px 16px; text-align: center; color: #bbb; font-size: 13px; }
 
+/* ─── Calendar ──────────────────────────────────────────────── */
+#calendar-panel { display: none; }
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.cal-nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #555;
+  font-size: 14px;
+  transition: background 0.1s;
+}
+.cal-nav-btn:hover { background: #e8e8e8; }
+.cal-summary {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 16px;
+}
+.cal-summary strong { color: #111; font-weight: 600; }
+.cal-grid-wrap {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cal-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.cal-day-name {
+  padding: 8px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #aaa;
+}
+.cal-body {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.cal-cell {
+  min-height: 90px;
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+  position: relative;
+}
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell:hover { background: #fafafa; }
+.cal-cell.other-month { background: #fafafa; cursor: default; }
+.cal-cell.other-month:hover { background: #fafafa; }
+.cal-cell.today { background: #f8fdf8; }
+.cal-cell.today .cal-date { color: #5a8a56; font-weight: 700; }
+.cal-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: #bbb;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.cal-cell:not(.other-month) .cal-date { color: #666; }
+.cal-essays { display: flex; flex-direction: column; gap: 3px; }
+.cal-essay-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #333;
+  overflow: hidden;
+  cursor: pointer;
+}
+.cal-essay-pill:hover { color: #000; }
+.cal-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.cal-dot-published { background: #7c9a76; }
+.cal-dot-scheduled { border: 1.5px solid #7c9a76; background: transparent; }
+.cal-pill-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+.cal-overflow {
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+/* ─── Calendar popover ──────────────────────────────────────── */
+.cal-popover {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  padding: 12px 14px;
+  min-width: 200px;
+  max-width: 260px;
+}
+.cal-popover.open { display: block; }
+.cal-popover-date { font-size: 11px; color: #aaa; margin-bottom: 8px; font-weight: 500; }
+.cal-popover-essay {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 0;
+  border-top: 1px solid #f5f5f5;
+}
+.cal-popover-essay:first-of-type { border-top: none; }
+.cal-popover-info { flex: 1; min-width: 0; }
+.cal-popover-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111;
+  text-decoration: none;
+  display: block;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-popover-title:hover { color: #5a8a56; }
+.cal-popover-time { font-size: 11px; color: #aaa; margin-top: 2px; }
+.cal-popover-actions { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+.cal-mini-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  background: #f5f5f5;
+  color: #333;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+  text-decoration: none;
+  display: inline-block;
+}
+.cal-mini-btn:hover { background: #e8e8e8; }
+.cal-mini-btn.publish { border-color: #7c9a76; color: #5a8a56; background: #f0f6ef; }
+.cal-mini-btn.publish:hover { background: #e5f0e4; }
+
+/* ─── New Essay modal ───────────────────────────────────────── */
+#new-essay-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#new-essay-modal.open { display: flex; }
+
 @media (max-width: 768px) {
   .content { padding: 20px 16px; }
   header { padding: 0 16px; }
   .essay-table th:nth-child(3),
   .essay-table td:nth-child(3) { display: none; }
+  .cal-cell { min-height: 60px; }
+  .cal-pill-title { max-width: 50px; }
 }
 </style>
 </head>
@@ -394,10 +578,13 @@ header {
       <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">
         Draft <span class="tab-count" id="count-draft">—</span>
       </button>
+      <button class="tab-btn" data-tab="calendar" onclick="switchTab('calendar')">
+        Calendar
+      </button>
     </div>
 
     <!-- Table -->
-    <div class="panel">
+    <div class="panel" id="table-panel">
       <table class="essay-table">
         <thead>
           <tr>
@@ -411,6 +598,45 @@ header {
           <tr class="loading-row"><td colspan="4">Loading…</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Calendar -->
+    <div id="calendar-panel">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="cal-prev" onclick="calPrevMonth()">&#8249;</button>
+        <span class="cal-nav-title" id="cal-month-title">—</span>
+        <button class="cal-nav-btn" id="cal-next" onclick="calNextMonth()">&#8250;</button>
+      </div>
+      <div class="cal-summary" id="cal-summary"></div>
+      <div class="cal-grid-wrap">
+        <div class="cal-header">
+          <div class="cal-day-name">Sun</div>
+          <div class="cal-day-name">Mon</div>
+          <div class="cal-day-name">Tue</div>
+          <div class="cal-day-name">Wed</div>
+          <div class="cal-day-name">Thu</div>
+          <div class="cal-day-name">Fri</div>
+          <div class="cal-day-name">Sat</div>
+        </div>
+        <div class="cal-body" id="cal-body"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Essay modal (for calendar empty-day click) -->
+<div id="new-essay-modal">
+  <div class="modal-card">
+    <div class="modal-title">New essay</div>
+    <div class="modal-subtitle" id="new-essay-date-label">—</div>
+    <div class="modal-label">Title</div>
+    <input type="text" id="new-essay-title" class="datetime-input" placeholder="Essay title" autocomplete="off" />
+    <div class="modal-label">Slug</div>
+    <input type="text" id="new-essay-slug" class="datetime-input" placeholder="my-essay-slug" autocomplete="off" style="margin-bottom:8px" />
+    <div style="font-size:11px;color:#aaa;margin-bottom:20px">paradoxofacceptance.xyz/mindfulness-essays/<span id="new-essay-slug-preview">…</span>/</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeNewEssayModal()">Cancel</button>
+      <button class="btn-schedule" id="btn-create-essay" onclick="confirmNewEssay()">Create draft</button>
     </div>
   </div>
 </div>
@@ -518,7 +744,11 @@ async function loadEssays() {
   }
   allEssays = data.essays;
   updateCounts();
-  renderTable();
+  if (activeTab === 'calendar') {
+    renderCalendar();
+  } else {
+    renderTable();
+  }
 }
 
 function essayStatus(essay) {
@@ -544,7 +774,14 @@ function filteredEssays() {
 function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  renderTable();
+  const isCalendar = tab === 'calendar';
+  document.getElementById('table-panel').style.display = isCalendar ? 'none' : '';
+  document.getElementById('calendar-panel').style.display = isCalendar ? '' : 'none';
+  if (isCalendar) {
+    renderCalendar();
+  } else {
+    renderTable();
+  }
 }
 
 function renderTable() {
@@ -754,6 +991,273 @@ function escHtml(str) {
 function escAttr(str) {
   return String(str ?? '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 }
+
+// ─── Calendar ──────────────────────────────────────────────────
+
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-based
+let openPopoverCell = null;
+
+function calPrevMonth() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function calNextMonth() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const monthStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
+  document.getElementById('cal-month-title').textContent = new Date(calYear, calMonth, 1)
+    .toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  // Build a lookup: dateStr (YYYY-MM-DD) → [essay, ...]
+  const now = new Date();
+  const essaysByDay = {};
+  for (const essay of allEssays) {
+    if (!essay.published_at) continue;
+    const d = new Date(essay.published_at);
+    if (d.getFullYear() !== calYear || d.getMonth() !== calMonth) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!essaysByDay[key]) essaysByDay[key] = [];
+    essaysByDay[key].push(essay);
+  }
+
+  // Summary row
+  let pub = 0, sched = 0, draft = 0;
+  for (const essay of allEssays) {
+    const s = essayStatus(essay);
+    if (s === 'draft') { draft++; continue; }
+    if (!essay.published_at) continue;
+    const d = new Date(essay.published_at);
+    if (d.getFullYear() !== calYear || d.getMonth() !== calMonth) continue;
+    if (s === 'published') pub++;
+    else if (s === 'scheduled') sched++;
+  }
+  document.getElementById('cal-summary').innerHTML =
+    `This month — <strong>${pub}</strong> published, <strong>${sched}</strong> scheduled &nbsp;·&nbsp; <strong>${draft}</strong> total drafts`;
+
+  // Build calendar grid
+  const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  const cells = [];
+
+  // Cells for prev month overflow
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrevMonth - i;
+    cells.push({ day: d, current: false, dateStr: null });
+  }
+
+  // Cells for current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day: d, current: true, dateStr, isToday: dateStr === todayStr });
+  }
+
+  // Fill remaining to complete grid rows (always show 6 rows = 42 cells)
+  const remaining = 42 - cells.length;
+  for (let d = 1; d <= remaining; d++) {
+    cells.push({ day: d, current: false, dateStr: null });
+  }
+
+  const body = document.getElementById('cal-body');
+  body.innerHTML = cells.map((cell, idx) => {
+    const cls = ['cal-cell'];
+    if (!cell.current) cls.push('other-month');
+    if (cell.isToday) cls.push('today');
+
+    const essays = cell.dateStr ? (essaysByDay[cell.dateStr] || []) : [];
+    const MAX_PILLS = 3;
+    const shown = essays.slice(0, MAX_PILLS);
+    const overflow = essays.length - MAX_PILLS;
+
+    const pillsHtml = shown.map(essay => {
+      const status = essayStatus(essay);
+      const dotCls = status === 'published' ? 'cal-dot-published' : 'cal-dot-scheduled';
+      return `<div class="cal-essay-pill" onclick="openCalPopover(event, '${escAttr(cell.dateStr)}', ${idx})" title="${escAttr(essay.title)}">
+        <span class="cal-dot ${dotCls}"></span>
+        <span class="cal-pill-title">${escHtml(essay.title)}</span>
+      </div>`;
+    }).join('');
+
+    const overflowHtml = overflow > 0 ? `<div class="cal-overflow">+${overflow} more</div>` : '';
+    const onCellClick = cell.current
+      ? `onclick="onCalCellClick(event, '${escAttr(cell.dateStr)}', ${idx})"`
+      : '';
+
+    const popoverHtml = cell.current && essays.length > 0
+      ? buildPopoverHtml(cell.dateStr, essays, idx)
+      : '';
+
+    return `<div class="${cls.join(' ')}" ${onCellClick}>
+      <div class="cal-date">${cell.day}</div>
+      <div class="cal-essays">${pillsHtml}${overflowHtml}</div>
+      ${popoverHtml}
+    </div>`;
+  }).join('');
+}
+
+function buildPopoverHtml(dateStr, essays, idx) {
+  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+  const items = essays.map(essay => {
+    const status = essayStatus(essay);
+    const dotCls = status === 'published' ? 'cal-dot-published' : 'cal-dot-scheduled';
+    const timeLabel = status === 'scheduled' ? `<div class="cal-popover-time">${fmtDateTime(essay.published_at)}</div>` : '';
+    const publishBtn = status === 'scheduled'
+      ? `<button class="cal-mini-btn publish" onclick="event.stopPropagation();publishNow('${escAttr(essay.slug)}')">Publish now</button>` : '';
+    return `<div class="cal-popover-essay">
+      <span class="cal-dot ${dotCls}" style="margin-top:3px"></span>
+      <div class="cal-popover-info">
+        <a href="/admin/essays/edit/?slug=${escAttr(essay.slug)}" class="cal-popover-title" onclick="event.stopPropagation()">${escHtml(essay.title)}</a>
+        ${timeLabel}
+        <div class="cal-popover-actions">
+          <a href="/admin/essays/edit/?slug=${escAttr(essay.slug)}" class="cal-mini-btn" onclick="event.stopPropagation()">Edit</a>
+          ${publishBtn}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="cal-popover" id="cal-pop-${idx}">
+    <div class="cal-popover-date">${label}</div>
+    ${items}
+  </div>`;
+}
+
+function onCalCellClick(event, dateStr, idx) {
+  // If click came from a pill or inside the popover, don't re-open the "new essay" flow
+  if (event.target.closest('.cal-essay-pill') || event.target.closest('.cal-popover')) return;
+  const pop = document.getElementById('cal-pop-' + idx);
+  if (pop) {
+    // Has essays — toggle popover
+    event.stopPropagation();
+    const isOpen = pop.classList.contains('open');
+    closeAllCalPopovers();
+    if (!isOpen) {
+      pop.classList.add('open');
+      openPopoverCell = idx;
+    }
+  } else {
+    // Empty day — open new essay modal
+    openNewEssayModal(dateStr);
+  }
+}
+
+function openCalPopover(event, dateStr, idx) {
+  event.stopPropagation();
+  const pop = document.getElementById('cal-pop-' + idx);
+  if (!pop) return;
+  const isOpen = pop.classList.contains('open');
+  closeAllCalPopovers();
+  if (!isOpen) {
+    pop.classList.add('open');
+    openPopoverCell = idx;
+  }
+}
+
+function closeAllCalPopovers() {
+  document.querySelectorAll('.cal-popover.open').forEach(p => p.classList.remove('open'));
+  openPopoverCell = null;
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.cal-popover') && !e.target.closest('.cal-cell')) {
+    closeAllCalPopovers();
+  }
+});
+
+// ─── New Essay modal ────────────────────────────────────────────
+
+let newEssayDate = null;
+
+function openNewEssayModal(dateStr) {
+  newEssayDate = dateStr;
+  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
+  document.getElementById('new-essay-date-label').textContent = label;
+  document.getElementById('new-essay-title').value = '';
+  document.getElementById('new-essay-slug').value = '';
+  document.getElementById('new-essay-slug-preview').textContent = '…';
+  document.getElementById('btn-create-essay').disabled = false;
+  document.getElementById('btn-create-essay').textContent = 'Create draft';
+  document.getElementById('new-essay-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-essay-title').focus(), 50);
+}
+
+function closeNewEssayModal() {
+  document.getElementById('new-essay-modal').classList.remove('open');
+  newEssayDate = null;
+}
+
+// Auto-generate slug from title
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('new-essay-title').addEventListener('input', (e) => {
+    const slug = slugify(e.target.value);
+    document.getElementById('new-essay-slug').value = slug;
+    document.getElementById('new-essay-slug-preview').textContent = slug || '…';
+  });
+  document.getElementById('new-essay-slug').addEventListener('input', (e) => {
+    document.getElementById('new-essay-slug-preview').textContent = e.target.value || '…';
+  });
+});
+
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/[\s]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+async function confirmNewEssay() {
+  const title = document.getElementById('new-essay-title').value.trim();
+  const slug = document.getElementById('new-essay-slug').value.trim();
+  if (!title || !slug) {
+    showToast('Title and slug are required', true);
+    return;
+  }
+
+  const btn = document.getElementById('btn-create-essay');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  // published_at = noon on the selected date (local time)
+  const published_at = newEssayDate ? new Date(newEssayDate + 'T09:00:00').toISOString() : null;
+
+  const { ok, data } = await apiRequest('/api/admin/essays', {
+    method: 'POST',
+    body: JSON.stringify({ slug, title, published_at }),
+  });
+
+  if (ok) {
+    closeNewEssayModal();
+    await loadEssays();
+    if (activeTab === 'calendar') renderCalendar();
+    showToast('Essay created');
+    // Navigate to editor
+    window.location.href = '/admin/essays/edit/?slug=' + encodeURIComponent(slug);
+  } else {
+    showToast(data.error || 'Failed to create essay', true);
+    btn.disabled = false;
+    btn.textContent = 'Create draft';
+  }
+}
+
+document.getElementById('new-essay-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('new-essay-modal')) closeNewEssayModal();
+});
 
 // ─── Init ──────────────────────────────────────────────────────
 

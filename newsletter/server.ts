@@ -30,7 +30,7 @@ import { createHmac, timingSafeEqual, randomUUID } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import PDFDocument from "pdfkit";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import OpenAI from "openai";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -1730,9 +1730,14 @@ app.post("/api/admin/essays/seed-embeddings", requireAdminSecret, async (_req: R
  * then created_at desc. Falls back to the hardcoded ESSAYS list (with null
  * published_at / deployed_at) when Supabase is not configured.
  *
+ * Optional query param:
+ *   ?month=YYYY-MM  — filter to essays where published_at falls within that
+ *                     calendar month (UTC). Drafts (published_at IS NULL) are
+ *                     excluded when this param is provided.
+ *
  * Auth: X-Admin-Secret header.
  */
-app.get("/api/admin/essays", requireAdminSecret, async (_req: Request, res: Response) => {
+app.get("/api/admin/essays", requireAdminSecret, async (req: Request, res: Response) => {
   if (!supabase) {
     // Fallback: return hardcoded essays as "published" placeholders
     const fallback = ESSAYS.map((e) => ({
@@ -1745,9 +1750,24 @@ app.get("/api/admin/essays", requireAdminSecret, async (_req: Request, res: Resp
     return res.json({ essays: fallback });
   }
 
-  const { data, error } = await supabase
+  const { month } = req.query as { month?: string };
+
+  let query = supabase
     .from("essays")
-    .select("slug, title, kicker, description, read_time, path, published_at, deployed_at, created_at, updated_at")
+    .select("slug, title, kicker, description, read_time, path, published_at, deployed_at, created_at, updated_at");
+
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    // Filter to essays within the given calendar month (UTC)
+    const [year, mon] = month.split("-").map(Number);
+    const start = new Date(Date.UTC(year, mon - 1, 1)).toISOString();
+    const end   = new Date(Date.UTC(year, mon, 1)).toISOString(); // exclusive start of next month
+    query = query
+      .not("published_at", "is", null)
+      .gte("published_at", start)
+      .lt("published_at", end);
+  }
+
+  const { data, error } = await query
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
@@ -1758,6 +1778,184 @@ app.get("/api/admin/essays", requireAdminSecret, async (_req: Request, res: Resp
 
   res.json({ essays: data ?? [] });
 });
+
+// ─── POST /api/admin/essays ───────────────────────────────────────────────────
+
+/**
+ * POST /api/admin/essays
+ *
+ * Create a new essay (draft). Required fields: slug, title.
+ * Optional: kicker, description, read_time, published_at.
+ * The path is derived from the slug as /mindfulness-essays/{slug}/.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.post("/api/admin/essays", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { slug, title, kicker, description, read_time, published_at } = req.body as {
+    slug?: string;
+    title?: string;
+    kicker?: string;
+    description?: string;
+    read_time?: string;
+    published_at?: string | null;
+  };
+
+  if (!slug || !title) {
+    return res.status(400).json({ error: "slug and title are required" });
+  }
+
+  // Validate slug format
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return res.status(400).json({ error: "slug must be lowercase alphanumeric with hyphens" });
+  }
+
+  const path = `/mindfulness-essays/${slug}/`;
+
+  const { data, error } = await supabase
+    .from("essays")
+    .insert({
+      slug,
+      title,
+      kicker: kicker ?? null,
+      description: description ?? null,
+      read_time: read_time ?? null,
+      path,
+      published_at: published_at ?? null,
+    })
+    .select("slug, title, kicker, description, read_time, path, published_at, deployed_at, created_at, updated_at")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "An essay with that slug already exists" });
+    }
+    console.error("[admin/essays] create error:", error);
+    return res.status(500).json({ error: "Failed to create essay" });
+  }
+
+  res.status(201).json({ essay: data });
+});
+
+// ─── SEO static-file helpers ──────────────────────────────────────────────────
+
+const ESSAYS_BASE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "mindfulness-essays");
+
+function escapeHtmlAttr(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function stripMarkdownExcerpt(text: string, maxLen = 160): string {
+  return text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]+`/g, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
+/**
+ * Updates the <head> SEO tags of a static essay HTML file.
+ * Called after any PATCH or revert that changes title/SEO/body fields.
+ * Non-fatal: logs a warning if the file is missing or write fails.
+ */
+function updateStaticEssayHead(slug: string, essay: {
+  title: string;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string[] | null;
+  meta_description?: string | null;
+  body_markdown?: string | null;
+}): void {
+  const htmlPath = join(ESSAYS_BASE_DIR, slug, "index.html");
+  if (!existsSync(htmlPath)) {
+    console.warn(`[seo] static file not found, skipping head update: ${htmlPath}`);
+    return;
+  }
+
+  try {
+    const effectiveTitle = essay.seo_title?.trim() || essay.title;
+    const effectiveDescription =
+      essay.seo_description?.trim() ||
+      essay.meta_description?.trim() ||
+      (essay.body_markdown ? stripMarkdownExcerpt(essay.body_markdown) : "");
+
+    const t = escapeHtmlAttr(effectiveTitle);
+    const d = escapeHtmlAttr(effectiveDescription);
+
+    let html = readFileSync(htmlPath, "utf-8");
+
+    // <title>
+    html = html.replace(/<title>[^<]*<\/title>/, `<title>${t}</title>`);
+
+    // meta description
+    html = html.replace(
+      /<meta\s+name="description"\s+content="[^"]*"\s*\/>/,
+      `<meta name="description" content="${d}" />`
+    );
+
+    // og:title
+    html = html.replace(
+      /<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/,
+      `<meta property="og:title" content="${t}" />`
+    );
+
+    // og:description
+    html = html.replace(
+      /<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/,
+      `<meta property="og:description" content="${d}" />`
+    );
+
+    // Twitter card tags — update if present, insert before </head> if not
+    const twitterCard = `<meta name="twitter:card" content="summary" />`;
+    const twitterTitle = `<meta name="twitter:title" content="${t}" />`;
+    const twitterDesc = `<meta name="twitter:description" content="${d}" />`;
+
+    if (html.includes('name="twitter:title"')) {
+      html = html.replace(/<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/>/, twitterTitle);
+      html = html.replace(/<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/>/, twitterDesc);
+    } else {
+      html = html.replace(
+        "</head>",
+        `  ${twitterCard}\n  ${twitterTitle}\n  ${twitterDesc}\n</head>`
+      );
+    }
+
+    // Keywords — update if present, insert after og:description if not (and if keywords set)
+    if (essay.seo_keywords && essay.seo_keywords.length > 0) {
+      const kw = escapeHtmlAttr(essay.seo_keywords.join(", "));
+      const keywordsMeta = `<meta name="keywords" content="${kw}" />`;
+      if (html.includes('name="keywords"')) {
+        html = html.replace(/<meta\s+name="keywords"\s+content="[^"]*"\s*\/>/, keywordsMeta);
+      } else {
+        html = html.replace(
+          /(<meta\s+property="og:description"\s+content="[^"]*"\s*\/>)/,
+          `$1\n  ${keywordsMeta}`
+        );
+      }
+    } else if (html.includes('name="keywords"')) {
+      // Clear keywords tag if seo_keywords was cleared
+      html = html.replace(/<meta\s+name="keywords"\s+content="[^"]*"\s*\/>\n?/, "");
+    }
+
+    writeFileSync(htmlPath, html, "utf-8");
+    console.log(`[seo] updated static head: ${htmlPath}`);
+  } catch (err) {
+    console.error(`[seo] failed to update static head for ${slug}:`, err);
+  }
+}
 
 // ─── GET /api/admin/essays/:slug ─────────────────────────────────────────────
 
@@ -1777,7 +1975,7 @@ app.get("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res:
 
   const { data, error } = await supabase
     .from("essays")
-    .select("slug, title, kicker, description, meta_description, read_time, path, body_markdown, published_at, deployed_at, created_at, updated_at")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, path, body_markdown, published_at, deployed_at, created_at, updated_at")
     .eq("slug", slug)
     .single();
 
@@ -1819,6 +2017,9 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
     kicker?: string;
     description?: string;
     read_time?: string;
+    seo_title?: string | null;
+    seo_description?: string | null;
+    seo_keywords?: string[] | null;
     change_summary?: string | null;
   };
 
@@ -1834,7 +2035,9 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   }
 
   const contentFields = ["body_markdown", "title", "meta_description", "kicker", "description", "read_time"] as const;
+  const seoFields = ["seo_title", "seo_description", "seo_keywords"] as const;
   const isContentUpdate = contentFields.some((f) => body[f] !== undefined);
+  const isSeoUpdate = seoFields.some((f) => body[f] !== undefined);
 
   // If content fields are changing, snapshot the current state into essay_versions first.
   if (isContentUpdate) {
@@ -1877,12 +2080,15 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   for (const f of contentFields) {
     if (body[f] !== undefined) update[f] = body[f];
   }
+  for (const f of seoFields) {
+    if (body[f] !== undefined) update[f] = body[f] ?? null;
+  }
 
   const { data, error } = await supabase
     .from("essays")
     .update(update)
     .eq("slug", slug)
-    .select("slug, title, kicker, description, meta_description, read_time, body_markdown, published_at, deployed_at")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, body_markdown, published_at, deployed_at")
     .single();
 
   if (error) {
@@ -1899,6 +2105,11 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
     upsertEssayEmbedding(slug, body.body_markdown).catch((err) =>
       console.error("[admin/essays] embedding regen error:", err)
     );
+  }
+
+  // Update static essay HTML head tags when content or SEO fields change
+  if (isContentUpdate || isSeoUpdate) {
+    updateStaticEssayHead(slug, data);
   }
 
   res.json({ essay: data });
@@ -2058,13 +2269,16 @@ app.post("/api/admin/essays/:slug/versions/:versionId/revert", requireAdminSecre
       meta_description: targetVersion.meta_description,
     })
     .eq("slug", slug)
-    .select("slug, title, body_markdown, meta_description, published_at")
+    .select("slug, title, body_markdown, meta_description, seo_title, seo_description, seo_keywords, published_at")
     .single();
 
   if (updateError || !updated) {
     console.error("[admin/essays] revert update error:", updateError);
     return res.status(500).json({ error: "Failed to apply revert" });
   }
+
+  // Update static HTML head after revert (title/body/meta changed)
+  updateStaticEssayHead(slug, updated);
 
   res.json({ essay: updated, reverted_to: targetVersion.created_at });
 });
