@@ -12,3 +12,4 @@ contracts/lib/
 contracts/broadcast/
 newsletter/node_modules/
 newsletter-analytics/node_modules/
+cron/node_modules/
