@@ -10,15 +10,23 @@
     "server:dev": "npx tsx --watch server.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.3",
+    "@types/multer": "^2.1.0",
+    "@types/papaparse": "^5.5.2",
     "cheerio": "^1.2.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "marked": "^17.0.5",
+    "multer": "^2.1.1",
+    "openai": "^6.32.0",
+    "papaparse": "^5.5.3",
+    "pdfkit": "^0.18.0",
     "resend": "^4.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
+    "@types/pdfkit": "^0.17.5",
     "@types/react": "^19.2.14",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

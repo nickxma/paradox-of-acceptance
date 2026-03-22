@@ -177,6 +177,20 @@
     [data-theme="dark"] #poa-modal-close { color: #888; }
     [data-theme="dark"] #poa-modal-close:hover { color: #e8e3dc; }
     [data-theme="dark"] #poa-modal-headline { color: #e8e3dc; }
+    /* ─── Related essays ─── */
+    .related-essays-wrap { border-top: 1px solid var(--rule); }
+    .related-essays { padding: 40px 0 48px; }
+    .related-essays-heading { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .related-essays-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .related-essay-card { display: block; text-decoration: none; color: inherit; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
+    .related-essay-card:hover { border-color: var(--sage-light); box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .related-essay-thumb { height: 72px; display: block; }
+    .related-essay-body { padding: 12px 14px 14px; }
+    .related-essay-title { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 1.4; color: var(--ink); margin-bottom: 6px; }
+    .related-essay-meta { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; color: var(--ink-light); margin-bottom: 6px; }
+    .related-essay-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .related-essay-tag { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.03em; background: #f0ede7; color: var(--sage-dark); padding: 2px 7px; border-radius: 100px; }
+    @media (max-width: 560px) { .related-essays-grid { grid-template-columns: 1fr; } }
   </style>
     <!-- Sentry error monitoring (https://sentry.io) -->
     <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
@@ -320,6 +334,13 @@
   </article>
 </div>
 
+<div class="container related-essays-wrap">
+  <div id="related-essays" class="related-essays" style="display:none">
+    <div class="related-essays-heading">You might also enjoy</div>
+    <div class="related-essays-grid"></div>
+  </div>
+</div>
+
 <footer>
   <div class="container">
     <p><a href="/">Paradox of Acceptance</a> · <a href="/mindfulness-essays/">All essays</a> · <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a></p>
@@ -452,5 +473,31 @@
 </script>
 <script src="/shared/essay-reading-tracker.js"></script>
 <script src="/shared/reading-list-cta.js"></script>
+<script>
+(function() {
+  var P = ['#c8d5bf','#d5c8bf','#bfc8d5','#d5bfc8','#c8bfd5','#d5d0bf','#bfd5d0'];
+  function clr(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return P[Math.abs(h) % P.length]; }
+  function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  var slug = location.pathname.replace(/^\/mindfulness-essays\//,'').replace(/\/$/,'');
+  if (!slug) return;
+  fetch('https://paradoxofacceptance.xyz/api/essays/' + slug + '/related')
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      var list = d && d.essays;
+      if (!list || list.length < 2) return;
+      var wrap = document.getElementById('related-essays');
+      if (!wrap) return;
+      var grid = wrap.querySelector('.related-essays-grid');
+      list.slice(0,4).forEach(function(e) {
+        var tags = (e.tags||[]).slice(0,3).map(function(t){return '<span class="related-essay-tag">'+esc(t)+'</span>';}).join('');
+        var a = document.createElement('a');
+        a.href = e.path; a.className = 'related-essay-card';
+        a.innerHTML = '<div class="related-essay-thumb" style="background:'+clr(e.slug)+'"></div><div class="related-essay-body"><div class="related-essay-title">'+esc(e.title)+'</div>'+(e.read_time?'<div class="related-essay-meta">'+esc(e.read_time)+'</div>':'')+(tags?'<div class="related-essay-tags">'+tags+'</div>':'')+'</div>';
+        grid.appendChild(a);
+      });
+      wrap.style.display = '';
+    }).catch(function(){});
+})();
+</script>
 </body>
 </html>
