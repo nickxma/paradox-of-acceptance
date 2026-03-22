@@ -190,6 +190,76 @@
     .intro-body p { margin-bottom: 1.4em; }
     .intro-body p:last-child { margin-bottom: 0; }
 
+    /* Reviews section */
+    .reviews-section {
+      margin-top: 0;
+      padding: 52px 0 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .reviews-section h2 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 24px;
+    }
+
+    .review-item {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .review-item:last-child { border-bottom: none; }
+
+    .review-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .review-stars {
+      font-size: 15px;
+      color: #E6A817;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+
+    .review-author {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+    }
+
+    .review-author a {
+      color: var(--sage);
+      text-decoration: none;
+    }
+    .review-author a:hover { text-decoration: underline; }
+
+    .review-date {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      color: #999;
+      margin-left: auto;
+    }
+
+    .review-text {
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--ink-light);
+      margin: 0;
+    }
+
+    .reviews-empty {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #999;
+    }
+
     /* Footer */
     footer {
       border-top: 1px solid var(--rule);
@@ -291,6 +361,11 @@
       </div>
     </main>
 
+    <section id="reviews-section" class="reviews-section" style="display:none;">
+      <h2>Student reviews</h2>
+      <div id="reviews-list"></div>
+    </section>
+
     <footer>
       <div class="footer-links">
         <a href="/courses/the-honest-meditator/faq/">Student FAQ</a>
@@ -303,5 +378,87 @@
   </div>
   <script src="/shared/course-progress.js"></script>
   <script src="/shared/session-notes.js"></script>
+  <script>
+    // ── Reviews section ───────────────────────────────────────────────────────
+    (function () {
+      var SLUG = 'the-honest-meditator';
+      var MIN_REVIEWS = 3;
+
+      function escHtml(s) {
+        return String(s || '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function starsHtml(rating) {
+        var s = '';
+        for (var i = 1; i <= 5; i++) s += i <= rating ? '\u2605' : '\u2606';
+        return s;
+      }
+
+      function formatDate(iso) {
+        try {
+          var d = new Date(iso);
+          return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        } catch (e) { return ''; }
+      }
+
+      function shortenWallet(w) {
+        if (!w) return null;
+        if (w.length <= 12) return w;
+        return w.slice(0, 6) + '\u2026' + w.slice(-4);
+      }
+
+      function etherscanUrl(w) {
+        return 'https://etherscan.io/address/' + w;
+      }
+
+      async function loadReviews() {
+        try {
+          var res = await fetch('/api/courses/' + SLUG + '/reviews?per_page=5');
+          if (!res.ok) return;
+          var data = await res.json();
+          if (!data.reviews || data.total < MIN_REVIEWS) return;
+
+          var section = document.getElementById('reviews-section');
+          var list = document.getElementById('reviews-list');
+          if (!section || !list) return;
+
+          var html = '';
+          data.reviews.forEach(function (r) {
+            var authorHtml;
+            if (r.display_name) {
+              authorHtml = escHtml(r.display_name);
+            } else if (r.wallet) {
+              var short = escHtml(shortenWallet(r.wallet));
+              authorHtml = '<a href="' + escHtml(etherscanUrl(r.wallet)) + '" target="_blank" rel="noopener noreferrer">' + short + '</a>';
+            } else {
+              authorHtml = 'Anonymous';
+            }
+
+            html += '<div class="review-item">';
+            html += '<div class="review-header">';
+            html += '<span class="review-stars">' + starsHtml(r.rating) + '</span>';
+            html += '<span class="review-author">' + authorHtml + '</span>';
+            if (r.created_at) {
+              html += '<span class="review-date">' + escHtml(formatDate(r.created_at)) + '</span>';
+            }
+            html += '</div>';
+            if (r.review_text) {
+              html += '<p class="review-text">' + escHtml(r.review_text) + '</p>';
+            }
+            html += '</div>';
+          });
+
+          list.innerHTML = html;
+          section.style.display = '';
+        } catch (e) {
+          // Non-critical — reviews section just stays hidden
+        }
+      }
+
+      loadReviews();
+    })();
+  </script>
 </body>
 </html>

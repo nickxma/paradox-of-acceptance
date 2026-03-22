@@ -1649,6 +1649,30 @@ app.get("/api/courses", async (req: Request, res: Response) => {
     }
   }
 
+  // Fetch review aggregates (avg_rating, review_count) for all courses
+  const courseIds = (courses ?? []).map((c) => c.id);
+  const reviewStatsByCourseId: Record<string, { avg_rating: number; review_count: number }> = {};
+  if (courseIds.length > 0) {
+    const { data: reviewRows } = await supabase
+      .from("course_reviews")
+      .select("course_id, rating")
+      .in("course_id", courseIds);
+    if (reviewRows) {
+      const sums: Record<string, { total: number; count: number }> = {};
+      for (const r of reviewRows) {
+        if (!sums[r.course_id]) sums[r.course_id] = { total: 0, count: 0 };
+        sums[r.course_id].total += r.rating;
+        sums[r.course_id].count += 1;
+      }
+      for (const [cid, s] of Object.entries(sums)) {
+        reviewStatsByCourseId[cid] = {
+          avg_rating: Math.round((s.total / s.count) * 10) / 10,
+          review_count: s.count,
+        };
+      }
+    }
+  }
+
   // Compute is_unlocked per course
   const result = (courses ?? []).map((course) => {
     const prereqs: string[] = Array.isArray(course.prerequisites) ? course.prerequisites : [];
@@ -1661,7 +1685,8 @@ app.get("/api/courses", async (req: Request, res: Response) => {
       // Unauthenticated: locked unless free
       is_unlocked = false;
     }
-    return { ...course, is_unlocked };
+    const stats = reviewStatsByCourseId[course.id] ?? { avg_rating: null, review_count: 0 };
+    return { ...course, is_unlocked, avg_rating: stats.avg_rating, review_count: stats.review_count };
   });
 
   res.json({ courses: result });
@@ -1751,6 +1776,129 @@ app.patch("/api/admin/courses/:id", requireAdminSecret, async (req: Request, res
     return;
   }
   res.json({ course: data });
+});
+
+// ─── Course Reviews API ───────────────────────────────────────────────────────
+//
+// POST /api/courses/:slug/reviews — upsert rating + optional text for authed user
+// GET  /api/courses/:slug/reviews — paginated public list with wallet/display_name
+
+// POST /api/courses/:slug/reviews
+// Upserts a rating (1–5) and optional review_text (≤500 chars) for the authed user.
+// Idempotent: re-submitting updates the existing row.
+app.post("/api/courses/:slug/reviews", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { slug } = req.params;
+  const { rating, review_text } = req.body as { rating?: unknown; review_text?: unknown };
+
+  if (typeof rating !== "number" || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: "rating must be an integer between 1 and 5" });
+    return;
+  }
+  if (review_text !== undefined && review_text !== null && typeof review_text !== "string") {
+    res.status(400).json({ error: "review_text must be a string" });
+    return;
+  }
+  const text = typeof review_text === "string" ? review_text.trim() : null;
+  if (text && text.length > 500) {
+    res.status(400).json({ error: "review_text must be 500 characters or fewer" });
+    return;
+  }
+
+  const { data: course, error: courseErr } = await supabase
+    .from("courses")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+  if (courseErr || !course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  const { error } = await supabase
+    .from("course_reviews")
+    .upsert(
+      { user_id: userId, course_id: course.id, rating, review_text: text || null },
+      { onConflict: "user_id,course_id" }
+    );
+  if (error) {
+    res.status(500).json({ error: "Failed to save review" });
+    return;
+  }
+  res.json({ status: "ok" });
+});
+
+// GET /api/courses/:slug/reviews
+// Returns paginated reviews (public). Each review includes rating, truncated
+// review_text (≤200 chars), wallet address, display_name, and created_at.
+app.get("/api/courses/:slug/reviews", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const { slug } = req.params;
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+  const perPage = Math.min(20, Math.max(1, parseInt(String(req.query.per_page ?? "5"), 10) || 5));
+
+  const { data: course, error: courseErr } = await supabase
+    .from("courses")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+  if (courseErr || !course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  const from = (page - 1) * perPage;
+  const to = from + perPage - 1;
+
+  const { data: reviews, error, count } = await supabase
+    .from("course_reviews")
+    .select("rating, review_text, created_at, user_id", { count: "exact" })
+    .eq("course_id", course.id)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch reviews" });
+    return;
+  }
+
+  // Enrich with user profile (wallet/display_name) — best-effort
+  const userIds = (reviews ?? []).map((r) => r.user_id).filter(Boolean);
+  const profilesByUserId: Record<string, { wallet_address: string; display_name: string | null }> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("id, wallet_address, display_name")
+      .in("id", userIds);
+    if (profiles) {
+      for (const p of profiles) profilesByUserId[p.id] = p;
+    }
+  }
+
+  const result = (reviews ?? []).map((r) => {
+    const profile = profilesByUserId[r.user_id];
+    const rawText: string | null = r.review_text ?? null;
+    return {
+      rating: r.rating,
+      review_text: rawText && rawText.length > 200 ? rawText.slice(0, 200) + "\u2026" : rawText,
+      wallet: profile?.wallet_address ?? null,
+      display_name: profile?.display_name ?? null,
+      created_at: r.created_at,
+    };
+  });
+
+  res.json({ reviews: result, total: count ?? 0, page, per_page: perPage });
 });
 
 // ─── Session Notes API ────────────────────────────────────────────────────────
