@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Essays -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/paradox-of-acceptance/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/should-you-get-into-mindfulness/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/the-avoidance-problem/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/the-cherry-picking-problem/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/when-to-quit/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Course landing page -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Course sessions -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-1/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-2/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-3/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-4/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-5/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-6/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+</urlset>
