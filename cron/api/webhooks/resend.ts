@@ -5,6 +5,7 @@
  *
  * Handled events:
  *   email.opened    — set opened_at on the matching onboarding_sequences row
+ *   email.clicked   — reset has_received_reengagement_email on the subscriber (re-engagement only)
  *   email.bounced   — set subscribers.status = 'bounced' to suppress future sends
  *   email.complained — set subscribers.status = 'unsubscribed', log to complaints table
  *
@@ -122,6 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   switch (eventType) {
     case "email.opened":
       return handleOpened(payload, supabase, res);
+    case "email.clicked":
+      return handleClicked(payload, supabase, res);
     case "email.bounced":
       return handleBounced(payload, supabase, res);
     case "email.complained":
@@ -166,6 +169,50 @@ async function handleOpened(
 
   console.log(`resend-webhook: opened_at updated for email_id=${emailId} rows=${count}`);
   return res.status(200).json({ updated: count });
+}
+
+// ─── email.clicked ────────────────────────────────────────────────────────────
+
+/**
+ * When a re-engagement email is clicked, reset has_received_reengagement_email
+ * so the subscriber can receive another re-engagement email after another 7-day gap.
+ * Non-re-engagement clicks (other sequences) are ignored.
+ */
+async function handleClicked(
+  payload: ResendWebhookPayload,
+  supabase: SupabaseClient,
+  res: VercelResponse
+) {
+  // Only process clicks from re-engagement emails
+  const tags: Array<{ name: string; value: string }> = payload.data?.tags ?? [];
+  const isReengagement = tags.some((t) => t.name === "sequence" && t.value === "reengagement");
+
+  if (!isReengagement) {
+    return res.status(200).json({ ignored: true, reason: "not reengagement sequence" });
+  }
+
+  const recipients = payload.data?.to ?? [];
+  if (recipients.length === 0) {
+    console.warn("resend-webhook: email.clicked missing recipient");
+    return res.status(200).json({ ignored: true, reason: "no recipient" });
+  }
+
+  const email = recipients[0].toLowerCase().trim();
+
+  // Clear the re-engagement flag so they're eligible again after another 7-day gap
+  const { error: updateError } = await supabase
+    .from("subscribers")
+    .update({ has_received_reengagement_email: false })
+    .eq("email", email)
+    .eq("has_received_reengagement_email", true); // idempotent
+
+  if (updateError) {
+    console.error(`resend-webhook: failed to reset reengagement flag for ${email}: ${updateError.message}`);
+    return res.status(500).json({ error: updateError.message });
+  }
+
+  console.log(`resend-webhook: reengagement flag cleared for ${email} on click`);
+  return res.status(200).json({ processed: true, email, event: "clicked", action: "reengagement_reset" });
 }
 
 // ─── email.bounced ────────────────────────────────────────────────────────────
