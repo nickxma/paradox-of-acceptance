@@ -1,0 +1,163 @@
+/**
+ * POST /api/webhooks/resend
+ *
+ * Handles Resend webhook events for the onboarding drip sequence.
+ * Updates onboarding_sequences.opened_at when an onboarding email is opened.
+ *
+ * Handled events:
+ *   email.opened — set opened_at on the matching onboarding_sequences row
+ *
+ * Signature verification: Resend signs webhook payloads with svix.
+ * Set RESEND_WEBHOOK_SECRET in Vercel env (from Resend dashboard → Webhooks).
+ *
+ * Required env vars:
+ *   RESEND_WEBHOOK_SECRET     — webhook signing secret from Resend dashboard
+ *   SUPABASE_URL              — Supabase project URL
+ *   SUPABASE_SERVICE_ROLE_KEY — Supabase service role key
+ */
+
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
+import { createHmac, timingSafeEqual } from "crypto";
+
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
+// Vercel: disable body parser to get raw bytes for HMAC verification
+export const config = {
+  api: { bodyParser: false },
+};
+
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+// ─── Resend svix signature verification ──────────────────────────────────────
+// Resend uses the svix webhook standard.
+// Headers: svix-id, svix-timestamp, svix-signature
+// Signed payload: "{svix-id}.{svix-timestamp}.{raw-body}"
+// Expected: "v1,{base64(hmac-sha256(secret, signed-payload))}"
+
+function verifySvixSignature(
+  rawBody: Buffer,
+  headers: Record<string, string | string[] | undefined>,
+  secret: string
+): boolean {
+  const svixId = String(headers["svix-id"] ?? "");
+  const svixTimestamp = String(headers["svix-timestamp"] ?? "");
+  const svixSignature = String(headers["svix-signature"] ?? "");
+
+  if (!svixId || !svixTimestamp || !svixSignature) return false;
+
+  // Reject timestamps older than 5 minutes to prevent replay attacks
+  const ts = parseInt(svixTimestamp, 10);
+  if (isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false;
+
+  const signedPayload = `${svixId}.${svixTimestamp}.${rawBody.toString("utf8")}`;
+
+  // Secret may be prefixed with "whsec_" — strip it
+  const secretBytes = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const hmac = createHmac("sha256", secretBytes);
+  hmac.update(signedPayload);
+  const expectedSig = `v1,${hmac.digest("base64")}`;
+
+  // svix-signature may contain multiple space-separated sigs (key rotation)
+  const incomingSigs = svixSignature.split(" ");
+  return incomingSigs.some((sig) => {
+    try {
+      return timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig));
+    } catch {
+      return false;
+    }
+  });
+}
+
+// ─── Handler ──────────────────────────────────────────────────────────────────
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const rawBody = await getRawBody(req);
+
+  // Verify signature if secret is configured
+  if (RESEND_WEBHOOK_SECRET) {
+    const valid = verifySvixSignature(rawBody, req.headers as Record<string, string | undefined>, RESEND_WEBHOOK_SECRET);
+    if (!valid) {
+      console.error("resend-webhook: invalid signature");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+  } else {
+    console.warn("resend-webhook: RESEND_WEBHOOK_SECRET not set — skipping signature verification");
+  }
+
+  let payload: ResendWebhookPayload;
+  try {
+    payload = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    return res.status(400).json({ error: "Invalid JSON" });
+  }
+
+  const eventType = payload.type;
+  console.log(`resend-webhook: received event type=${eventType}`);
+
+  // Only handle email.opened for onboarding sequences
+  if (eventType !== "email.opened") {
+    return res.status(200).json({ ignored: true, type: eventType });
+  }
+
+  const emailId = payload.data?.email_id;
+  if (!emailId) {
+    console.warn("resend-webhook: email.opened missing email_id");
+    return res.status(200).json({ ignored: true, reason: "no email_id" });
+  }
+
+  // Only process if this is an onboarding email (check tags)
+  const tags: Array<{ name: string; value: string }> = payload.data?.tags ?? [];
+  const isOnboarding = tags.some((t) => t.name === "sequence" && t.value === "onboarding");
+
+  if (!isOnboarding) {
+    return res.status(200).json({ ignored: true, reason: "not onboarding sequence" });
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("resend-webhook: Supabase not configured");
+    return res.status(500).json({ error: "Supabase not configured" });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Update opened_at on the matching onboarding_sequences row
+  const { error: updateError, count } = await supabase
+    .from("onboarding_sequences")
+    .update({ opened_at: new Date().toISOString() })
+    .eq("resend_email_id", emailId)
+    .is("opened_at", null); // only update first open
+
+  if (updateError) {
+    console.error(`resend-webhook: failed to update opened_at for email_id=${emailId}: ${updateError.message}`);
+    return res.status(500).json({ error: updateError.message });
+  }
+
+  console.log(`resend-webhook: opened_at updated for email_id=${emailId} rows=${count}`);
+  return res.status(200).json({ updated: count });
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ResendWebhookPayload {
+  type: string;
+  data?: {
+    email_id?: string;
+    to?: string[];
+    tags?: Array<{ name: string; value: string }>;
+    [key: string]: unknown;
+  };
+}
