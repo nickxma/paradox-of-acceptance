@@ -9,6 +9,7 @@
   <meta property="og:title" content="The Cherry-Picking Problem: What Non-Dual Practice Costs" />
   <meta property="og:description" content="Most practitioners want to dissolve the suffering self and keep the driven one. But the non-dual insight doesn't make that distinction — and the community won't say what that costs." />
   <meta property="og:type" content="article" />
+  <link rel="alternate" type="application/rss+xml" title="Paradox of Acceptance — Essays" href="/feed.xml">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -152,6 +153,29 @@
       header { padding: 40px 0 48px; }
       h1 { font-size: 30px; }
     }
+
+    /* Subscribe modal */
+    #poa-subscribe-modal { display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; }
+    #poa-subscribe-modal.is-open { display: flex; }
+    #poa-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
+    #poa-modal-box { position: relative; background: var(--cream); max-width: 420px; width: calc(100% - 48px); padding: 40px 36px 36px; border-radius: 4px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+    #poa-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink-light); padding: 2px 6px; }
+    #poa-modal-close:hover { color: var(--ink); }
+    #poa-modal-headline { font-family: Georgia, 'Times New Roman', serif; font-size: 22px; line-height: 1.3; color: var(--ink); margin-bottom: 20px; }
+    #poa-modal-form { display: flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+    #poa-modal-email { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; padding: 11px 14px; border: none; outline: none; flex: 1; background: var(--cream); color: var(--ink); min-width: 0; }
+    #poa-modal-email::placeholder { color: #aaa; }
+    #poa-modal-btn { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; padding: 11px 20px; background: var(--sage); color: #fff; border: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+    #poa-modal-btn:hover { background: var(--sage-dark); }
+    #poa-modal-btn:disabled { background: var(--sage-light); cursor: default; }
+    #poa-modal-msg { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; margin-top: 12px; min-height: 18px; color: var(--sage-dark); }
+    #poa-modal-msg.error { color: #DC2626; }
+    @media (max-width: 480px) { #poa-modal-form { flex-direction: column; } #poa-modal-btn { width: 100%; } }
+    [data-theme="dark"] #poa-modal-box { background: #1a1a1a; }
+    [data-theme="dark"] #poa-modal-email { background: #1a1a1a; color: #e8e3dc; }
+    [data-theme="dark"] #poa-modal-close { color: #888; }
+    [data-theme="dark"] #poa-modal-close:hover { color: #e8e3dc; }
+    [data-theme="dark"] #poa-modal-headline { color: #e8e3dc; }
   </style>
 </head>
 <body>
@@ -255,9 +279,22 @@
 
 <footer>
   <div class="container">
-    <p><a href="/">Paradox of Acceptance</a> · <a href="/mindfulness-essays/">All essays</a></p>
+    <p><a href="/">Paradox of Acceptance</a> · <a href="/mindfulness-essays/">All essays</a> · <a href="/feed.xml">RSS</a></p>
   </div>
 </footer>
+
+<div id="poa-subscribe-modal" role="dialog" aria-modal="true" aria-labelledby="poa-modal-headline">
+  <div id="poa-modal-overlay"></div>
+  <div id="poa-modal-box">
+    <button id="poa-modal-close" aria-label="Close">&#x2715;</button>
+    <div id="poa-modal-headline">Enjoying this? Get new essays in your inbox.</div>
+    <form id="poa-modal-form">
+      <input type="email" id="poa-modal-email" placeholder="you@email.com" required>
+      <button type="submit" id="poa-modal-btn">Subscribe</button>
+    </form>
+    <div id="poa-modal-msg"></div>
+  </div>
+</div>
 
 <script>
   // Progress bar
@@ -280,6 +317,65 @@
       localStorage.setItem('theme', 'dark');
     }
   });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function() {
+  if (localStorage.getItem('poa_subscribed') === 'true') return;
+  var dismissedAt = localStorage.getItem('poa_modal_dismissed_at');
+  if (dismissedAt && (Date.now() - parseInt(dismissedAt, 10)) / 86400000 < 30) return;
+
+  var modal = document.getElementById('poa-subscribe-modal');
+  var triggered = false;
+
+  function showModal() {
+    modal.classList.add('is-open');
+    document.getElementById('poa-modal-email').focus();
+  }
+  function hideModal(dismissed) {
+    modal.classList.remove('is-open');
+    if (dismissed) localStorage.setItem('poa_modal_dismissed_at', Date.now().toString());
+  }
+
+  window.addEventListener('scroll', function() {
+    if (triggered) return;
+    var total = document.body.scrollHeight - window.innerHeight;
+    if (total > 0 && window.scrollY / total >= 0.6) { triggered = true; showModal(); }
+  }, { passive: true });
+
+  document.getElementById('poa-modal-close').addEventListener('click', function() { hideModal(true); });
+  document.getElementById('poa-modal-overlay').addEventListener('click', function() { hideModal(true); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && modal.classList.contains('is-open')) hideModal(true); });
+
+  document.getElementById('poa-modal-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var email = document.getElementById('poa-modal-email').value.trim();
+    if (!email) return;
+    var btn = document.getElementById('poa-modal-btn');
+    var msg = document.getElementById('poa-modal-msg');
+    btn.disabled = true; btn.textContent = '...'; msg.textContent = ''; msg.className = '';
+    if (typeof supabase === 'undefined') {
+      btn.disabled = false; btn.textContent = 'Subscribe';
+      msg.textContent = 'Something went wrong. Try again.'; msg.className = 'error'; return;
+    }
+    var sb = supabase.createClient(
+      'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
+    );
+    sb.rpc('subscribe', { p_email: email }).then(function(res) {
+      btn.disabled = false; btn.textContent = 'Subscribe';
+      if (res.error) {
+        msg.textContent = 'Something went wrong. Try again.'; msg.className = 'error';
+      } else {
+        localStorage.setItem('poa_subscribed', 'true');
+        msg.textContent = "You\u2019re in. Welcome.";
+        document.getElementById('poa-modal-email').value = '';
+        setTimeout(function() { hideModal(false); }, 1800);
+      }
+    });
+  });
+})();
 </script>
 
 </body>
