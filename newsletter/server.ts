@@ -243,6 +243,94 @@ function requireAdminSecret(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// ─── Suppression check ────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the given email address is suppressed (should not receive mail).
+ * Suppressed = status is anything other than 'active'.
+ * Returns false if the subscriber row is not found (unknown address — allow send).
+ */
+async function isSuppressed(email: string): Promise<{ suppressed: boolean; status: string | null }> {
+  if (!supabase) return { suppressed: false, status: null };
+  const { data, error } = await supabase
+    .from("subscribers")
+    .select("status")
+    .eq("email", email.toLowerCase().trim())
+    .maybeSingle();
+  if (error || !data) return { suppressed: false, status: null };
+  const suppressed = data.status !== "active";
+  return { suppressed, status: data.status as string };
+}
+
+/**
+ * Log an individual email send attempt to email_send_log.
+ * Non-fatal — never throws.
+ */
+async function logEmailSend(
+  email: string,
+  type: string,
+  status: "sent" | "skipped" | "failed",
+  opts: { skipReason?: string; resendEmailId?: string } = {}
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.from("email_send_log").insert({
+      email: email.toLowerCase().trim(),
+      type,
+      status,
+      skip_reason: opts.skipReason ?? null,
+      resend_email_id: opts.resendEmailId ?? null,
+    });
+  } catch {
+    // Silently ignore logging errors
+  }
+}
+
+// ─── Sentry alert helper ──────────────────────────────────────────────────────
+
+/**
+ * Sends an alert to Sentry via the HTTP Store API (no SDK required).
+ * Set SENTRY_DSN to enable. No-ops silently if unset.
+ */
+async function captureSentryAlert(
+  message: string,
+  level: "warning" | "error",
+  extra: Record<string, unknown>
+): Promise<void> {
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn) {
+    console.warn(`[sentry-alert] SENTRY_DSN not set — alert not sent: ${message}`);
+    return;
+  }
+  // Parse DSN: https://PUBLIC_KEY@HOST/PROJECT_ID
+  const match = dsn.match(/^https?:\/\/([^@]+)@([^/]+)\/(.+)$/);
+  if (!match) {
+    console.error("[sentry-alert] Invalid SENTRY_DSN format");
+    return;
+  }
+  const [, publicKey, host, projectId] = match;
+  const storeUrl = `https://${host}/api/${projectId}/store/`;
+  try {
+    await fetch(storeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=newsletter-server/1.0, sentry_key=${publicKey}`,
+      },
+      body: JSON.stringify({
+        message,
+        level,
+        platform: "node",
+        extra,
+        timestamp: new Date().toISOString().replace("Z", ""),
+      }),
+    });
+    console.log(`[sentry-alert] Captured: ${message} (${level})`);
+  } catch (err) {
+    console.error("[sentry-alert] Failed to capture:", err);
+  }
+}
+
 // ─── Send log ─────────────────────────────────────────────────────────────────
 
 type SendLogEntry = {
@@ -458,12 +546,20 @@ function buildWelcomeHtml(email: string, unsubscribeToken: string): string {
 }
 
 async function sendWelcomeEmail(resend: Resend, email: string, firstName?: string): Promise<void> {
+  // Suppression check: skip if previously bounced or unsubscribed
+  const { suppressed, status } = await isSuppressed(email);
+  if (suppressed) {
+    console.log(`[subscribe] Skipping welcome email for ${email} — suppressed (status=${status})`);
+    await logEmailSend(email, "welcome", "skipped", { skipReason: status ?? undefined });
+    return;
+  }
+
   const token = generateUnsubscribeToken(email);
   const html = buildWelcomeHtml(email, token);
   const greeting = firstName ? `${firstName.trim()},` : "";
   const subject = greeting ? `Welcome, ${firstName?.trim()}` : "Welcome to Paradox of Acceptance";
 
-  const { error } = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM!,
     to: email,
     replyTo: EMAIL_REPLY_TO || undefined,
@@ -473,8 +569,10 @@ async function sendWelcomeEmail(resend: Resend, email: string, firstName?: strin
 
   if (error) {
     console.error(`[subscribe] Welcome email failed for ${email}:`, error);
+    await logEmailSend(email, "welcome", "failed");
   } else {
     console.log(`[subscribe] Welcome email sent to ${email}`);
+    await logEmailSend(email, "welcome", "sent", { resendEmailId: data?.id });
   }
 }
 
@@ -1472,6 +1570,16 @@ app.post("/api/email/preferences/send-link", async (req: Request, res: Response)
     return;
   }
 
+  // Suppression check: bounced addresses are undeliverable; skip silently
+  const { suppressed, status: subStatus } = await isSuppressed(email);
+  if (suppressed) {
+    console.log(`[preferences/send-link] Skipping ${email} — suppressed (status=${subStatus})`);
+    await logEmailSend(email, "preferences_link", "skipped", { skipReason: subStatus ?? undefined });
+    // Return 200 — don't reveal suppression status to the caller
+    res.json({ ok: true });
+    return;
+  }
+
   const resend = new Resend(RESEND_API_KEY!);
   const token = signPreferencesToken(email.toLowerCase().trim());
   const prefUrl = `${SERVER_URL}/email/preferences/?token=${token}`;
@@ -1499,7 +1607,7 @@ app.post("/api/email/preferences/send-link", async (req: Request, res: Response)
 </body>
 </html>`;
 
-  const { error } = await resend.emails.send({
+  const { data: sendData, error } = await resend.emails.send({
     from: EMAIL_FROM!,
     to: email.toLowerCase().trim(),
     replyTo: EMAIL_REPLY_TO || undefined,
@@ -1509,11 +1617,13 @@ app.post("/api/email/preferences/send-link", async (req: Request, res: Response)
 
   if (error) {
     console.error("[preferences/send-link] Failed to send:", error);
+    await logEmailSend(email, "preferences_link", "failed");
     res.status(500).json({ error: "Failed to send preferences link" });
     return;
   }
 
   console.log(`[preferences/send-link] Sent to ${email}`);
+  await logEmailSend(email, "preferences_link", "sent", { resendEmailId: sendData?.id });
   res.json({ ok: true });
 });
 
@@ -3234,6 +3344,138 @@ app.get("/api/admin/reading-lists", requireAdminSecret, async (_req: Request, re
   }));
 
   res.json({ reading_lists });
+});
+
+// ─── GET /api/admin/email/health ──────────────────────────────────────────────
+
+/**
+ * GET /api/admin/email/health
+ *
+ * Returns sender reputation metrics derived from the subscribers and complaints tables.
+ * Fires a Sentry alert if bounce_rate > 5% or complaint_rate > 0.1%.
+ *
+ * Response:
+ *   total          — all subscriber rows
+ *   active         — status = 'active'
+ *   bounced        — status = 'bounced'
+ *   unsubscribed   — status = 'unsubscribed'
+ *   suppressed     — bounced + unsubscribed
+ *   complained     — total rows in complaints table
+ *   bounce_rate    — bounced / total  (0–1)
+ *   complaint_rate — complained / total (0–1)
+ *   alerts         — { bounce: 'ok'|'warning'|'danger', complaint: 'ok'|'warning'|'danger' }
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/email/health", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  // Fetch status counts from subscribers
+  const { data: rows, error: subErr } = await supabase
+    .from("subscribers")
+    .select("status");
+
+  if (subErr) {
+    res.status(500).json({ error: "Failed to query subscribers", detail: subErr.message });
+    return;
+  }
+
+  const counts: Record<string, number> = { active: 0, bounced: 0, unsubscribed: 0, pruned: 0 };
+  for (const row of rows ?? []) {
+    const s = row.status as string;
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+
+  const total = rows?.length ?? 0;
+  const active = counts["active"] ?? 0;
+  const bounced = counts["bounced"] ?? 0;
+  const unsubscribed = counts["unsubscribed"] ?? 0;
+  const suppressed = bounced + unsubscribed;
+
+  // Fetch complaint count from complaints table
+  const { count: complainedCount, error: compErr } = await supabase
+    .from("complaints")
+    .select("id", { count: "exact", head: true });
+
+  if (compErr) {
+    console.warn("[email/health] Failed to query complaints table:", compErr.message);
+  }
+  const complained = complainedCount ?? 0;
+
+  const bounce_rate = total > 0 ? bounced / total : 0;
+  const complaint_rate = total > 0 ? complained / total : 0;
+
+  // Threshold alerts
+  const bounce_alert = bounce_rate > 0.05 ? "danger" : bounce_rate > 0.02 ? "warning" : "ok";
+  const complaint_alert = complaint_rate > 0.001 ? "danger" : complaint_rate > 0.0005 ? "warning" : "ok";
+
+  // Fire Sentry alert if industry danger thresholds exceeded
+  if (bounce_rate > 0.05 || complaint_rate > 0.001) {
+    await captureSentryAlert(
+      `Email health alert: bounce_rate=${(bounce_rate * 100).toFixed(2)}% complaint_rate=${(complaint_rate * 100).toFixed(3)}%`,
+      "warning",
+      { total, active, bounced, unsubscribed, suppressed, complained, bounce_rate, complaint_rate }
+    );
+  }
+
+  res.json({
+    total,
+    active,
+    bounced,
+    unsubscribed,
+    suppressed,
+    complained,
+    bounce_rate,
+    complaint_rate,
+    alerts: { bounce: bounce_alert, complaint: complaint_alert },
+  });
+});
+
+// ─── GET /api/admin/email/suppression-csv ─────────────────────────────────────
+
+/**
+ * GET /api/admin/email/suppression-csv
+ *
+ * Returns a CSV download of all suppressed addresses (bounced + unsubscribed).
+ * Columns: email, status, updated_at
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/email/suppression-csv", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("subscribers")
+    .select("email, status, updated_at")
+    .in("status", ["bounced", "unsubscribed"])
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    res.status(500).json({ error: "Failed to query suppression list", detail: error.message });
+    return;
+  }
+
+  const rows = data ?? [];
+  const lines = ["email,status,updated_at"];
+  for (const row of rows) {
+    const email = `"${String(row.email).replace(/"/g, '""')}"`;
+    const status = `"${String(row.status).replace(/"/g, '""')}"`;
+    const updatedAt = `"${String(row.updated_at ?? "").replace(/"/g, '""')}"`;
+    lines.push(`${email},${status},${updatedAt}`);
+  }
+
+  const csv = lines.join("\n");
+  const filename = `suppression-list-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

@@ -349,6 +349,38 @@ header {
           </div>
         </div>
 
+        <!-- Email Health -->
+        <div class="panel" id="email-health-panel">
+          <div class="panel-header">
+            <span class="panel-title">Email Health</span>
+            <span class="health-bar-meta" id="email-health-status"></span>
+          </div>
+          <div style="padding:14px 18px;">
+            <div class="stats-grid" style="margin-bottom:12px;">
+              <div class="stat-card">
+                <div class="stat-label">Bounced</div>
+                <div class="stat-value loading" id="eh-bounced">—</div>
+                <div class="stat-sub" id="eh-bounce-rate"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Complaints</div>
+                <div class="stat-value loading" id="eh-complained">—</div>
+                <div class="stat-sub" id="eh-complaint-rate"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Suppressed</div>
+                <div class="stat-value loading" id="eh-suppressed">—</div>
+                <div class="stat-sub">bounced + unsub</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <div id="eh-bounce-badge" style="display:none;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;"></div>
+              <div id="eh-complaint-badge" style="display:none;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;"></div>
+              <a id="eh-csv-btn" class="link-btn" href="#" style="margin-left:auto;" onclick="downloadSuppressionCsv(event)">Download suppression CSV</a>
+            </div>
+          </div>
+        </div>
+
         <!-- Quick links -->
         <div class="panel">
           <div class="panel-header">
@@ -504,6 +536,7 @@ function loadAll() {
   loadConvergenceQa();
   loadConvergenceCommunity();
   loadConvergenceHealth();
+  loadEmailHealth();
 }
 
 // ─── PoA: newsletter stats ─────────────────────────────────────
@@ -654,6 +687,100 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ─── Email health ──────────────────────────────────────────────
+
+const ALERT_COLORS = {
+  ok:      { bg: '#dcfce7', color: '#166534', text: 'OK' },
+  warning: { bg: '#fef9c3', color: '#854d0e', text: 'Warning' },
+  danger:  { bg: '#fee2e2', color: '#991b1b', text: 'Danger' },
+};
+
+async function loadEmailHealth() {
+  const { ok, data } = await apiRequest('/api/admin/email/health');
+
+  const bouncedEl   = document.getElementById('eh-bounced');
+  const complainedEl = document.getElementById('eh-complained');
+  const suppressedEl = document.getElementById('eh-suppressed');
+  const bounceRateEl = document.getElementById('eh-bounce-rate');
+  const complaintRateEl = document.getElementById('eh-complaint-rate');
+  const bounceBadge = document.getElementById('eh-bounce-badge');
+  const complaintBadge = document.getElementById('eh-complaint-badge');
+  const statusEl = document.getElementById('email-health-status');
+
+  if (!ok || !data) {
+    setErr(bouncedEl, 'Error');
+    setErr(complainedEl, 'Error');
+    setErr(suppressedEl, 'Error');
+    return;
+  }
+
+  bouncedEl.textContent = fmtNum(data.bounced);
+  bouncedEl.classList.remove('loading');
+  complainedEl.textContent = fmtNum(data.complained);
+  complainedEl.classList.remove('loading');
+  suppressedEl.textContent = fmtNum(data.suppressed);
+  suppressedEl.classList.remove('loading');
+
+  if (data.bounce_rate != null) {
+    bounceRateEl.textContent = (data.bounce_rate * 100).toFixed(2) + '%';
+  }
+  if (data.complaint_rate != null) {
+    complaintRateEl.textContent = (data.complaint_rate * 100).toFixed(3) + '%';
+  }
+
+  const bounceAlert = data.alerts?.bounce ?? 'ok';
+  const complaintAlert = data.alerts?.complaint ?? 'ok';
+  const overallAlert = (bounceAlert === 'danger' || complaintAlert === 'danger') ? 'danger'
+                     : (bounceAlert === 'warning' || complaintAlert === 'warning') ? 'warning'
+                     : 'ok';
+
+  if (bounceBadge) {
+    const c = ALERT_COLORS[bounceAlert];
+    bounceBadge.style.display = 'inline-block';
+    bounceBadge.style.background = c.bg;
+    bounceBadge.style.color = c.color;
+    bounceBadge.textContent = 'Bounce ' + c.text;
+  }
+  if (complaintBadge) {
+    const c = ALERT_COLORS[complaintAlert];
+    complaintBadge.style.display = 'inline-block';
+    complaintBadge.style.background = c.bg;
+    complaintBadge.style.color = c.color;
+    complaintBadge.textContent = 'Complaint ' + c.text;
+  }
+
+  if (statusEl) {
+    const c = ALERT_COLORS[overallAlert];
+    statusEl.textContent = c.text;
+    statusEl.style.color = c.color;
+    statusEl.style.fontWeight = '600';
+  }
+}
+
+async function downloadSuppressionCsv(e) {
+  e.preventDefault();
+  const btn = document.getElementById('eh-csv-btn');
+  if (btn) { btn.textContent = 'Downloading…'; btn.style.pointerEvents = 'none'; }
+
+  try {
+    const res = await fetch('/api/admin/email/suppression-csv', {
+      headers: { 'X-Admin-Secret': adminSecret },
+    });
+    if (!res.ok) { alert('Failed to download suppression list'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const cd = res.headers.get('content-disposition') ?? '';
+    const nameMatch = cd.match(/filename="([^"]+)"/);
+    a.download = nameMatch ? nameMatch[1] : 'suppression-list.csv';
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    if (btn) { btn.textContent = 'Download suppression CSV'; btn.style.pointerEvents = ''; }
+  }
 }
 
 // ─── Init ─────────────────────────────────────────────────────

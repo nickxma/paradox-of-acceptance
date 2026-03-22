@@ -1,11 +1,12 @@
 /**
  * POST /api/webhooks/resend
  *
- * Handles Resend webhook events for the onboarding drip sequence.
- * Updates onboarding_sequences.opened_at when an onboarding email is opened.
+ * Handles Resend webhook events.
  *
  * Handled events:
- *   email.opened — set opened_at on the matching onboarding_sequences row
+ *   email.opened    — set opened_at on the matching onboarding_sequences row
+ *   email.bounced   — set subscribers.status = 'bounced' to suppress future sends
+ *   email.complained — set subscribers.status = 'unsubscribed', log to complaints table
  *
  * Signature verification: Resend signs webhook payloads with svix.
  * Set RESEND_WEBHOOK_SECRET in Vercel env (from Resend dashboard → Webhooks).
@@ -17,7 +18,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
@@ -108,11 +109,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const eventType = payload.type;
   console.log(`resend-webhook: received event type=${eventType}`);
 
-  // Only handle email.opened for onboarding sequences
-  if (eventType !== "email.opened") {
-    return res.status(200).json({ ignored: true, type: eventType });
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    // For non-open events that require DB, fail explicitly
+    if (eventType !== "email.opened") {
+      console.error("resend-webhook: Supabase not configured");
+      return res.status(500).json({ error: "Supabase not configured" });
+    }
   }
 
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  switch (eventType) {
+    case "email.opened":
+      return handleOpened(payload, supabase, res);
+    case "email.bounced":
+      return handleBounced(payload, supabase, res);
+    case "email.complained":
+      return handleComplained(payload, supabase, res);
+    default:
+      return res.status(200).json({ ignored: true, type: eventType });
+  }
+}
+
+// ─── email.opened ─────────────────────────────────────────────────────────────
+
+async function handleOpened(
+  payload: ResendWebhookPayload,
+  supabase: SupabaseClient,
+  res: VercelResponse
+) {
   const emailId = payload.data?.email_id;
   if (!emailId) {
     console.warn("resend-webhook: email.opened missing email_id");
@@ -126,13 +151,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!isOnboarding) {
     return res.status(200).json({ ignored: true, reason: "not onboarding sequence" });
   }
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("resend-webhook: Supabase not configured");
-    return res.status(500).json({ error: "Supabase not configured" });
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Update opened_at on the matching onboarding_sequences row
   const { error: updateError, count } = await supabase
@@ -148,6 +166,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log(`resend-webhook: opened_at updated for email_id=${emailId} rows=${count}`);
   return res.status(200).json({ updated: count });
+}
+
+// ─── email.bounced ────────────────────────────────────────────────────────────
+
+async function handleBounced(
+  payload: ResendWebhookPayload,
+  supabase: SupabaseClient,
+  res: VercelResponse
+) {
+  const recipients = payload.data?.to ?? [];
+  if (recipients.length === 0) {
+    console.warn("resend-webhook: email.bounced missing recipient");
+    return res.status(200).json({ ignored: true, reason: "no recipient" });
+  }
+
+  const email = recipients[0].toLowerCase().trim();
+  const emailId = payload.data?.email_id ?? null;
+
+  // Set status = 'bounced' — suppresses all future sends to this address
+  const { error: updateError } = await supabase
+    .from("subscribers")
+    .update({ status: "bounced" })
+    .eq("email", email)
+    .neq("status", "bounced"); // idempotent — skip if already bounced
+
+  if (updateError) {
+    console.error(`resend-webhook: failed to set bounced for ${email}: ${updateError.message}`);
+    return res.status(500).json({ error: updateError.message });
+  }
+
+  // Log to email_events for audit trail
+  await supabase.from("email_events").insert({
+    email_id: emailId,
+    type: "email.bounced",
+    recipient_email: email,
+    metadata: payload.data ?? null,
+  });
+
+  console.log(`resend-webhook: marked ${email} as bounced (email_id=${emailId})`);
+  return res.status(200).json({ processed: true, email, event: "bounced" });
+}
+
+// ─── email.complained ─────────────────────────────────────────────────────────
+
+async function handleComplained(
+  payload: ResendWebhookPayload,
+  supabase: SupabaseClient,
+  res: VercelResponse
+) {
+  const recipients = payload.data?.to ?? [];
+  if (recipients.length === 0) {
+    console.warn("resend-webhook: email.complained missing recipient");
+    return res.status(200).json({ ignored: true, reason: "no recipient" });
+  }
+
+  const email = recipients[0].toLowerCase().trim();
+  const emailId = payload.data?.email_id ?? null;
+
+  // Set status = 'unsubscribed' — spam complaints must suppress future sends
+  const { error: updateError } = await supabase
+    .from("subscribers")
+    .update({ status: "unsubscribed" })
+    .eq("email", email)
+    .not("status", "in", '("bounced","unsubscribed")'); // idempotent
+
+  if (updateError) {
+    console.error(`resend-webhook: failed to unsubscribe ${email} on complaint: ${updateError.message}`);
+    return res.status(500).json({ error: updateError.message });
+  }
+
+  // Log to complaints table for complaint_rate metric
+  const { error: insertError } = await supabase.from("complaints").insert({
+    email,
+    complained_at: new Date().toISOString(),
+    message_id: emailId,
+  });
+
+  if (insertError) {
+    // Non-fatal — subscriber is already unsubscribed
+    console.error(`resend-webhook: failed to insert complaint record for ${email}: ${insertError.message}`);
+  }
+
+  // Log to email_events for audit trail
+  await supabase.from("email_events").insert({
+    email_id: emailId,
+    type: "email.complained",
+    recipient_email: email,
+    metadata: payload.data ?? null,
+  });
+
+  console.log(`resend-webhook: unsubscribed ${email} on spam complaint (email_id=${emailId})`);
+  return res.status(200).json({ processed: true, email, event: "complained" });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

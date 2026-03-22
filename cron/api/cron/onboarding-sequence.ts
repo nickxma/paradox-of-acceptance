@@ -404,12 +404,55 @@ async function processStep(
 
 // ─── Email sender ─────────────────────────────────────────────────────────────
 
+/**
+ * Log an individual email send attempt to email_send_log.
+ * Non-fatal — never throws.
+ */
+async function logEmailSend(
+  supabase: SupabaseClient,
+  email: string,
+  type: string,
+  status: "sent" | "skipped" | "failed",
+  opts: { skipReason?: string; resendEmailId?: string } = {}
+): Promise<void> {
+  try {
+    await supabase.from("email_send_log").insert({
+      email,
+      type,
+      status,
+      skip_reason: opts.skipReason ?? null,
+      resend_email_id: opts.resendEmailId ?? null,
+    });
+  } catch {
+    // Silently ignore logging errors — never block email sends
+  }
+}
+
 async function sendStepEmail(
   step: Step,
   subscriber: Subscriber,
   resend: Resend,
   supabase: SupabaseClient
 ): Promise<SendResult> {
+  const emailType = `onboarding_step_${step}`;
+
+  // ── Suppression check (defense in depth) ─────────────────────────────────
+  // The processStep query already filters status='active', but this per-email
+  // check catches any status changes that occurred between the batch query and now.
+  const { data: subRow } = await supabase
+    .from("subscribers")
+    .select("status")
+    .eq("email", subscriber.email)
+    .single();
+
+  if (subRow && subRow.status !== "active") {
+    console.log(
+      `onboarding-sequence: step ${step} skipping ${subscriber.email} — suppressed (status=${subRow.status})`
+    );
+    await logEmailSend(supabase, subscriber.email, emailType, "skipped", { skipReason: subRow.status });
+    return { email: subscriber.email, step, resendEmailId: null, error: null };
+  }
+
   const config = stepConfigs[step];
   const unsubscribeUrl = `${SITE_URL}/unsubscribe?email=${encodeURIComponent(subscriber.email)}`;
   const ctx: EmailContext = {
@@ -469,11 +512,13 @@ async function sendStepEmail(
     console.log(
       `onboarding-sequence: step ${step} sent to ${subscriber.email} — resend_id=${resendEmailId}`
     );
+    await logEmailSend(supabase, subscriber.email, emailType, "sent", { resendEmailId: resendEmailId ?? undefined });
   } catch (err: unknown) {
     sendError = err instanceof Error ? err.message : String(err);
     console.error(
       `onboarding-sequence: step ${step} failed for ${subscriber.email}: ${sendError}`
     );
+    await logEmailSend(supabase, subscriber.email, emailType, "failed");
   }
 
   return { email: subscriber.email, step, resendEmailId, error: sendError };
