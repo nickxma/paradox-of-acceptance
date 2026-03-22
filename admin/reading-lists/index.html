@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Lists — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed; inset: 0;
+  background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 40px 48px; width: 360px; text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+
+/* ─── Buttons ───────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: all 0.15s; background: #fff; color: #111;
+}
+.btn:hover { background: #f5f5f5; }
+.btn-primary { background: #111; color: #fff; border-color: #111; }
+.btn-primary:hover { background: #333; border-color: #333; }
+.btn-primary:disabled { background: #aaa; border-color: #aaa; cursor: not-allowed; }
+.btn-danger { color: #dc2626; border-color: #fca5a5; }
+.btn-danger:hover { background: #fef2f2; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ─── Layout ────────────────────────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px; color: #888; text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+.content { padding: 28px 32px; max-width: 1100px; margin: 0 auto; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+}
+.page-title { font-size: 18px; font-weight: 600; }
+
+/* ─── Panel ─────────────────────────────────────────────────────────────── */
+.panel { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; margin-bottom: 24px; }
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid #e0e0e0;
+}
+.panel-title { font-size: 13px; font-weight: 600; }
+
+/* ─── List table ─────────────────────────────────────────────────────────── */
+.list-table { width: 100%; border-collapse: collapse; }
+.list-table th {
+  text-align: left; font-size: 11px; font-weight: 600; color: #999;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 10px 16px; border-bottom: 1px solid #e0e0e0; background: #fafafa;
+}
+.list-table td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.list-table tr:last-child td { border-bottom: none; }
+.list-table tr:hover td { background: #fafafa; }
+
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600; border-radius: 4px;
+  padding: 2px 7px;
+}
+.badge-green { background: #dcfce7; color: #16a34a; }
+.badge-gray { background: #f3f4f6; color: #6b7280; }
+
+.drag-handle {
+  cursor: grab; color: #ccc; font-size: 16px; padding: 0 8px 0 0; user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
+tr.dragging { opacity: 0.4; }
+tr.drag-over td { border-top: 2px solid #7d8c6e; }
+
+/* ─── Form ───────────────────────────────────────────────────────────────── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 12px; font-weight: 600; color: #666; }
+.form-input, .form-textarea, .form-select {
+  padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #111; }
+.form-textarea { resize: vertical; min-height: 72px; }
+.form-hint { font-size: 11px; color: #aaa; margin-top: 2px; }
+.form-actions { display: flex; gap: 10px; padding: 0 20px 20px; }
+.form-msg { padding: 0 20px 16px; font-size: 12px; }
+.form-msg.success { color: #16a34a; }
+.form-msg.error { color: #dc2626; }
+
+/* ─── Items editor ───────────────────────────────────────────────────────── */
+.items-editor { padding: 20px; }
+.items-editor-title { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 12px; }
+.item-row {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;
+  padding: 10px; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px;
+}
+.item-drag { cursor: grab; color: #bbb; font-size: 14px; padding-top: 7px; user-select: none; }
+.item-drag:active { cursor: grabbing; }
+.item-fields { flex: 1; display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.item-select { padding: 7px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; font-family: inherit; outline: none; }
+.item-select:focus { border-color: #111; }
+.item-annotation { padding: 7px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; font-family: inherit; outline: none; resize: none; }
+.item-annotation:focus { border-color: #111; }
+.item-remove { flex-shrink: 0; cursor: pointer; color: #ccc; font-size: 16px; padding: 6px; line-height: 1; }
+.item-remove:hover { color: #dc2626; }
+.add-item-btn { font-size: 13px; color: #7d8c6e; background: none; border: 1px dashed #c5d4bc; border-radius: 6px; padding: 8px 14px; cursor: pointer; width: 100%; text-align: center; }
+.add-item-btn:hover { background: #f4f7f1; }
+
+/* ─── Modal ──────────────────────────────────────────────────────────────── */
+#modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4); z-index: 200;
+  align-items: center; justify-content: center;
+}
+#modal-overlay.open { display: flex; }
+.modal {
+  background: #fff; border-radius: 8px;
+  width: 680px; max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px); overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; background: #fff;
+}
+.modal-title { font-size: 15px; font-weight: 600; }
+.modal-close { cursor: pointer; color: #999; font-size: 18px; line-height: 1; background: none; border: none; padding: 4px; }
+.modal-close:hover { color: #111; }
+
+/* ─── Misc ───────────────────────────────────────────────────────────────── */
+#error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin</h1>
+    <p>Enter your admin secret to continue.</p>
+    <input type="password" id="auth-input" class="auth-input" placeholder="Admin secret">
+    <button class="btn btn-primary" style="width:100%" onclick="authenticate()">Sign in</button>
+    <div id="error"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance — Admin</span>
+    <nav class="header-nav">
+      <a href="/admin/essays/">Essays</a>
+      <a href="/admin/reading-lists/" class="active">Reading Lists</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/stats/">Stats</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <h1 class="page-title">Reading Lists</h1>
+      <button class="btn btn-primary" onclick="openCreateModal()">+ New List</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">All Lists <span id="list-count" style="font-weight:400;color:#999;font-size:12px;"></span></span>
+        <span style="font-size:12px;color:#aaa;">Drag rows to reorder display order</span>
+      </div>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Title</th>
+            <th>Slug</th>
+            <th>Essays</th>
+            <th>Status</th>
+            <th>Order</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="lists-tbody">
+          <tr><td colspan="7" style="text-align:center;color:#999;padding:32px;">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">New Reading List</span>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+
+    <!-- List fields -->
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input type="text" id="f-title" class="form-input" placeholder="e.g. Beginner Path">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Slug *</label>
+        <input type="text" id="f-slug" class="form-input" placeholder="e.g. beginner-path">
+        <span class="form-hint">URL-safe, lowercase, hyphens only</span>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Description</label>
+        <textarea id="f-desc" class="form-textarea" placeholder="What does this path cover?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cover Image URL</label>
+        <input type="url" id="f-cover" class="form-input" placeholder="https://...">
+        <span class="form-hint">Leave blank to use first essay image</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="f-published" class="form-select">
+          <option value="false">Draft (not visible to public)</option>
+          <option value="true">Published</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Items editor -->
+    <div class="items-editor">
+      <div class="items-editor-title">Essays in this list <span style="font-weight:400;color:#aaa;">(drag to reorder)</span></div>
+      <div id="items-list"></div>
+      <button class="add-item-btn" onclick="addItem()">+ Add essay</button>
+    </div>
+
+    <div class="form-msg" id="modal-msg"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="save-btn" onclick="saveList()">Save</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_BASE = 'https://paradoxofacceptance.xyz';
+var adminSecret = '';
+var editingSlug = null; // null = create, string = edit
+
+// Known essays
+var KNOWN_ESSAYS = [
+  { slug: 'paradox-of-acceptance',          title: 'The Paradox of Acceptance' },
+  { slug: 'should-you-get-into-mindfulness', title: 'Should You Get Into Mindfulness?' },
+  { slug: 'the-avoidance-problem',           title: 'The Avoidance Problem' },
+  { slug: 'the-cherry-picking-problem',      title: 'The Cherry-Picking Problem' },
+  { slug: 'when-to-quit',                    title: 'When to Quit' },
+];
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+
+function authenticate() {
+  var input = document.getElementById('auth-input');
+  adminSecret = input.value.trim();
+  if (!adminSecret) return;
+  // Test the secret by calling an admin endpoint
+  fetch(API_BASE + '/api/admin/reading-lists', {
+    headers: { 'X-Admin-Secret': adminSecret }
+  }).then(function (r) {
+    if (r.ok) {
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('main').style.display = '';
+      r.json().then(function (data) { renderLists(data.reading_lists || []); });
+    } else {
+      document.getElementById('error').textContent = 'Invalid secret.';
+    }
+  }).catch(function () {
+    document.getElementById('error').textContent = 'Could not connect to the API.';
+  });
+}
+
+document.getElementById('auth-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') authenticate();
+});
+
+// ─── Load lists ─────────────────────────────────────────────────────────────
+
+function loadLists() {
+  fetch(API_BASE + '/api/admin/reading-lists', { headers: { 'X-Admin-Secret': adminSecret } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (data) { renderLists(data.reading_lists || []); })
+    .catch(function () {
+      document.getElementById('lists-tbody').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;color:#dc2626;padding:32px;">Failed to load lists.</td></tr>';
+    });
+}
+
+function renderLists(lists) {
+  var count = document.getElementById('list-count');
+  count.textContent = '(' + lists.length + ')';
+
+  var tbody = document.getElementById('lists-tbody');
+  if (lists.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:32px;">No reading lists yet. Create one above.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lists.map(function (list) {
+    return '<tr draggable="true" data-slug="' + esc(list.slug) + '" data-order="' + list.display_order + '">' +
+      '<td><span class="drag-handle" title="Drag to reorder">\u2630</span></td>' +
+      '<td><strong>' + esc(list.title) + '</strong></td>' +
+      '<td style="color:#888;font-size:12px;">' + esc(list.slug) + '</td>' +
+      '<td style="color:#666;">' + (list.items ? list.items.length : 0) + '</td>' +
+      '<td>' + (list.published
+        ? '<span class="badge badge-green">Published</span>'
+        : '<span class="badge badge-gray">Draft</span>') + '</td>' +
+      '<td style="color:#888;font-size:12px;">' + list.display_order + '</td>' +
+      '<td style="display:flex;gap:8px;white-space:nowrap;">' +
+        '<button class="btn btn-sm" onclick="openEditModal(\'' + esc(list.slug) + '\')">Edit</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteList(\'' + esc(list.slug) + '\',\'' + esc(list.title) + '\')">Delete</button>' +
+      '</td>' +
+      '</tr>';
+  }).join('');
+
+  setupDragDrop(tbody, lists);
+}
+
+// ─── Drag-and-drop reorder ───────────────────────────────────────────────────
+
+function setupDragDrop(tbody, lists) {
+  var draggingRow = null;
+
+  tbody.querySelectorAll('tr[draggable]').forEach(function (row) {
+    row.addEventListener('dragstart', function () {
+      draggingRow = row;
+      setTimeout(function () { row.classList.add('dragging'); }, 0);
+    });
+    row.addEventListener('dragend', function () {
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(function (r) { r.classList.remove('drag-over'); });
+      draggingRow = null;
+      saveDisplayOrder(tbody);
+    });
+    row.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      tbody.querySelectorAll('tr').forEach(function (r) { r.classList.remove('drag-over'); });
+      if (draggingRow && row !== draggingRow) {
+        row.classList.add('drag-over');
+        // Insert before or after based on mouse position
+        var rect = row.getBoundingClientRect();
+        var mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) {
+          tbody.insertBefore(draggingRow, row);
+        } else {
+          tbody.insertBefore(draggingRow, row.nextSibling);
+        }
+      }
+    });
+  });
+}
+
+function saveDisplayOrder(tbody) {
+  var rows = tbody.querySelectorAll('tr[data-slug]');
+  var updates = [];
+  rows.forEach(function (row, idx) {
+    updates.push({ slug: row.getAttribute('data-slug'), display_order: idx });
+  });
+
+  updates.forEach(function (u) {
+    fetch(API_BASE + '/api/admin/reading-lists/' + encodeURIComponent(u.slug), {
+      method: 'PATCH',
+      headers: { 'X-Admin-Secret': adminSecret, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_order: u.display_order }),
+    }).catch(function () {});
+  });
+}
+
+// ─── Create / Edit modal ─────────────────────────────────────────────────────
+
+function openCreateModal() {
+  editingSlug = null;
+  document.getElementById('modal-title').textContent = 'New Reading List';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-slug').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-cover').value = '';
+  document.getElementById('f-published').value = 'false';
+  document.getElementById('items-list').innerHTML = '';
+  document.getElementById('modal-msg').textContent = '';
+  document.getElementById('modal-msg').className = 'form-msg';
+  document.getElementById('save-btn').disabled = false;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function openEditModal(slug) {
+  fetch(API_BASE + '/api/admin/reading-lists', { headers: { 'X-Admin-Secret': adminSecret } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (data) {
+      var list = (data.reading_lists || []).find(function (l) { return l.slug === slug; });
+      if (!list) { alert('List not found.'); return; }
+
+      editingSlug = slug;
+      document.getElementById('modal-title').textContent = 'Edit: ' + list.title;
+      document.getElementById('f-title').value = list.title;
+      document.getElementById('f-slug').value = list.slug;
+      document.getElementById('f-desc').value = list.description || '';
+      document.getElementById('f-cover').value = list.cover_image_url || '';
+      document.getElementById('f-published').value = list.published ? 'true' : 'false';
+      document.getElementById('modal-msg').textContent = '';
+      document.getElementById('modal-msg').className = 'form-msg';
+      document.getElementById('save-btn').disabled = false;
+
+      // Render items
+      var itemsEl = document.getElementById('items-list');
+      itemsEl.innerHTML = '';
+      (list.items || []).forEach(function (item) { addItem(item.essay_slug, item.annotation); });
+
+      document.getElementById('modal-overlay').classList.add('open');
+    })
+    .catch(function () { alert('Failed to load list data.'); });
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// Close on overlay click
+document.getElementById('modal-overlay').addEventListener('click', function (e) {
+  if (e.target === this) closeModal();
+});
+
+// Auto-slug from title (create mode only)
+document.getElementById('f-title').addEventListener('input', function () {
+  if (editingSlug) return; // don't auto-update slug when editing
+  document.getElementById('f-slug').value = this.value
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+});
+
+// ─── Items editor ─────────────────────────────────────────────────────────────
+
+var itemIdCounter = 0;
+
+function addItem(selectedSlug, annotation) {
+  var id = 'item-' + (++itemIdCounter);
+  var div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = id;
+  div.draggable = true;
+
+  var options = KNOWN_ESSAYS.map(function (e) {
+    return '<option value="' + esc(e.slug) + '"' + (e.slug === selectedSlug ? ' selected' : '') + '>' + esc(e.title) + '</option>';
+  }).join('');
+
+  div.innerHTML =
+    '<span class="item-drag" title="Drag to reorder">\u2630</span>' +
+    '<div class="item-fields">' +
+      '<select class="item-select item-essay-slug">' + options + '</select>' +
+      '<textarea class="item-annotation" placeholder="Why this essay? (optional)" rows="2">' + esc(annotation || '') + '</textarea>' +
+    '</div>' +
+    '<span class="item-remove" title="Remove" onclick="removeItem(\'' + id + '\')">&times;</span>';
+
+  var itemsList = document.getElementById('items-list');
+  itemsList.appendChild(div);
+  setupItemDragDrop(div, itemsList);
+}
+
+function removeItem(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function setupItemDragDrop(row, container) {
+  var dragging = null;
+  row.addEventListener('dragstart', function () {
+    dragging = row;
+    setTimeout(function () { row.style.opacity = '0.4'; }, 0);
+  });
+  row.addEventListener('dragend', function () {
+    row.style.opacity = '';
+    dragging = null;
+  });
+  row.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    if (!dragging || dragging === row) return;
+    var rect = row.getBoundingClientRect();
+    var mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) {
+      container.insertBefore(dragging, row);
+    } else {
+      container.insertBefore(dragging, row.nextSibling);
+    }
+  });
+}
+
+function getItems() {
+  var rows = document.getElementById('items-list').querySelectorAll('.item-row');
+  var items = [];
+  rows.forEach(function (row, idx) {
+    var slug = row.querySelector('.item-essay-slug').value;
+    var annotation = row.querySelector('.item-annotation').value.trim();
+    items.push({ essay_slug: slug, position: idx, annotation: annotation || null });
+  });
+  return items;
+}
+
+// ─── Save ─────────────────────────────────────────────────────────────────────
+
+function saveList() {
+  var title = document.getElementById('f-title').value.trim();
+  var slug = document.getElementById('f-slug').value.trim();
+  var desc = document.getElementById('f-desc').value.trim();
+  var cover = document.getElementById('f-cover').value.trim();
+  var published = document.getElementById('f-published').value === 'true';
+  var items = getItems();
+  var msgEl = document.getElementById('modal-msg');
+  var btn = document.getElementById('save-btn');
+
+  if (!title || !slug) {
+    msgEl.textContent = 'Title and slug are required.';
+    msgEl.className = 'form-msg error';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  msgEl.textContent = '';
+  msgEl.className = 'form-msg';
+
+  var isEdit = !!editingSlug;
+  var url = API_BASE + '/api/admin/reading-lists' + (isEdit ? '/' + encodeURIComponent(editingSlug) : '');
+  var method = isEdit ? 'PATCH' : 'POST';
+
+  var body = { title: title, description: desc || null, cover_image_url: cover || null, published: published, items: items };
+  if (!isEdit) body.slug = slug;
+
+  fetch(url, {
+    method: method,
+    headers: { 'X-Admin-Secret': adminSecret, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(function (r) {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+    if (r.ok) {
+      msgEl.textContent = isEdit ? 'Saved.' : 'Created.';
+      msgEl.className = 'form-msg success';
+      setTimeout(function () { closeModal(); loadLists(); }, 700);
+    } else {
+      r.json().then(function (d) {
+        msgEl.textContent = d.error || 'Failed to save.';
+        msgEl.className = 'form-msg error';
+      }).catch(function () {
+        msgEl.textContent = 'Failed to save.';
+        msgEl.className = 'form-msg error';
+      });
+    }
+  }).catch(function () {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+    msgEl.textContent = 'Network error. Try again.';
+    msgEl.className = 'form-msg error';
+  });
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+function deleteList(slug, title) {
+  if (!confirm('Delete "' + title + '"? This cannot be undone.')) return;
+  // There's no DELETE endpoint — patch to unpublished as a soft delete isn't enough.
+  // Instead we'll note this as a limitation and use PATCH to unpublish.
+  // To truly delete, admin can use Supabase dashboard directly.
+  // For now: unpublish the list as a workaround.
+  fetch(API_BASE + '/api/admin/reading-lists/' + encodeURIComponent(slug), {
+    method: 'PATCH',
+    headers: { 'X-Admin-Secret': adminSecret, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ published: false }),
+  }).then(function (r) {
+    if (r.ok) {
+      alert('"' + title + '" has been unpublished. To fully delete it, use the Supabase dashboard.');
+      loadLists();
+    } else {
+      alert('Failed to unpublish the list.');
+    }
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+</script>
+
+</body>
+</html>

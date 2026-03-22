@@ -254,6 +254,10 @@ type SendLogEntry = {
   emailId?: string;
   status: "sent" | "failed";
   error?: string;
+  previewText?: string;
+  bodyHtml?: string;
+  bodyText?: string;
+  includeInArchive?: boolean;
 };
 
 async function logSend(entry: SendLogEntry): Promise<void> {
@@ -273,6 +277,10 @@ async function logSend(entry: SendLogEntry): Promise<void> {
     email_id: entry.emailId ?? null,
     status: entry.status,
     error: entry.error ?? null,
+    preview_text: entry.previewText ?? null,
+    body_html: entry.bodyHtml ?? null,
+    body_text: entry.bodyText ?? null,
+    include_in_archive: entry.includeInArchive ?? true,
   });
 
   if (error) {
@@ -831,12 +839,14 @@ async function sendBatched(
  * Full-list sends require ALLOW_FULL_LIST_SEND=true in .env.
  */
 app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: Response) => {
-  const { subject, htmlBody, textBody, testMode, sendType } = req.body as {
+  const { subject, htmlBody, textBody, testMode, sendType, previewText, includeInArchive } = req.body as {
     subject?: string;
     htmlBody?: string;
     textBody?: string;
     testMode?: boolean;
     sendType?: "newsletter" | "weekly_digest" | "course_updates";
+    previewText?: string;
+    includeInArchive?: boolean;
   };
 
   if (!subject?.trim()) {
@@ -887,6 +897,10 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
       status: error ? "failed" : "sent",
       emailId: data?.id,
       error: error ? JSON.stringify(error) : undefined,
+      previewText: previewText?.trim() || undefined,
+      bodyHtml: htmlBody,
+      bodyText: textBody,
+      includeInArchive: includeInArchive ?? true,
     };
     await logSend(logEntry);
 
@@ -934,6 +948,10 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
     testMode: false,
     status: errors === contacts.length ? "failed" : "sent",
     error: errors > 0 ? `${errors} batches failed out of ${contacts.length} recipients` : undefined,
+    previewText: previewText?.trim() || undefined,
+    bodyHtml: htmlBody,
+    bodyText: textBody,
+    includeInArchive: includeInArchive ?? true,
   };
   await logSend(logEntry);
 
@@ -1040,6 +1058,92 @@ app.get("/api/newsletter/sends", requireAdminSecret, async (_req: Request, res: 
     return;
   }
   res.json({ sends: data ?? [] });
+});
+
+// ─── GET /api/newsletter/archive ──────────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/archive
+ *
+ * Public endpoint. Returns list of past newsletter issues in the public archive.
+ * Omits body_html, body_text, and open_rate (privacy).
+ * Only returns non-test, sent, include_in_archive=true rows.
+ */
+app.options("/api/newsletter/archive", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.get("/api/newsletter/archive", async (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("newsletter_sends")
+    .select("id, subject, preview_text, sent_at, recipient_count")
+    .eq("test_mode", false)
+    .eq("status", "sent")
+    .eq("include_in_archive", true)
+    .order("sent_at", { ascending: false });
+
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch archive", detail: error });
+    return;
+  }
+
+  res.json({ issues: data ?? [] });
+});
+
+// ─── GET /api/newsletter/archive/:id ──────────────────────────────────────────
+
+/**
+ * GET /api/newsletter/archive/:id
+ *
+ * Public endpoint. Returns the full HTML body of a past newsletter issue.
+ * Only serves rows that are non-test, sent, and include_in_archive=true.
+ */
+app.options("/api/newsletter/archive/:id", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.get("/api/newsletter/archive/:id", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid issue id" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("newsletter_sends")
+    .select("id, subject, preview_text, sent_at, recipient_count, body_html, body_text")
+    .eq("id", id)
+    .eq("test_mode", false)
+    .eq("status", "sent")
+    .eq("include_in_archive", true)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ error: "Issue not found" });
+    return;
+  }
+
+  res.json(data);
 });
 
 // ─── POST /api/track-view ─────────────────────────────────────────────────────
@@ -2734,6 +2838,402 @@ app.get("/api/courses/:slug/export", async (req: Request, res: Response) => {
     console.error("PDF generation error:", err);
     res.status(500).json({ error: "Failed to generate PDF" });
   }
+});
+
+// ─── Reading Lists API ────────────────────────────────────────────────────────
+//
+// GET  /api/reading-lists        — public; returns published lists + item count + first-3 essays
+// GET  /api/reading-lists/:slug  — public; full list with ordered essays + annotations
+// POST /api/admin/reading-lists  — admin; create a reading list (with optional items)
+// PATCH /api/admin/reading-lists/:slug — admin; update list fields and/or reorder items
+
+// CORS pre-flight for public reading-list endpoints (called from static pages)
+app.options("/api/reading-lists", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.options("/api/reading-lists/:slug", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+// Known essays — used to enrich reading list responses with title/path metadata.
+// Matches the ESSAYS constant already defined above.
+const ESSAY_META: Record<string, { title: string; description: string; path: string }> = {
+  "paradox-of-acceptance": {
+    title: "The Paradox of Acceptance",
+    description: "A meditation on what happens to ambition, urgency, and deferred gratification when mindfulness becomes very good.",
+    path: "/mindfulness-essays/paradox-of-acceptance/",
+  },
+  "should-you-get-into-mindfulness": {
+    title: "Should You Get Into Mindfulness?",
+    description: "An honest look at who benefits from mindfulness practice and who might be better served elsewhere.",
+    path: "/mindfulness-essays/should-you-get-into-mindfulness/",
+  },
+  "the-avoidance-problem": {
+    title: "The Avoidance Problem",
+    description: "On using mindfulness to avoid rather than engage — and how to tell the difference.",
+    path: "/mindfulness-essays/the-avoidance-problem/",
+  },
+  "the-cherry-picking-problem": {
+    title: "The Cherry-Picking Problem",
+    description: "Why we select the comfortable parts of mindfulness and leave the harder teachings untouched.",
+    path: "/mindfulness-essays/the-cherry-picking-problem/",
+  },
+  "when-to-quit": {
+    title: "When to Quit",
+    description: "How mindfulness changes the calculus around persistence, quitting, and what counts as giving up.",
+    path: "/mindfulness-essays/when-to-quit/",
+  },
+};
+
+/**
+ * GET /api/reading-lists
+ *
+ * Returns all published reading lists with:
+ *   - item_count (number of essays)
+ *   - estimated_read_minutes (item_count * 7)
+ *   - preview_essays — first 3 essays with title + path
+ */
+app.get("/api/reading-lists", async (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { data: lists, error: listsErr } = await supabase
+    .from("reading_lists")
+    .select("id, slug, title, description, cover_image_url, display_order")
+    .eq("published", true)
+    .order("display_order", { ascending: true });
+
+  if (listsErr) {
+    console.error("[reading-lists] Supabase error:", listsErr);
+    res.status(500).json({ error: "Failed to load reading lists" });
+    return;
+  }
+
+  if (!lists || lists.length === 0) {
+    res.json({ reading_lists: [] });
+    return;
+  }
+
+  const listIds = lists.map((l) => l.id);
+  const { data: items, error: itemsErr } = await supabase
+    .from("reading_list_items")
+    .select("list_id, essay_slug, position")
+    .in("list_id", listIds)
+    .order("position", { ascending: true });
+
+  if (itemsErr) {
+    console.error("[reading-lists] items error:", itemsErr);
+    res.status(500).json({ error: "Failed to load list items" });
+    return;
+  }
+
+  // Group items by list_id
+  const itemsByList: Record<string, string[]> = {};
+  for (const item of items ?? []) {
+    if (!itemsByList[item.list_id]) itemsByList[item.list_id] = [];
+    itemsByList[item.list_id].push(item.essay_slug);
+  }
+
+  const reading_lists = lists.map((list) => {
+    const slugs = itemsByList[list.id] ?? [];
+    const preview_essays = slugs.slice(0, 3).map((slug) => ({
+      slug,
+      title: ESSAY_META[slug]?.title ?? slug,
+      path: ESSAY_META[slug]?.path ?? `/mindfulness-essays/${slug}/`,
+    }));
+
+    // Fallback cover image: first essay's OG image path (conventional)
+    const cover_image_url = list.cover_image_url
+      || (slugs[0] ? `/mindfulness-essays/${slugs[0]}/og-image.jpg` : null);
+
+    return {
+      slug: list.slug,
+      title: list.title,
+      description: list.description,
+      cover_image_url,
+      display_order: list.display_order,
+      item_count: slugs.length,
+      estimated_read_minutes: slugs.length * 7,
+      preview_essays,
+    };
+  });
+
+  res.json({ reading_lists });
+});
+
+/**
+ * GET /api/reading-lists/:slug
+ *
+ * Returns a single published reading list with all essays in order.
+ * Each essay item includes: essay_slug, title, description, path, annotation, position.
+ */
+app.get("/api/reading-lists/:slug", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+
+  const { data: list, error: listErr } = await supabase
+    .from("reading_lists")
+    .select("id, slug, title, description, cover_image_url, display_order, created_at")
+    .eq("slug", slug)
+    .eq("published", true)
+    .single();
+
+  if (listErr || !list) {
+    res.status(404).json({ error: "Reading list not found" });
+    return;
+  }
+
+  const { data: items, error: itemsErr } = await supabase
+    .from("reading_list_items")
+    .select("essay_slug, position, annotation")
+    .eq("list_id", list.id)
+    .order("position", { ascending: true });
+
+  if (itemsErr) {
+    console.error("[reading-lists/:slug] items error:", itemsErr);
+    res.status(500).json({ error: "Failed to load list items" });
+    return;
+  }
+
+  const essays = (items ?? []).map((item) => ({
+    slug: item.essay_slug,
+    title: ESSAY_META[item.essay_slug]?.title ?? item.essay_slug,
+    description: ESSAY_META[item.essay_slug]?.description ?? null,
+    path: ESSAY_META[item.essay_slug]?.path ?? `/mindfulness-essays/${item.essay_slug}/`,
+    annotation: item.annotation ?? null,
+    position: item.position,
+  }));
+
+  res.json({
+    reading_list: {
+      slug: list.slug,
+      title: list.title,
+      description: list.description,
+      cover_image_url: list.cover_image_url,
+      item_count: essays.length,
+      estimated_read_minutes: essays.length * 7,
+      essays,
+    },
+  });
+});
+
+/**
+ * POST /api/admin/reading-lists
+ *
+ * Create a new reading list.
+ * Body: { slug, title, description?, cover_image_url?, display_order?, published?, items? }
+ *   items: [{ essay_slug, position, annotation? }]
+ * Auth: X-Admin-Secret header.
+ */
+app.post("/api/admin/reading-lists", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { slug, title, description, cover_image_url, display_order, published, items } = req.body as {
+    slug?: string;
+    title?: string;
+    description?: string;
+    cover_image_url?: string;
+    display_order?: number;
+    published?: boolean;
+    items?: Array<{ essay_slug: string; position: number; annotation?: string }>;
+  };
+
+  if (!slug || !title) {
+    res.status(400).json({ error: "slug and title are required" });
+    return;
+  }
+
+  const { data: list, error: insertErr } = await supabase
+    .from("reading_lists")
+    .insert({
+      slug,
+      title,
+      description: description ?? null,
+      cover_image_url: cover_image_url ?? null,
+      display_order: display_order ?? 0,
+      published: published ?? false,
+    })
+    .select("id, slug, title")
+    .single();
+
+  if (insertErr) {
+    console.error("[admin/reading-lists POST] insert error:", insertErr);
+    if (insertErr.code === "23505") {
+      res.status(409).json({ error: "A reading list with this slug already exists" });
+    } else {
+      res.status(500).json({ error: "Failed to create reading list" });
+    }
+    return;
+  }
+
+  // Insert items if provided
+  if (items && items.length > 0) {
+    const rows = items.map((item) => ({
+      list_id: list.id,
+      essay_slug: item.essay_slug,
+      position: item.position,
+      annotation: item.annotation ?? null,
+    }));
+    const { error: itemsErr } = await supabase.from("reading_list_items").insert(rows);
+    if (itemsErr) {
+      console.error("[admin/reading-lists POST] items insert error:", itemsErr);
+      // List was created — don't fail the whole request; report partial success
+      res.status(201).json({ reading_list: list, warning: "List created but some items failed to insert" });
+      return;
+    }
+  }
+
+  res.status(201).json({ reading_list: list });
+});
+
+/**
+ * PATCH /api/admin/reading-lists/:slug
+ *
+ * Update a reading list's fields and/or replace its items (for reordering).
+ * Body: { title?, description?, cover_image_url?, display_order?, published?, items? }
+ *   Providing `items` replaces all current items for this list.
+ * Auth: X-Admin-Secret header.
+ */
+app.patch("/api/admin/reading-lists/:slug", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+
+  // Fetch the list
+  const { data: list, error: fetchErr } = await supabase
+    .from("reading_lists")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+
+  if (fetchErr || !list) {
+    res.status(404).json({ error: "Reading list not found" });
+    return;
+  }
+
+  const { title, description, cover_image_url, display_order, published, items } = req.body as {
+    title?: string;
+    description?: string;
+    cover_image_url?: string;
+    display_order?: number;
+    published?: boolean;
+    items?: Array<{ essay_slug: string; position: number; annotation?: string }>;
+  };
+
+  // Build update object — only include provided fields
+  const updates: Record<string, unknown> = {};
+  if (title !== undefined) updates.title = title;
+  if (description !== undefined) updates.description = description;
+  if (cover_image_url !== undefined) updates.cover_image_url = cover_image_url;
+  if (display_order !== undefined) updates.display_order = display_order;
+  if (published !== undefined) updates.published = published;
+
+  if (Object.keys(updates).length > 0) {
+    const { error: updateErr } = await supabase
+      .from("reading_lists")
+      .update(updates)
+      .eq("id", list.id);
+    if (updateErr) {
+      console.error("[admin/reading-lists PATCH] update error:", updateErr);
+      res.status(500).json({ error: "Failed to update reading list" });
+      return;
+    }
+  }
+
+  // Replace items if provided (supports full reorder)
+  if (items !== undefined) {
+    // Delete all existing items for this list
+    await supabase.from("reading_list_items").delete().eq("list_id", list.id);
+
+    if (items.length > 0) {
+      const rows = items.map((item) => ({
+        list_id: list.id,
+        essay_slug: item.essay_slug,
+        position: item.position,
+        annotation: item.annotation ?? null,
+      }));
+      const { error: itemsErr } = await supabase.from("reading_list_items").insert(rows);
+      if (itemsErr) {
+        console.error("[admin/reading-lists PATCH] items replace error:", itemsErr);
+        res.status(500).json({ error: "List fields updated but items replacement failed" });
+        return;
+      }
+    }
+  }
+
+  res.json({ ok: true, slug });
+});
+
+/**
+ * GET /api/admin/reading-lists
+ *
+ * Returns all reading lists (published and unpublished) for admin UI.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/reading-lists", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { data: lists, error: listsErr } = await supabase
+    .from("reading_lists")
+    .select("id, slug, title, description, cover_image_url, display_order, published, created_at")
+    .order("display_order", { ascending: true });
+
+  if (listsErr) {
+    console.error("[admin/reading-lists GET] error:", listsErr);
+    res.status(500).json({ error: "Failed to load reading lists" });
+    return;
+  }
+
+  if (!lists || lists.length === 0) {
+    res.json({ reading_lists: [] });
+    return;
+  }
+
+  const listIds = lists.map((l) => l.id);
+  const { data: items } = await supabase
+    .from("reading_list_items")
+    .select("list_id, essay_slug, position, annotation")
+    .in("list_id", listIds)
+    .order("position", { ascending: true });
+
+  const itemsByList: Record<string, Array<{ essay_slug: string; position: number; annotation: string | null }>> = {};
+  for (const item of items ?? []) {
+    if (!itemsByList[item.list_id]) itemsByList[item.list_id] = [];
+    itemsByList[item.list_id].push({ essay_slug: item.essay_slug, position: item.position, annotation: item.annotation });
+  }
+
+  const reading_lists = lists.map((list) => ({
+    ...list,
+    items: itemsByList[list.id] ?? [],
+  }));
+
+  res.json({ reading_lists });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

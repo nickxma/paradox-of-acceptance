@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading List — Paradox of Acceptance</title>
+<meta name="description" content="A curated reading path through mindfulness essays.">
+<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page-header { padding: 48px 280px 40px; border-bottom: 1px solid #EEEEEE; }
+.section { padding: 48px 280px; }
+.footer { padding: 48px 280px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+.nav-back { font-size: 13px; color: #999; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 24px; }
+.nav-back:hover { color: #666; }
+.nav-back::before { content: "\2190"; }
+
+/* Page header */
+.page-kicker { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+.page-title { font-family: 'Newsreader', serif; font-size: 36px; font-weight: 400; color: #111; margin-bottom: 12px; line-height: 1.25; }
+.page-desc { font-size: 15px; color: #666; line-height: 1.65; max-width: 560px; margin-bottom: 20px; }
+.page-meta { font-size: 13px; color: #AAA; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* Progress bar */
+.progress-track {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.progress-bar-outer {
+  flex: 1;
+  max-width: 280px;
+  height: 4px;
+  background: #EEEEEE;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: #7d8c6e;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.progress-label { font-size: 12px; color: #999; }
+
+/* Essay list */
+.essay-list { display: flex; flex-direction: column; }
+
+.essay-item {
+  display: flex;
+  gap: 20px;
+  padding: 28px 0;
+  border-bottom: 1px solid #EEEEEE;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.1s;
+}
+.essay-item:last-child { border-bottom: none; }
+.essay-item:hover { background: #FAFAFA; margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; border-radius: 6px; }
+
+.essay-position {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #EEEEEE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #CCC;
+  margin-top: 4px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.essay-item.completed .essay-position {
+  border-color: #7d8c6e;
+  color: #7d8c6e;
+  background: #f4f7f1;
+}
+.essay-item.completed .essay-position::after {
+  content: "\2713";
+}
+.essay-item.completed .essay-position-num { display: none; }
+
+.essay-body { flex: 1; min-width: 0; }
+.essay-title { font-family: 'Newsreader', serif; font-size: 24px; color: #111; margin-bottom: 6px; line-height: 1.3; }
+.essay-desc { font-size: 14px; color: #777; line-height: 1.6; margin-bottom: 10px; }
+.essay-annotation {
+  font-size: 13px;
+  color: #999;
+  line-height: 1.6;
+  padding: 10px 14px;
+  background: #FAFAFA;
+  border-left: 2px solid #EEEEEE;
+  border-radius: 0 4px 4px 0;
+  margin-top: 4px;
+  font-style: italic;
+}
+.essay-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #7d8c6e;
+}
+.essay-cta::after { content: "\2192"; }
+.essay-item:hover .essay-cta { text-decoration: underline; }
+
+/* Loading / error states */
+.loading-state { text-align: center; padding: 80px 0; }
+.loading-dots { display: inline-flex; gap: 6px; }
+.loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: #DDD; animation: pulse 1.2s ease-in-out infinite; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+.error-state { text-align: center; padding: 80px 0; }
+.error-state h2 { font-family: 'Newsreader', serif; font-size: 24px; color: #999; margin-bottom: 12px; }
+.error-state p { font-size: 14px; color: #CCC; }
+
+/* Footer */
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav, .page-header, .section, .footer { padding-left: 24px; padding-right: 24px; }
+  .page-title { font-size: 28px; }
+  .essay-title { font-size: 20px; }
+}
+</style>
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/pass/">Pass</a>
+      <a href="/search/">Search</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Page header placeholder (filled by JS) -->
+<div id="page-header" class="page-header" style="display:none;"></div>
+
+<!-- Main content -->
+<div class="section">
+  <div id="main-content">
+    <div class="loading-state">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<hr style="border:none;border-top:1px solid #EEE;">
+<footer class="footer">
+  <span class="footer-logo">Paradox of Acceptance</span>
+  <div class="footer-links">
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/reading-lists/">Reading Lists</a>
+    <a href="/mindfulness-wiki/">Wiki</a>
+    <a href="/pass/">Pass</a>
+    <a href="/newsletter/">Newsletter</a>
+    <a href="/privacy/">Privacy</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+
+  // ─── URL slug ──────────────────────────────────────────────────────────────
+
+  var params = new URLSearchParams(window.location.search);
+  var listSlug = params.get('slug');
+
+  if (!listSlug) {
+    showError('No reading list specified.', 'Return to <a href="/reading-lists/">all reading lists</a>.');
+    return;
+  }
+
+  // ─── Progress tracking (localStorage) ─────────────────────────────────────
+
+  var STORAGE_KEY = 'poa_list_' + listSlug;
+
+  function getProgress() {
+    try {
+      var data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      return data && Array.isArray(data.completedSlugs) ? data.completedSlugs : [];
+    } catch (e) { return []; }
+  }
+
+  function markComplete(essaySlug) {
+    var completed = getProgress();
+    if (completed.indexOf(essaySlug) === -1) {
+      completed.push(essaySlug);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ completedSlugs: completed }));
+      } catch (e) {}
+    }
+    return completed;
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render(data) {
+    var list = data.reading_list;
+    var completed = getProgress();
+    var completedSet = {};
+    completed.forEach(function (s) { completedSet[s] = true; });
+
+    // Update page title and meta
+    document.title = escHtml(list.title) + ' — Paradox of Acceptance';
+
+    // Render header
+    var progressPct = list.item_count > 0 ? Math.min(Math.round(completed.length / list.item_count * 100), 100) : 0;
+    var progressHtml = '';
+    if (list.item_count > 0) {
+      progressHtml = '<div class="progress-track">' +
+        '<div class="progress-bar-outer"><div class="progress-bar-fill" id="progress-fill" style="width:' + progressPct + '%"></div></div>' +
+        '<span class="progress-label" id="progress-label">' +
+          (progressPct === 0 ? 'Not started' : progressPct === 100 ? 'Complete' : progressPct + '% read') +
+        '</span>' +
+        '</div>';
+    }
+
+    var headerEl = document.getElementById('page-header');
+    headerEl.style.display = '';
+    headerEl.innerHTML =
+      '<a href="/reading-lists/" class="nav-back">All reading lists</a>' +
+      '<div class="page-kicker">Reading List</div>' +
+      '<h1 class="page-title">' + escHtml(list.title) + '</h1>' +
+      (list.description ? '<p class="page-desc">' + escHtml(list.description) + '</p>' : '') +
+      '<div class="page-meta">' +
+        '<span>' + list.item_count + ' essay' + (list.item_count !== 1 ? 's' : '') + '</span>' +
+        '<span>&middot;</span>' +
+        '<span>~' + list.estimated_read_minutes + ' min total</span>' +
+      '</div>' +
+      progressHtml;
+
+    // Render essays
+    var essays = list.essays || [];
+    if (essays.length === 0) {
+      document.getElementById('main-content').innerHTML =
+        '<div style="color:#999;font-size:15px;padding:40px 0;">This reading list has no essays yet.</div>';
+      return;
+    }
+
+    var html = '<div class="essay-list">';
+    essays.forEach(function (essay, idx) {
+      var isDone = !!completedSet[essay.slug];
+      html += '<a href="' + escHtml(essay.path) + '" class="essay-item' + (isDone ? ' completed' : '') + '" data-slug="' + escHtml(essay.slug) + '">' +
+        '<div class="essay-position"><span class="essay-position-num">' + (idx + 1) + '</span></div>' +
+        '<div class="essay-body">' +
+          '<div class="essay-title">' + escHtml(essay.title) + '</div>' +
+          (essay.description ? '<div class="essay-desc">' + escHtml(essay.description) + '</div>' : '') +
+          (essay.annotation ? '<div class="essay-annotation">' + escHtml(essay.annotation) + '</div>' : '') +
+          '<span class="essay-cta">' + (isDone ? 'Read again' : 'Read essay') + '</span>' +
+        '</div>' +
+        '</a>';
+    });
+    html += '</div>';
+    document.getElementById('main-content').innerHTML = html;
+
+    // Detect 80% scroll on this page as "reading list visit" — mark first incomplete
+    // essay as started. Actual completion happens via essay-reading-tracker on essay pages.
+    window.addEventListener('scroll', function onScroll() {
+      var total = document.body.scrollHeight - window.innerHeight;
+      if (total > 0 && window.scrollY / total >= 0.8) {
+        window.removeEventListener('scroll', onScroll);
+        window.plausible && window.plausible('ReadingListView', { props: { slug: listSlug } });
+      }
+    }, { passive: true });
+  }
+
+  function showError(title, body) {
+    document.getElementById('main-content').innerHTML =
+      '<div class="error-state"><h2>' + title + '</h2><p>' + (body || '') + '</p></div>';
+  }
+
+  // ─── Fetch and render ──────────────────────────────────────────────────────
+
+  fetch(API_BASE + '/api/reading-lists/' + encodeURIComponent(listSlug))
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(render)
+    .catch(function (status) {
+      if (status === 404) {
+        showError('Reading list not found.', 'Return to <a href="/reading-lists/" style="color:#7d8c6e;">all reading lists</a>.');
+      } else {
+        showError('Could not load this reading list.', 'Refresh the page to try again.');
+      }
+    });
+
+  // ─── Listen for completion events from essay-reading-tracker ──────────────
+  // When this page is in an opener context (user navigated back), update progress.
+  window.addEventListener('poa:essayRead', function (e) {
+    if (!e.detail || !e.detail.slug) return;
+    var completed = markComplete(e.detail.slug);
+    var items = document.querySelectorAll('.essay-item');
+    var total = items.length;
+    items.forEach(function (el) {
+      if (el.getAttribute('data-slug') === e.detail.slug) {
+        el.classList.add('completed');
+        var ctaEl = el.querySelector('.essay-cta');
+        if (ctaEl) ctaEl.textContent = 'Read again';
+      }
+    });
+    // Update progress bar
+    var pct = total > 0 ? Math.min(Math.round(completed.length / total * 100), 100) : 0;
+    var fill = document.getElementById('progress-fill');
+    var label = document.getElementById('progress-label');
+    if (fill) fill.style.width = pct + '%';
+    if (label) label.textContent = pct === 100 ? 'Complete' : pct + '% read';
+  });
+
+})();
+</script>
+
+</body>
+</html>
