@@ -205,11 +205,73 @@
     .related-essay-tags { display: flex; flex-wrap: wrap; gap: 4px; }
     .related-essay-tag { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.03em; background: #f0ede7; color: var(--sage-dark); padding: 2px 7px; border-radius: 100px; }
     @media (max-width: 560px) { .related-essays-grid { grid-template-columns: 1fr; } }
+    /* ─── Q&A cross-sell ─── */
+    .qa-crosssell-wrap { border-top: 1px solid var(--rule); }
+    .qa-crosssell { padding: 40px 0 48px; }
+    .qa-crosssell-heading { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .qa-crosssell-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+    .qa-pill { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; color: var(--sage-dark); background: #f0ede7; border: 1px solid var(--rule); border-radius: 100px; padding: 8px 16px; text-decoration: none; transition: background 0.15s, border-color 0.15s; line-height: 1.4; display: inline-block; }
+    .qa-pill:hover { background: var(--sage-light); border-color: var(--sage-light); color: #fff; }
+    [data-theme="dark"] .qa-pill { background: #1e1e1e; border-color: #333; color: #a4b594; }
+    [data-theme="dark"] .qa-pill:hover { background: #5a6b4e; border-color: #5a6b4e; color: #fff; }
   </style>
     <!-- Sentry error monitoring (https://sentry.io) -->
     <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
     <script src="/shared/sentry-init.js"></script>
 <script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+  <script type="application/ld+json">
+  {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "When to Quit: The Exit Conditions Mindfulness Never Names",
+  "description": "Mindfulness has rich language for starting and deepening — and almost none for stopping. This piece examines when quitting, reducing, or restructuring practice is the more honest move.",
+  "author": {
+    "@type": "Person",
+    "name": "Nick",
+    "url": "https://paradoxofacceptance.xyz/about/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Paradox of Acceptance",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://paradoxofacceptance.xyz/favicon.ico"
+    }
+  },
+  "datePublished": "2026-03-21",
+  "dateModified": "2026-03-21",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://paradoxofacceptance.xyz/mindfulness-essays/when-to-quit/"
+  }
+}
+  </script>
+  <script type="application/ld+json">
+  {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://paradoxofacceptance.xyz/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Essays",
+      "item": "https://paradoxofacceptance.xyz/mindfulness-essays/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "When to Quit: The Exit Conditions Mindfulness Never Names",
+      "item": "https://paradoxofacceptance.xyz/mindfulness-essays/when-to-quit/"
+    }
+  ]
+}
+  </script>
 </head>
 <body>
 
@@ -339,6 +401,13 @@
   <div id="related-essays" class="related-essays" style="display:none">
     <div class="related-essays-heading">You might also enjoy</div>
     <div class="related-essays-grid"></div>
+  </div>
+</div>
+
+<div class="container qa-crosssell-wrap" id="qa-crosssell-wrap" style="display:none">
+  <div class="qa-crosssell">
+    <div class="qa-crosssell-heading">Explore related questions</div>
+    <div class="qa-crosssell-pills" id="qa-crosssell-pills"></div>
   </div>
 </div>
 
@@ -483,6 +552,7 @@
 </script>
 <script src="/shared/essay-reading-tracker.js"></script>
 <script src="/shared/reading-list-cta.js"></script>
+<script src="/shared/reading-path-nav.js"></script>
 <script src="/shared/essay-scroll-capture.js"></script>
 <script>
 (function() {
@@ -508,6 +578,31 @@
       });
       wrap.style.display = '';
     }).catch(function(){});
+})();
+</script>
+<script>
+(function() {
+  var QA_APP = 'https://convergence-mvp.vercel.app';
+  var SLUG = 'when-to-quit';
+  fetch(QA_APP + '/api/ask/related-questions?essaySlug=' + SLUG)
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data || !data.questions || data.questions.length === 0) return;
+      var wrap = document.getElementById('qa-crosssell-wrap');
+      var pills = document.getElementById('qa-crosssell-pills');
+      if (!wrap || !pills) return;
+      data.questions.forEach(function(q) {
+        var a = document.createElement('a');
+        a.href = QA_APP + '/qa?q=' + encodeURIComponent(q);
+        a.className = 'qa-pill';
+        a.textContent = q;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        pills.appendChild(a);
+      });
+      wrap.style.display = '';
+    })
+    .catch(function() {});
 })();
 </script>
 </body>

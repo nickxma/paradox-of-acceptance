@@ -649,11 +649,72 @@
     .related-essay-tags { display: flex; flex-wrap: wrap; gap: 4px; }
     .related-essay-tag { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.03em; background: var(--expand-bg); color: var(--sage-dark); padding: 2px 7px; border-radius: 100px; }
     @media (max-width: 560px) { .related-essays-grid { grid-template-columns: 1fr; } }
+    /* ─── Q&A cross-sell ─── */
+    .qa-crosssell { margin-top: 48px; padding-top: 40px; border-top: 1px solid var(--rule); }
+    .qa-crosssell-heading { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .qa-crosssell-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+    .qa-pill { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; color: var(--sage-dark); background: var(--expand-bg, #f0ede7); border: 1px solid var(--rule); border-radius: 100px; padding: 8px 16px; text-decoration: none; transition: background 0.15s, border-color 0.15s; line-height: 1.4; display: inline-block; }
+    .qa-pill:hover { background: var(--sage-light); border-color: var(--sage-light); color: #fff; }
+    [data-theme="dark"] .qa-pill { background: #1e1e1e; border-color: #333; color: #a4b594; }
+    [data-theme="dark"] .qa-pill:hover { background: #5a6b4e; border-color: #5a6b4e; color: #fff; }
   </style>
     <!-- Sentry error monitoring (https://sentry.io) -->
     <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
     <script src="/shared/sentry-init.js"></script>
 <script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+  <script type="application/ld+json">
+  {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "The Paradox of Acceptance",
+  "description": "A meditation on what happens to ambition, urgency, and deferred gratification when mindfulness becomes very good.",
+  "author": {
+    "@type": "Person",
+    "name": "Nick",
+    "url": "https://paradoxofacceptance.xyz/about/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Paradox of Acceptance",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://paradoxofacceptance.xyz/favicon.ico"
+    }
+  },
+  "datePublished": "2026-03-20",
+  "dateModified": "2026-03-20",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://paradoxofacceptance.xyz/mindfulness-essays/paradox-of-acceptance/"
+  }
+}
+  </script>
+  <script type="application/ld+json">
+  {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://paradoxofacceptance.xyz/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Essays",
+      "item": "https://paradoxofacceptance.xyz/mindfulness-essays/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "The Paradox of Acceptance",
+      "item": "https://paradoxofacceptance.xyz/mindfulness-essays/paradox-of-acceptance/"
+    }
+  ]
+}
+  </script>
 </head>
 <body>
 
@@ -1044,6 +1105,11 @@
       <div class="related-essays-grid"></div>
     </div>
 
+    <div class="qa-crosssell" id="qa-crosssell-wrap" style="display:none">
+      <div class="qa-crosssell-heading">Explore related questions</div>
+      <div class="qa-crosssell-pills" id="qa-crosssell-pills"></div>
+    </div>
+
     <footer>
       <p>© 2026 Paradox of Acceptance · <a href="/mindfulness-essays/">More essays</a> · <a href="https://paradoxofacceptance.xyz">paradoxofacceptance.xyz</a> · <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a></p>
     </footer>
@@ -1365,6 +1431,7 @@
 </script>
 <script src="/shared/essay-reading-tracker.js"></script>
 <script src="/shared/reading-list-cta.js"></script>
+<script src="/shared/reading-path-nav.js"></script>
 <script src="/shared/essay-scroll-capture.js"></script>
 <script>
 (function() {
@@ -1390,6 +1457,31 @@
       });
       wrap.style.display = '';
     }).catch(function(){});
+})();
+</script>
+<script>
+(function() {
+  var QA_APP = 'https://convergence-mvp.vercel.app';
+  var SLUG = 'paradox-of-acceptance';
+  fetch(QA_APP + '/api/ask/related-questions?essaySlug=' + SLUG)
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data || !data.questions || data.questions.length === 0) return;
+      var wrap = document.getElementById('qa-crosssell-wrap');
+      var pills = document.getElementById('qa-crosssell-pills');
+      if (!wrap || !pills) return;
+      data.questions.forEach(function(q) {
+        var a = document.createElement('a');
+        a.href = QA_APP + '/qa?q=' + encodeURIComponent(q);
+        a.className = 'qa-pill';
+        a.textContent = q;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        pills.appendChild(a);
+      });
+      wrap.style.display = '';
+    })
+    .catch(function() {});
 })();
 </script>
 </body>
