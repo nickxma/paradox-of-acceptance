@@ -58,3 +58,10 @@ ALTER TABLE reading_streaks ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users read own reading streak" ON reading_streaks
   FOR SELECT USING (auth.uid() = user_id);
+
+-- ─── Migration: add scroll_percent to essay_reads (OLU-520) ──────────────────
+-- scroll_percent records how far down the essay the user scrolled (0–100).
+-- NULL for reads recorded before this column was added.
+ALTER TABLE essay_reads
+  ADD COLUMN IF NOT EXISTS scroll_percent SMALLINT
+  CHECK (scroll_percent >= 0 AND scroll_percent <= 100);

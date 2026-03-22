@@ -45,11 +45,14 @@
     return el;
   })();
 
+  var maxScrollPct = 0;
+
   function updateScrollBar() {
     var total = document.documentElement.scrollHeight - window.innerHeight;
     if (total <= 0) return;
     var pct = Math.min(100, (window.scrollY / total) * 100);
     progressBar.style.width = pct + '%';
+    if (pct > maxScrollPct) maxScrollPct = pct;
   }
 
   // Only hook scroll if we created our own bar (existing bar manages itself)
@@ -146,7 +149,7 @@
       fetch(API_BASE + '/api/essays/' + essaySlug + '/read-progress', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ read_duration_seconds: durationSecs }),
+        body: JSON.stringify({ read_duration_seconds: durationSecs, scroll_percent: Math.round(maxScrollPct) }),
         keepalive: true,
       })
         .then(function (r) { return r.ok ? r.json() : null; })
