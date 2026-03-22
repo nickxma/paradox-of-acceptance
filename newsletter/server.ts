@@ -29,6 +29,10 @@ import * as cheerio from "cheerio";
 import { createHmac, timingSafeEqual } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import PDFDocument from "pdfkit";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -1124,6 +1128,97 @@ app.get("/api/essays/stats", requireAdminSecret, async (_req: Request, res: Resp
   essays.sort((a, b) => b.views - a.views);
 
   res.json({ essays });
+});
+
+// ─── GET /api/admin/essays  ───────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/essays
+ *
+ * Returns all essays with their publishing status, ordered by published_at desc
+ * then created_at desc. Falls back to the hardcoded ESSAYS list (with null
+ * published_at / deployed_at) when Supabase is not configured.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/essays", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    // Fallback: return hardcoded essays as "published" placeholders
+    const fallback = ESSAYS.map((e) => ({
+      ...e,
+      published_at: null,
+      deployed_at: null,
+      created_at: null,
+      updated_at: null,
+    }));
+    return res.json({ essays: fallback });
+  }
+
+  const { data, error } = await supabase
+    .from("essays")
+    .select("slug, title, kicker, description, read_time, path, published_at, deployed_at, created_at, updated_at")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[admin/essays] Supabase error:", error);
+    return res.status(500).json({ error: "Failed to load essays" });
+  }
+
+  res.json({ essays: data ?? [] });
+});
+
+// ─── PATCH /api/admin/essays/:slug ───────────────────────────────────────────
+
+/**
+ * PATCH /api/admin/essays/:slug
+ *
+ * Update the published_at of an essay to schedule or publish it.
+ *
+ * Body:
+ *   { published_at: string | null }
+ *     - ISO 8601 datetime string  → schedule (future) or publish (past/now)
+ *     - null                      → revert to draft
+ *
+ * Side effect: clears deployed_at so the cron will re-deploy the essay.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const { published_at } = req.body as { published_at: string | null };
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  if (published_at !== null && published_at !== undefined) {
+    const d = new Date(published_at as string);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ error: "Invalid published_at value" });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("essays")
+    .update({
+      published_at: published_at ?? null,
+      deployed_at: null, // clear so cron re-deploys when published_at arrives
+    })
+    .eq("slug", slug)
+    .select("slug, title, published_at, deployed_at")
+    .single();
+
+  if (error) {
+    console.error("[admin/essays] patch error:", error);
+    return res.status(500).json({ error: "Failed to update essay" });
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: "Essay not found" });
+  }
+
+  res.json({ essay: data });
 });
 
 // ─── Email preference center ──────────────────────────────────────────────────
@@ -2237,6 +2332,408 @@ app.get("/api/reading-streak/me", async (req: Request, res: Response) => {
     total_essays_read: (totalEssays as unknown as number) ?? 0,
     read_dates_90d: Array.from(datesRead).sort(),
   });
+});
+
+// ─── Course PDF Export ────────────────────────────────────────────────────────
+//
+// GET /api/courses/:slug/export?format=pdf
+// Returns a formatted PDF of all course sessions.
+// Auth required (enrolled users only). Caches result in Supabase Storage for 24h.
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const COURSES_BASE_DIR = join(__dirname, "..", "courses");
+const PDF_CACHE_BUCKET = "course-exports";
+const PDF_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+// Brand colours (mirrored from design-tokens)
+const PDF_CREAM = "#faf8f4";
+const PDF_SAGE = "#7d8c6e";
+const PDF_INK = "#2c2c2c";
+const PDF_INK_LIGHT = "#555555";
+const PDF_RULE = "#e2ddd6";
+const PDF_EXERCISE_BG = "#f0ede6";
+
+interface SessionContent {
+  number: number;
+  title: string;
+  duration: string;
+  blocks: Array<{ type: "paragraph" | "exercise" | "summary"; text?: string; exerciseTitle?: string; lines?: string[] }>;
+}
+
+function extractSessionContent(slug: string, n: number): SessionContent | null {
+  const htmlPath = join(COURSES_BASE_DIR, slug, `session-${n}`, "index.html");
+  if (!existsSync(htmlPath)) return null;
+
+  const html = readFileSync(htmlPath, "utf-8");
+  const $ = cheerio.load(html);
+
+  const title = $("h1").first().text().trim();
+  const duration = $(".duration").first().text().trim();
+
+  const blocks: SessionContent["blocks"] = [];
+
+  $("article").children().each((_i, el) => {
+    const $el = $(el);
+    const tag = (el as { name?: string }).name;
+
+    if (tag === "p") {
+      const cls = $el.attr("class") ?? "";
+      if (cls.includes("closing") || cls.includes("summary-label")) return;
+      const text = $el.text().trim();
+      if (text) blocks.push({ type: "paragraph", text });
+    } else if (tag === "div" && $el.hasClass("exercise")) {
+      const exerciseTitle = $el.find(".exercise-title").text().trim();
+      const lines: string[] = [];
+      $el.find("p").each((_j, p) => {
+        const cls2 = $(p).attr("class") ?? "";
+        if (cls2.includes("exercise-title")) return;
+        const text = $(p).text().trim();
+        if (text) lines.push(text);
+      });
+      if (exerciseTitle || lines.length) {
+        blocks.push({ type: "exercise", exerciseTitle, lines });
+      }
+    } else if (tag === "div" && $el.hasClass("session-summary")) {
+      const summary = $el.find("p:not(.summary-label)").text().trim();
+      if (summary) blocks.push({ type: "summary", text: summary });
+    }
+  });
+
+  return { number: n, title, duration, blocks };
+}
+
+async function generateCoursePdf(
+  slug: string,
+  course: { title: string; description: string; sessions_total: number }
+): Promise<Buffer> {
+  const MARGIN = 72;
+  const PAGE_W = 612; // US Letter
+  const CONTENT_W = PAGE_W - MARGIN * 2;
+
+  const doc = new PDFDocument({
+    size: "LETTER",
+    margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
+    info: {
+      Title: course.title,
+      Author: "Paradox of Acceptance",
+      Subject: course.description,
+      Creator: "paradoxofacceptance.xyz",
+    },
+    autoFirstPage: false,
+    bufferPages: true,
+  });
+
+  const chunks: Buffer[] = [];
+  doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+  const result = new Promise<Buffer>((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+
+  // Draw cream background on every page
+  doc.on("pageAdded", () => {
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill(PDF_CREAM);
+    doc.fillColor(PDF_INK);
+  });
+
+  // Helper: add a new page
+  function addPage() {
+    doc.addPage({ size: "LETTER" });
+  }
+
+  // ── Cover page ──────────────────────────────────────────────────────────────
+  addPage();
+
+  const genDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+
+  doc.y = MARGIN + 120;
+
+  // Kicker
+  doc.font("Helvetica").fontSize(10).fillColor(PDF_SAGE)
+    .text("PARADOX OF ACCEPTANCE", MARGIN, doc.y, {
+      width: CONTENT_W, align: "center", characterSpacing: 2,
+    });
+
+  doc.moveDown(1.5);
+
+  // Title
+  doc.font("Times-Roman").fontSize(38).fillColor(PDF_INK)
+    .text(course.title, MARGIN, doc.y, { width: CONTENT_W, align: "center" });
+
+  doc.moveDown(1.2);
+
+  // Rule
+  const ruleY = doc.y;
+  doc.moveTo(MARGIN + CONTENT_W * 0.25, ruleY)
+    .lineTo(MARGIN + CONTENT_W * 0.75, ruleY)
+    .strokeColor(PDF_RULE).lineWidth(0.75).stroke();
+
+  doc.moveDown(1.5);
+
+  // Description
+  doc.font("Times-Roman").fontSize(13).fillColor(PDF_INK_LIGHT)
+    .text(course.description, MARGIN + CONTENT_W * 0.1, doc.y, {
+      width: CONTENT_W * 0.8, align: "center", lineGap: 3,
+    });
+
+  doc.moveDown(2);
+
+  // Date
+  doc.font("Helvetica").fontSize(10).fillColor(PDF_INK_LIGHT)
+    .text(`Generated ${genDate}`, MARGIN, doc.y, { width: CONTENT_W, align: "center" });
+
+  // ── Table of Contents page ──────────────────────────────────────────────────
+  addPage();
+
+  doc.y = MARGIN + 32;
+
+  doc.font("Helvetica").fontSize(10).fillColor(PDF_SAGE)
+    .text("CONTENTS", MARGIN, doc.y, { characterSpacing: 2 });
+
+  doc.moveDown(1.2);
+
+  // Rule
+  doc.moveTo(MARGIN, doc.y).lineTo(MARGIN + CONTENT_W, doc.y)
+    .strokeColor(PDF_RULE).lineWidth(0.5).stroke();
+
+  doc.moveDown(1);
+
+  for (let i = 1; i <= course.sessions_total; i++) {
+    const session = extractSessionContent(slug, i);
+    const sessionTitle = session?.title ?? `Session ${i}`;
+    doc.font("Helvetica").fontSize(11).fillColor(PDF_INK_LIGHT)
+      .text(`Session ${i}`, MARGIN, doc.y, { continued: true, width: 72 });
+    doc.font("Times-Roman").fontSize(12).fillColor(PDF_INK)
+      .text(`  ${sessionTitle}`, { continued: false });
+    doc.moveDown(0.6);
+  }
+
+  // ── Session chapters ────────────────────────────────────────────────────────
+  let pageNum = 2; // cover + toc = pages 1–2
+
+  for (let i = 1; i <= course.sessions_total; i++) {
+    const session = extractSessionContent(slug, i);
+    if (!session) continue;
+    pageNum++;
+
+    addPage();
+    doc.y = MARGIN + 24;
+
+    // Chapter kicker
+    doc.font("Helvetica").fontSize(9).fillColor(PDF_SAGE)
+      .text(`SESSION ${i} OF ${course.sessions_total}`, MARGIN, doc.y, { characterSpacing: 1.5 });
+
+    doc.moveDown(0.8);
+
+    // Chapter title
+    doc.font("Times-Bold").fontSize(26).fillColor(PDF_INK)
+      .text(session.title, MARGIN, doc.y, { width: CONTENT_W, lineGap: 2 });
+
+    if (session.duration) {
+      doc.moveDown(0.5);
+      doc.font("Helvetica").fontSize(10).fillColor(PDF_INK_LIGHT)
+        .text(session.duration, MARGIN, doc.y);
+    }
+
+    doc.moveDown(0.8);
+
+    // Rule
+    doc.moveTo(MARGIN, doc.y).lineTo(MARGIN + CONTENT_W, doc.y)
+      .strokeColor(PDF_RULE).lineWidth(0.5).stroke();
+
+    doc.moveDown(1);
+
+    // Content blocks
+    for (const block of session.blocks) {
+      if (block.type === "paragraph") {
+        doc.font("Times-Roman").fontSize(11.5).fillColor(PDF_INK)
+          .text(block.text ?? "", MARGIN, doc.y, { width: CONTENT_W, lineGap: 2.5, paragraphGap: 0 });
+        doc.moveDown(0.55);
+      } else if (block.type === "exercise") {
+        doc.moveDown(0.4);
+
+        // Sage left border indicator
+        const exY = doc.y;
+        doc.rect(MARGIN, exY, 3, 10).fill(PDF_SAGE);
+        doc.fillColor(PDF_INK);
+
+        // Exercise title
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(PDF_SAGE)
+          .text(block.exerciseTitle ?? "Practice", MARGIN + 12, exY, { width: CONTENT_W - 12 });
+
+        doc.moveDown(0.4);
+
+        // Exercise lines
+        for (const line of block.lines ?? []) {
+          doc.font("Times-Italic").fontSize(11).fillColor(PDF_INK_LIGHT)
+            .text(line, MARGIN + 12, doc.y, { width: CONTENT_W - 12, lineGap: 2 });
+          doc.moveDown(0.35);
+        }
+
+        // Extend border down to cover full exercise
+        const exHeight = doc.y - exY;
+        doc.rect(MARGIN, exY, 2, exHeight).fill(PDF_SAGE);
+        doc.fillColor(PDF_INK);
+
+        doc.moveDown(0.4);
+      } else if (block.type === "summary") {
+        doc.moveDown(0.6);
+
+        // Summary label
+        doc.font("Helvetica").fontSize(9).fillColor(PDF_SAGE)
+          .text("SESSION SUMMARY", MARGIN, doc.y, { characterSpacing: 1 });
+
+        doc.moveDown(0.4);
+
+        // Rule
+        doc.moveTo(MARGIN, doc.y).lineTo(MARGIN + CONTENT_W * 0.5, doc.y)
+          .strokeColor(PDF_RULE).lineWidth(0.5).stroke();
+
+        doc.moveDown(0.5);
+
+        doc.font("Times-Italic").fontSize(11).fillColor(PDF_INK_LIGHT)
+          .text(block.text ?? "", MARGIN, doc.y, { width: CONTENT_W, lineGap: 2.5 });
+
+        doc.moveDown(0.5);
+      }
+    }
+  }
+
+  // Add page numbers to all pages (skip cover and TOC)
+  const pageRange = doc.bufferedPageRange();
+  for (let p = 0; p < pageRange.count; p++) {
+    doc.switchToPage(p);
+    if (p >= 2) {
+      // Session pages only
+      const pageNumText = String(p - 1); // session pages start at 1
+      doc.font("Helvetica").fontSize(9).fillColor(PDF_INK_LIGHT)
+        .text(pageNumText, MARGIN, doc.page.height - MARGIN + 20, {
+          width: CONTENT_W, align: "center",
+        });
+    }
+  }
+
+  doc.end();
+  return result;
+}
+
+// Check Supabase Storage for a cached PDF (< 24h old)
+async function getCachedPdf(slug: string): Promise<Buffer | null> {
+  if (!supabase) return null;
+  try {
+    const filePath = `${slug}/export.pdf`;
+    const { data: files } = await supabase.storage
+      .from(PDF_CACHE_BUCKET)
+      .list(slug, { search: "export.pdf" });
+
+    if (!files || files.length === 0) return null;
+    const file = files[0];
+    const fileAge = Date.now() - new Date(file.updated_at ?? 0).getTime();
+    if (fileAge > PDF_CACHE_TTL_MS) return null;
+
+    const { data, error } = await supabase.storage.from(PDF_CACHE_BUCKET).download(filePath);
+    if (error || !data) return null;
+
+    return Buffer.from(await data.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+// Upload generated PDF to Supabase Storage (non-fatal if it fails)
+async function cachePdf(slug: string, buf: Buffer): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.storage.from(PDF_CACHE_BUCKET).upload(`${slug}/export.pdf`, buf, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+  } catch {
+    // Non-fatal — serve the PDF even if caching fails
+  }
+}
+
+// GET /api/courses/:slug/export?format=pdf
+app.get("/api/courses/:slug/export", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const format = req.query.format as string | undefined;
+  if (format !== "pdf") {
+    res.status(400).json({ error: "Unsupported format. Use ?format=pdf" });
+    return;
+  }
+
+  // Auth required
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const slug = String(req.params.slug);
+
+  // Fetch course metadata
+  const { data: course, error: courseErr } = await supabase
+    .from("courses")
+    .select("id, title, description, sessions_total, is_free, prerequisites")
+    .eq("slug", slug)
+    .single();
+
+  if (courseErr || !course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+
+  // Enrollment check: for non-free courses, verify prerequisites are completed
+  if (!course.is_free) {
+    const prereqs: string[] = Array.isArray(course.prerequisites) ? course.prerequisites : [];
+    if (prereqs.length > 0) {
+      const { data: completions } = await supabase
+        .from("course_completions")
+        .select("course_id")
+        .eq("user_id", userId)
+        .in("course_id", prereqs);
+
+      const done = new Set((completions ?? []).map((c: { course_id: string }) => c.course_id));
+      if (!prereqs.every((pid) => done.has(pid))) {
+        res.status(403).json({ error: "Complete prerequisites to access this course export" });
+        return;
+      }
+    }
+  }
+
+  // Serve cached PDF if available
+  const cached = await getCachedPdf(slug);
+  if (cached) {
+    const fileName = `${slug}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("X-Cache", "HIT");
+    res.send(cached);
+    return;
+  }
+
+  // Generate PDF
+  try {
+    const pdfBuf = await generateCoursePdf(slug, course);
+    cachePdf(slug, pdfBuf).catch(() => {}); // async, non-blocking
+
+    const fileName = `${slug}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("X-Cache", "MISS");
+    res.send(pdfBuf);
+  } catch (err) {
+    console.error("PDF generation error:", err);
+    res.status(500).json({ error: "Failed to generate PDF" });
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

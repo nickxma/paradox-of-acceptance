@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Essays — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* ─── Page header ───────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+
+/* ─── Tabs ──────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+}
+.tab-btn {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+.tab-btn:hover { color: #333; }
+.tab-btn.active { color: #111; border-bottom-color: #111; }
+.tab-count {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f0f0f0;
+  color: #666;
+  border-radius: 9px;
+  padding: 1px 6px;
+  margin-left: 5px;
+}
+
+/* ─── Panel ─────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ─── Essay table ───────────────────────────────────────────── */
+.essay-table { width: 100%; border-collapse: collapse; }
+.essay-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #999;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.essay-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  vertical-align: middle;
+}
+.essay-table tr:last-child td { border-bottom: none; }
+.essay-table tr:hover td { background: #fafafa; }
+
+/* ─── Title cell ────────────────────────────────────────────── */
+.essay-title-cell { max-width: 320px; }
+.essay-title-text { font-weight: 500; color: #111; margin-bottom: 3px; line-height: 1.3; }
+.essay-kicker { font-size: 11px; color: #aaa; }
+
+/* ─── Status badge ──────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.badge-published { background: #dcfce7; color: #16a34a; }
+.badge-scheduled { background: #fef9c3; color: #a16207; }
+.badge-draft     { background: #f3f4f6; color: #6b7280; }
+
+/* ─── Scheduled time ────────────────────────────────────────── */
+.scheduled-time {
+  font-size: 12px;
+  color: #666;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Action dropdown ───────────────────────────────────────── */
+.action-cell { text-align: right; white-space: nowrap; }
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #333;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  position: relative;
+}
+.action-btn:hover { background: #e8e8e8; border-color: #ccc; }
+.action-btn svg { flex-shrink: 0; }
+
+/* ─── Dropdown menu ─────────────────────────────────────────── */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  min-width: 180px;
+  z-index: 50;
+  overflow: hidden;
+}
+.dropdown-menu.open { display: block; }
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #333;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.dropdown-item:hover { background: #f5f5f5; }
+.dropdown-item.danger { color: #dc2626; }
+.dropdown-divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
+
+/* ─── Schedule picker modal ─────────────────────────────────── */
+#schedule-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#schedule-modal.open { display: flex; }
+.modal-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 28px 32px;
+  width: 380px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.2px; }
+.modal-subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+.modal-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.datetime-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 20px;
+}
+.datetime-input:focus { border-color: #111; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-secondary {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: #333;
+}
+.btn-secondary:hover { background: #e8e8e8; }
+.btn-schedule {
+  padding: 8px 16px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-schedule:hover { background: #333; }
+.btn-schedule:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #111;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 300;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { background: #dc2626; }
+
+/* ─── Empty state ───────────────────────────────────────────── */
+.empty-state {
+  padding: 40px 16px;
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+}
+
+/* ─── Loading ───────────────────────────────────────────────── */
+.loading-row td { padding: 32px 16px; text-align: center; color: #bbb; font-size: 13px; }
+
+@media (max-width: 768px) {
+  .content { padding: 20px 16px; }
+  header { padding: 0 16px; }
+  .essay-table th:nth-child(3),
+  .essay-table td:nth-child(3) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Essays</h1>
+    <p>Paradox of Acceptance Admin</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/essays/" class="active">Essays</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <h1 class="page-title">Essays</h1>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">
+        All <span class="tab-count" id="count-all">—</span>
+      </button>
+      <button class="tab-btn" data-tab="published" onclick="switchTab('published')">
+        Published <span class="tab-count" id="count-published">—</span>
+      </button>
+      <button class="tab-btn" data-tab="scheduled" onclick="switchTab('scheduled')">
+        Scheduled <span class="tab-count" id="count-scheduled">—</span>
+      </button>
+      <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">
+        Draft <span class="tab-count" id="count-draft">—</span>
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="panel">
+      <table class="essay-table">
+        <thead>
+          <tr>
+            <th>Essay</th>
+            <th>Status</th>
+            <th>Read time</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="essay-tbody">
+          <tr class="loading-row"><td colspan="4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule picker modal -->
+<div id="schedule-modal">
+  <div class="modal-card">
+    <div class="modal-title">Schedule essay</div>
+    <div class="modal-subtitle" id="modal-essay-title">—</div>
+    <div class="modal-label">Publish date &amp; time</div>
+    <input type="datetime-local" id="schedule-datetime" class="datetime-input" />
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-schedule" id="btn-confirm-schedule" onclick="confirmSchedule()">Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+let allEssays = [];
+let activeTab = 'all';
+let pendingSlug = null;
+
+// ─── Auth ─────────────────────────────────────────────────────
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+async function tryAuth(secret) {
+  const { ok } = await fetch('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  }).then(r => ({ ok: r.ok })).catch(() => ({ ok: false }));
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadEssays();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Essay loading ─────────────────────────────────────────────
+
+async function loadEssays() {
+  const { ok, data } = await apiRequest('/api/admin/essays');
+  const tbody = document.getElementById('essay-tbody');
+  if (!ok || !Array.isArray(data.essays)) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="4" style="color:#dc2626">Failed to load essays.</td></tr>';
+    return;
+  }
+  allEssays = data.essays;
+  updateCounts();
+  renderTable();
+}
+
+function essayStatus(essay) {
+  if (!essay.published_at) return 'draft';
+  const pub = new Date(essay.published_at);
+  return pub <= new Date() ? 'published' : 'scheduled';
+}
+
+function updateCounts() {
+  const counts = { all: allEssays.length, published: 0, scheduled: 0, draft: 0 };
+  for (const e of allEssays) counts[essayStatus(e)]++;
+  document.getElementById('count-all').textContent = counts.all;
+  document.getElementById('count-published').textContent = counts.published;
+  document.getElementById('count-scheduled').textContent = counts.scheduled;
+  document.getElementById('count-draft').textContent = counts.draft;
+}
+
+function filteredEssays() {
+  if (activeTab === 'all') return allEssays;
+  return allEssays.filter(e => essayStatus(e) === activeTab);
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('essay-tbody');
+  const essays = filteredEssays();
+
+  if (essays.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No essays in this category.</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = essays.map(essay => {
+    const status = essayStatus(essay);
+    const badge = badgeHtml(status, essay.published_at);
+    const readTime = escHtml(essay.read_time ?? '—');
+    return `
+      <tr data-slug="${escAttr(essay.slug)}">
+        <td class="essay-title-cell">
+          <div class="essay-title-text">${escHtml(essay.title)}</div>
+          ${essay.kicker ? `<div class="essay-kicker">${escHtml(essay.kicker)}</div>` : ''}
+        </td>
+        <td>${badge}</td>
+        <td><span style="color:#888;font-size:12px">${readTime}</span></td>
+        <td class="action-cell">${actionHtml(essay, status)}</td>
+      </tr>`;
+  }).join('');
+}
+
+function badgeHtml(status, published_at) {
+  if (status === 'published') {
+    return '<span class="badge badge-published">Published</span>';
+  }
+  if (status === 'scheduled') {
+    const dt = fmtDateTime(published_at);
+    return `<span class="badge badge-scheduled">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1zm5 3h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg>
+      ${dt}
+    </span>`;
+  }
+  return '<span class="badge badge-draft">Draft</span>';
+}
+
+function actionHtml(essay, status) {
+  const slug = escAttr(essay.slug);
+  return `<div class="dropdown" id="dd-${slug}">
+    <button class="action-btn" onclick="toggleDropdown('${slug}', event)">
+      Publish
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>
+    </button>
+    <div class="dropdown-menu" id="menu-${slug}">
+      <button class="dropdown-item" onclick="publishNow('${slug}')">Publish now</button>
+      <button class="dropdown-item" onclick="openSchedule('${slug}')">Schedule…</button>
+      ${status !== 'draft' ? `<div class="dropdown-divider"></div><button class="dropdown-item danger" onclick="unpublish('${slug}')">Revert to draft</button>` : ''}
+    </div>
+  </div>`;
+}
+
+// ─── Dropdown management ───────────────────────────────────────
+
+function toggleDropdown(slug, e) {
+  e.stopPropagation();
+  const menu = document.getElementById('menu-' + slug);
+  const wasOpen = menu.classList.contains('open');
+  closeAllDropdowns();
+  if (!wasOpen) menu.classList.add('open');
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+}
+
+document.addEventListener('click', closeAllDropdowns);
+
+// ─── Publish actions ───────────────────────────────────────────
+
+async function publishNow(slug) {
+  closeAllDropdowns();
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(slug), {
+    method: 'PATCH',
+    body: JSON.stringify({ published_at: new Date().toISOString() }),
+  });
+  if (ok) {
+    showToast('Published');
+    await loadEssays();
+  } else {
+    showToast(data.error || 'Failed to publish', true);
+  }
+}
+
+async function unpublish(slug) {
+  closeAllDropdowns();
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(slug), {
+    method: 'PATCH',
+    body: JSON.stringify({ published_at: null }),
+  });
+  if (ok) {
+    showToast('Reverted to draft');
+    await loadEssays();
+  } else {
+    showToast(data.error || 'Failed to revert', true);
+  }
+}
+
+// ─── Schedule modal ────────────────────────────────────────────
+
+function openSchedule(slug) {
+  closeAllDropdowns();
+  pendingSlug = slug;
+  const essay = allEssays.find(e => e.slug === slug);
+  document.getElementById('modal-essay-title').textContent = essay ? essay.title : slug;
+
+  // Pre-fill with existing scheduled time if present
+  const dtInput = document.getElementById('schedule-datetime');
+  if (essay && essay.published_at && new Date(essay.published_at) > new Date()) {
+    // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+    const d = new Date(essay.published_at);
+    const pad = n => String(n).padStart(2, '0');
+    dtInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } else {
+    // Default: 9am tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    const pad = n => String(n).padStart(2, '0');
+    dtInput.value = `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth()+1)}-${pad(tomorrow.getDate())}T09:00`;
+  }
+
+  document.getElementById('schedule-modal').classList.add('open');
+  setTimeout(() => dtInput.focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('schedule-modal').classList.remove('open');
+  pendingSlug = null;
+}
+
+async function confirmSchedule() {
+  const dtInput = document.getElementById('schedule-datetime');
+  const val = dtInput.value;
+  if (!val) return;
+
+  const dt = new Date(val);
+  if (isNaN(dt.getTime())) {
+    showToast('Invalid date', true);
+    return;
+  }
+
+  const btn = document.getElementById('btn-confirm-schedule');
+  btn.disabled = true;
+  btn.textContent = 'Scheduling…';
+
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(pendingSlug), {
+    method: 'PATCH',
+    body: JSON.stringify({ published_at: dt.toISOString() }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Schedule';
+
+  if (ok) {
+    closeModal();
+    showToast('Scheduled for ' + fmtDateTime(dt.toISOString()));
+    await loadEssays();
+  } else {
+    showToast(data.error || 'Failed to schedule', true);
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('schedule-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('schedule-modal')) closeModal();
+});
+
+// ─── Toast ─────────────────────────────────────────────────────
+
+let toastTimer = null;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ─── Util ──────────────────────────────────────────────────────
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
+}
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escAttr(str) {
+  return String(str ?? '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>
