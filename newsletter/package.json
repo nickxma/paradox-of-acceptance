@@ -1,0 +1,26 @@
+{
+  "name": "newsletter",
+  "version": "1.0.0",
+  "description": "Newsletter tooling for paradoxofacceptance.xyz",
+  "type": "module",
+  "scripts": {
+    "import-list": "npx tsx import-list.ts",
+    "send": "npx tsx send-newsletter.ts",
+    "server": "npx tsx server.ts",
+    "server:dev": "npx tsx --watch server.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "marked": "^17.0.5",
+    "resend": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
