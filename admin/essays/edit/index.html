@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Essay — Admin — Paradox of Acceptance</title>
+<script src="https://cdn.jsdelivr.net/npm/diff-match-patch@1.0.5/index.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p  { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ─── Page header ───────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 12px;
+}
+.page-header-left { display: flex; align-items: center; gap: 12px; }
+.back-link {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.back-link:hover { color: #111; }
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+.page-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+.btn-dark { background: #111; color: #fff; }
+.btn-dark:hover { background: #333; }
+.btn-dark:disabled { background: #aaa; cursor: not-allowed; }
+.btn-ghost {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #e0e0e0;
+}
+.btn-ghost:hover { background: #e8e8e8; }
+
+/* ─── Form ──────────────────────────────────────────────────── */
+.form-panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.form-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #999;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.form-row {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.form-row:last-child { border-bottom: none; }
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+}
+.form-input:focus { border-color: #111; }
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: vertical;
+  color: #111;
+}
+.form-textarea:focus { border-color: #111; }
+.form-row-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.form-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+/* ─── Save bar ──────────────────────────────────────────────── */
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 32px;
+}
+.save-status { font-size: 12px; color: #888; }
+.save-bar-right { display: flex; align-items: center; gap: 8px; }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #111;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 300;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { background: #dc2626; }
+
+/* ─── Version history slide-over ─────────────────────────────── */
+#vh-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 200;
+}
+#vh-overlay.open { display: block; }
+
+#vh-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 201;
+  overflow: hidden;
+}
+#vh-panel.open { transform: translateX(0); }
+
+.vh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.vh-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.vh-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.vh-close:hover { background: #f5f5f5; color: #111; }
+
+.vh-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.vh-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+}
+.vh-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: #bbb;
+  font-size: 13px;
+}
+
+.vh-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.1s;
+}
+.vh-item:hover { background: #fafafa; }
+.vh-item:last-child { border-bottom: none; }
+.vh-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ddd;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.vh-item-body { flex: 1; min-width: 0; }
+.vh-item-date { font-size: 13px; font-weight: 500; color: #111; }
+.vh-item-meta { font-size: 11px; color: #aaa; margin-top: 2px; }
+.vh-item-summary {
+  font-size: 12px;
+  color: #666;
+  margin-top: 3px;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vh-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.vh-page-btn {
+  padding: 5px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.1s;
+}
+.vh-page-btn:hover { background: #f5f5f5; }
+.vh-page-btn:disabled { color: #ccc; cursor: not-allowed; }
+.vh-page-info { font-size: 12px; color: #888; }
+
+/* ─── Diff panel (replaces list view) ────────────────────────── */
+#diff-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 740px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 202;
+  overflow: hidden;
+}
+#diff-panel.open { transform: translateX(0); }
+
+.diff-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.diff-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.diff-back:hover { background: #f5f5f5; color: #111; }
+.diff-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; flex: 1; }
+.diff-meta { font-size: 12px; color: #888; }
+
+.diff-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.diff-label {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #999;
+}
+.diff-label.before { border-right: 1px solid #f0f0f0; }
+
+.diff-body {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.diff-side {
+  padding: 16px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.diff-side.before {
+  border-right: 1px solid #f0f0f0;
+}
+.diff-del { background: #fee2e2; color: #991b1b; border-radius: 2px; }
+.diff-ins { background: #dcfce7; color: #166534; border-radius: 2px; }
+
+.diff-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ─── Confirm modal ─────────────────────────────────────────── */
+#confirm-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+#confirm-modal.open { display: flex; }
+.confirm-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 28px 32px;
+  width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.2px; }
+.confirm-body { font-size: 13px; color: #555; margin-bottom: 24px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.1s;
+}
+.btn-cancel:hover { background: #e8e8e8; }
+.btn-revert {
+  padding: 8px 16px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-revert:hover { background: #b91c1c; }
+.btn-revert:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Loading skeleton ──────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (max-width: 768px) {
+  .content { padding: 20px 16px; }
+  header { padding: 0 16px; }
+  #vh-panel, #diff-panel { width: 100%; }
+  .diff-body { grid-template-columns: 1fr; }
+  .diff-side.before { border-right: none; border-bottom: 1px solid #f0f0f0; }
+  .diff-labels { grid-template-columns: 1fr; }
+  .form-row-two { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Essay Editor</h1>
+    <p>Paradox of Acceptance Admin</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/essays/" class="active">Essays</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-header-left">
+        <a href="/admin/essays/" class="back-link">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
+          Essays
+        </a>
+        <h1 class="page-title" id="page-title">Loading…</h1>
+      </div>
+      <div class="page-header-right">
+        <button class="btn btn-ghost" id="btn-version-history" onclick="openVersionHistory()" title="Version History" style="gap:6px">
+          <!-- Clock icon -->
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>
+          Version History
+        </button>
+      </div>
+    </div>
+
+    <!-- Save bar -->
+    <div class="save-bar">
+      <span class="save-status" id="save-status">Unsaved changes</span>
+      <div class="save-bar-right">
+        <input type="text" id="change-summary" class="form-input" placeholder="Change summary (optional)" style="width:220px;font-size:13px" />
+        <button class="btn btn-dark" id="btn-save" onclick="saveEssay()">Save</button>
+      </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="form-panel">
+      <div class="form-section-label">Metadata</div>
+      <div class="form-row">
+        <label class="form-label" for="f-title">Title</label>
+        <input type="text" id="f-title" class="form-input" placeholder="Essay title" oninput="markDirty()" />
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="f-kicker">Kicker</label>
+        <input type="text" id="f-kicker" class="form-input" placeholder="e.g. Essay · Mindfulness & Motivation" oninput="markDirty()" />
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="f-description">Description (excerpt)</label>
+        <textarea id="f-description" class="form-textarea" rows="2" placeholder="Excerpt shown in the index listing" oninput="markDirty()"></textarea>
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="f-meta-description">Meta description</label>
+        <textarea id="f-meta-description" class="form-textarea" rows="2" placeholder="SEO meta description" oninput="markDirty()"></textarea>
+        <p class="form-hint">Used in &lt;meta name="description"&gt; — keep under 160 chars.</p>
+      </div>
+      <div class="form-row-two">
+        <div>
+          <label class="form-label" for="f-read-time">Read time</label>
+          <input type="text" id="f-read-time" class="form-input" placeholder="~10 min read" oninput="markDirty()" />
+        </div>
+        <div>
+          <label class="form-label" for="f-slug">Slug (read-only)</label>
+          <input type="text" id="f-slug" class="form-input" readonly style="background:#fafafa;color:#999" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="form-panel">
+      <div class="form-section-label">Body (Markdown)</div>
+      <div class="form-row">
+        <textarea id="f-body" class="form-textarea" rows="32" placeholder="Essay body in Markdown…" oninput="markDirty(); updateWordCount()"></textarea>
+        <p class="form-hint" id="word-count-hint" style="margin-top:6px"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Version history slide-over overlay -->
+<div id="vh-overlay" onclick="closeVersionHistory()"></div>
+
+<!-- Version history panel -->
+<div id="vh-panel">
+  <div class="vh-header">
+    <span class="vh-title">Version History</span>
+    <button class="vh-close" onclick="closeVersionHistory()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+    </button>
+  </div>
+  <div class="vh-list" id="vh-list">
+    <div class="vh-loading">Loading versions…</div>
+  </div>
+  <div class="vh-pagination" id="vh-pagination" style="display:none"></div>
+</div>
+
+<!-- Diff panel -->
+<div id="diff-panel">
+  <div class="diff-header">
+    <button class="diff-back" onclick="closeDiffPanel()" title="Back to version list">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
+    </button>
+    <span class="diff-title" id="diff-title">Version diff</span>
+    <span class="diff-meta" id="diff-meta"></span>
+  </div>
+  <div class="diff-labels">
+    <div class="diff-label before">Before (this version)</div>
+    <div class="diff-label after">After (current)</div>
+  </div>
+  <div class="diff-body">
+    <div class="diff-side before" id="diff-before"></div>
+    <div class="diff-side after" id="diff-after"></div>
+  </div>
+  <div class="diff-footer">
+    <button class="btn-cancel" onclick="closeDiffPanel()">Cancel</button>
+    <button class="btn-revert" id="btn-revert" onclick="confirmRevert()">Revert to this version</button>
+  </div>
+</div>
+
+<!-- Confirm revert modal -->
+<div id="confirm-modal">
+  <div class="confirm-card">
+    <div class="confirm-title">Revert essay?</div>
+    <div class="confirm-body" id="confirm-body">This will replace the current body with the selected version. A snapshot of the current content will be saved first.</div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn-revert" id="btn-confirm-revert" onclick="doRevert()">Revert</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ─── State ─────────────────────────────────────────────────────
+
+let adminSecret = '';
+let essaySlug = '';
+let essay = null;
+let isDirty = false;
+
+// Version history state
+let vhVersions = [];
+let vhPage = 1;
+let vhTotal = 0;
+let vhPageSize = 20;
+let activeVersionId = null;  // version being previewed in diff panel
+
+// ─── Helpers ───────────────────────────────────────────────────
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+let toastTimer = null;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
+}
+
+function countWords(text) {
+  if (!text) return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function updateWordCount() {
+  const body = document.getElementById('f-body').value;
+  const wc = countWords(body);
+  document.getElementById('word-count-hint').textContent = `${wc.toLocaleString()} word${wc !== 1 ? 's' : ''}`;
+}
+
+function markDirty() {
+  isDirty = true;
+  document.getElementById('save-status').textContent = 'Unsaved changes';
+}
+
+function markClean() {
+  isDirty = false;
+  document.getElementById('save-status').textContent = 'All changes saved';
+}
+
+// ─── Auth ──────────────────────────────────────────────────────
+
+async function tryAuth(secret) {
+  const { ok } = await fetch('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  }).then(r => ({ ok: r.ok })).catch(() => ({ ok: false }));
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadEssay();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Load essay ────────────────────────────────────────────────
+
+function getSlugFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('slug') || '';
+}
+
+async function loadEssay() {
+  essaySlug = getSlugFromUrl();
+  if (!essaySlug) {
+    document.getElementById('page-title').textContent = 'No slug specified';
+    showToast('No essay slug in URL (?slug=…)', true);
+    return;
+  }
+
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(essaySlug));
+  if (!ok || !data.essay) {
+    showToast(data.error || 'Failed to load essay', true);
+    return;
+  }
+
+  essay = data.essay;
+  populateForm(essay);
+  markClean();
+}
+
+function populateForm(e) {
+  document.getElementById('page-title').textContent = e.title || e.slug;
+  document.title = `Edit: ${e.title || e.slug} — Admin`;
+  document.getElementById('f-title').value = e.title || '';
+  document.getElementById('f-kicker').value = e.kicker || '';
+  document.getElementById('f-description').value = e.description || '';
+  document.getElementById('f-meta-description').value = e.meta_description || '';
+  document.getElementById('f-read-time').value = e.read_time || '';
+  document.getElementById('f-slug').value = e.slug || '';
+  document.getElementById('f-body').value = e.body_markdown || '';
+  updateWordCount();
+}
+
+// ─── Save ──────────────────────────────────────────────────────
+
+async function saveEssay() {
+  if (!essaySlug) return;
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    title: document.getElementById('f-title').value.trim(),
+    kicker: document.getElementById('f-kicker').value.trim(),
+    description: document.getElementById('f-description').value.trim(),
+    meta_description: document.getElementById('f-meta-description').value.trim(),
+    read_time: document.getElementById('f-read-time').value.trim(),
+    body_markdown: document.getElementById('f-body').value,
+    change_summary: document.getElementById('change-summary').value.trim() || null,
+  };
+
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(essaySlug), {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (ok && data.essay) {
+    essay = data.essay;
+    document.getElementById('page-title').textContent = data.essay.title || essaySlug;
+    document.getElementById('change-summary').value = '';
+    markClean();
+    showToast('Saved');
+  } else {
+    showToast(data.error || 'Failed to save', true);
+  }
+}
+
+// Cmd/Ctrl+S to save
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    saveEssay();
+  }
+});
+
+// Warn on unsaved changes (soft — does not block SPA navigation)
+window.addEventListener('beforeunload', (e) => {
+  if (isDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ─── Version history panel ─────────────────────────────────────
+
+function openVersionHistory() {
+  document.getElementById('vh-overlay').classList.add('open');
+  document.getElementById('vh-panel').classList.add('open');
+  vhPage = 1;
+  loadVersions();
+}
+
+function closeVersionHistory() {
+  document.getElementById('vh-overlay').classList.remove('open');
+  document.getElementById('vh-panel').classList.remove('open');
+  closeDiffPanel();
+}
+
+async function loadVersions() {
+  document.getElementById('vh-list').innerHTML = '<div class="vh-loading">Loading versions…</div>';
+  document.getElementById('vh-pagination').style.display = 'none';
+
+  const { ok, data } = await apiRequest(
+    `/api/admin/essays/${encodeURIComponent(essaySlug)}/versions?page=${vhPage}`
+  );
+
+  if (!ok) {
+    document.getElementById('vh-list').innerHTML = '<div class="vh-empty">Failed to load versions.</div>';
+    return;
+  }
+
+  vhVersions = data.versions || [];
+  vhTotal = data.total || 0;
+  vhPageSize = data.page_size || 20;
+
+  renderVersionList();
+}
+
+function renderVersionList() {
+  const listEl = document.getElementById('vh-list');
+
+  if (vhVersions.length === 0) {
+    listEl.innerHTML = '<div class="vh-empty">No versions yet.<br>Every save creates a version.</div>';
+    return;
+  }
+
+  listEl.innerHTML = vhVersions.map((v) => {
+    const wc = v.word_count ? `${v.word_count.toLocaleString()} words · ` : '';
+    const by = v.changed_by || 'admin';
+    return `<div class="vh-item" onclick="openDiff('${escAttr(v.id)}')">
+      <div class="vh-item-dot"></div>
+      <div class="vh-item-body">
+        <div class="vh-item-date">${escHtml(fmtDateTime(v.created_at))}</div>
+        <div class="vh-item-meta">${escHtml(wc)}${escHtml(by)}</div>
+        ${v.change_summary ? `<div class="vh-item-summary">${escHtml(v.change_summary)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(vhTotal / vhPageSize);
+  if (totalPages > 1) {
+    const pag = document.getElementById('vh-pagination');
+    pag.style.display = 'flex';
+    pag.innerHTML = `
+      <button class="vh-page-btn" onclick="vhChangePage(${vhPage - 1})" ${vhPage <= 1 ? 'disabled' : ''}>← Prev</button>
+      <span class="vh-page-info">Page ${vhPage} of ${totalPages}</span>
+      <button class="vh-page-btn" onclick="vhChangePage(${vhPage + 1})" ${vhPage >= totalPages ? 'disabled' : ''}>Next →</button>
+    `;
+  } else {
+    document.getElementById('vh-pagination').style.display = 'none';
+  }
+}
+
+function vhChangePage(page) {
+  vhPage = page;
+  loadVersions();
+}
+
+function escAttr(str) {
+  return String(str ?? '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
+// ─── Diff panel ────────────────────────────────────────────────
+
+async function openDiff(versionId) {
+  activeVersionId = versionId;
+  document.getElementById('diff-title').textContent = 'Loading diff…';
+  document.getElementById('diff-before').textContent = '';
+  document.getElementById('diff-after').textContent = '';
+  document.getElementById('diff-meta').textContent = '';
+  document.getElementById('diff-panel').classList.add('open');
+
+  const { ok, data } = await apiRequest(
+    `/api/admin/essays/${encodeURIComponent(essaySlug)}/versions/${encodeURIComponent(versionId)}`
+  );
+
+  if (!ok || !data.version) {
+    document.getElementById('diff-title').textContent = 'Failed to load version';
+    return;
+  }
+
+  const version = data.version;
+  const versionText = version.body_markdown || '';
+  const currentText = document.getElementById('f-body').value;
+
+  document.getElementById('diff-title').textContent = fmtDateTime(version.created_at);
+  document.getElementById('diff-meta').textContent = version.change_summary ? `"${version.change_summary}"` : '';
+
+  renderDiff(versionText, currentText);
+}
+
+function renderDiff(oldText, newText) {
+  const dmp = new diff_match_patch();
+  const diffs = dmp.diff_main(oldText, newText);
+  dmp.diff_cleanupSemantic(diffs);
+
+  const beforeEl = document.getElementById('diff-before');
+  const afterEl = document.getElementById('diff-after');
+
+  beforeEl.innerHTML = '';
+  afterEl.innerHTML = '';
+
+  for (const [op, text] of diffs) {
+    const escaped = escHtml(text);
+    if (op === 0) {
+      // Equal — show in both
+      beforeEl.innerHTML += escaped;
+      afterEl.innerHTML += escaped;
+    } else if (op === -1) {
+      // Deletion — show in before (red)
+      beforeEl.innerHTML += `<span class="diff-del">${escaped}</span>`;
+    } else if (op === 1) {
+      // Insertion — show in after (green)
+      afterEl.innerHTML += `<span class="diff-ins">${escaped}</span>`;
+    }
+  }
+}
+
+function closeDiffPanel() {
+  document.getElementById('diff-panel').classList.remove('open');
+  activeVersionId = null;
+}
+
+// ─── Revert ────────────────────────────────────────────────────
+
+function confirmRevert() {
+  if (!activeVersionId) return;
+  const v = vhVersions.find(v => v.id === activeVersionId);
+  const dateStr = v ? fmtDateTime(v.created_at) : 'this version';
+  document.getElementById('confirm-body').textContent =
+    `This will replace the current body with the version from ${dateStr}. ` +
+    `A snapshot of the current content will be saved first so nothing is lost.`;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').classList.remove('open');
+}
+
+async function doRevert() {
+  if (!activeVersionId) return;
+
+  const btn = document.getElementById('btn-confirm-revert');
+  btn.disabled = true;
+  btn.textContent = 'Reverting…';
+
+  const { ok, data } = await apiRequest(
+    `/api/admin/essays/${encodeURIComponent(essaySlug)}/versions/${encodeURIComponent(activeVersionId)}/revert`,
+    { method: 'POST' }
+  );
+
+  btn.disabled = false;
+  btn.textContent = 'Revert';
+  closeConfirmModal();
+
+  if (ok && data.essay) {
+    essay = data.essay;
+    populateForm(data.essay);
+    markClean();
+    closeDiffPanel();
+    closeVersionHistory();
+    showToast('Reverted successfully');
+    // Reload version list in background
+    vhPage = 1;
+  } else {
+    showToast(data.error || 'Revert failed', true);
+  }
+}
+
+// Close confirm modal on backdrop
+document.getElementById('confirm-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('confirm-modal')) closeConfirmModal();
+});
+
+// ─── Init ───────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>

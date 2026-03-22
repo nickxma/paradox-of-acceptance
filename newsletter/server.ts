@@ -26,13 +26,15 @@ import express, { Request, Response, NextFunction } from "express";
 import { Resend } from "resend";
 import { marked } from "marked";
 import * as cheerio from "cheerio";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import PDFDocument from "pdfkit";
 import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import multer from "multer";
+import Papa from "papaparse";
 
 dotenv.config();
 
@@ -573,6 +575,151 @@ async function sendWelcomeEmail(resend: Resend, email: string, firstName?: strin
   } else {
     console.log(`[subscribe] Welcome email sent to ${email}`);
     await logEmailSend(email, "welcome", "sent", { resendEmailId: data?.id });
+  }
+}
+
+// ─── CSV Bulk Import ─────────────────────────────────────────────────────────
+
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "text/csv" || file.originalname.endsWith(".csv")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only CSV files are accepted"));
+    }
+  },
+});
+
+type ImportJobStatus = "running" | "done" | "failed";
+
+interface ImportJob {
+  id: string;
+  status: ImportJobStatus;
+  total: number;
+  processed: number;
+  imported: number;
+  skipped_duplicates: number;
+  failed: number;
+  createdAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+// In-memory job store (single-process; sufficient for admin one-off imports)
+const importJobs = new Map<string, ImportJob>();
+
+/**
+ * Resolve the email column from CSV headers (case-insensitive, supports "e-mail").
+ */
+function findEmailColumn(headers: string[]): string | undefined {
+  return headers.find((h) => /^e-?mail$/i.test(h));
+}
+
+/**
+ * Minimal RFC-5322-ish email validation.
+ */
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+/**
+ * Core import runner — runs in background after the HTTP response is sent.
+ */
+async function runCsvImport(
+  jobId: string,
+  rows: Array<Record<string, string>>,
+  emailCol: string,
+  firstNameCol: string | undefined,
+  lastNameCol: string | undefined
+): Promise<void> {
+  const job = importJobs.get(jobId)!;
+  const resend = new Resend(RESEND_API_KEY!);
+
+  // Fetch existing subscriber emails from Supabase for dedup
+  const existingEmails = new Set<string>();
+  if (supabase) {
+    const { data: subs } = await supabase.from("subscribers").select("email");
+    for (const row of subs ?? []) {
+      existingEmails.add(String(row.email).toLowerCase().trim());
+    }
+  }
+
+  // Deduplicate within the CSV itself (keep first occurrence)
+  const seenInCsv = new Set<string>();
+  const toProcess: Array<{ email: string; firstName?: string }> = [];
+
+  for (const row of rows) {
+    const raw = row[emailCol] ?? "";
+    const email = raw.toLowerCase().trim();
+    if (!email || !isValidEmail(email)) {
+      job.failed++;
+      job.processed++;
+      continue;
+    }
+    if (seenInCsv.has(email) || existingEmails.has(email)) {
+      job.skipped_duplicates++;
+      job.processed++;
+      continue;
+    }
+    seenInCsv.add(email);
+
+    let firstName: string | undefined;
+    if (firstNameCol) {
+      const fn = (row[firstNameCol] ?? "").trim();
+      const ln = lastNameCol ? (row[lastNameCol] ?? "").trim() : "";
+      firstName = ln ? `${fn} ${ln}`.trim() : fn || undefined;
+    }
+
+    toProcess.push({ email, firstName });
+  }
+
+  job.total = rows.length;
+
+  // Batch to Resend in groups of 100
+  const BATCH = 100;
+  for (let i = 0; i < toProcess.length; i += BATCH) {
+    const batch = toProcess.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((c) =>
+        resend.contacts.create({
+          audienceId: RESEND_AUDIENCE_ID!,
+          email: c.email,
+          firstName: c.firstName,
+          unsubscribed: false,
+        })
+      )
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && !r.value.error) {
+        job.imported++;
+      } else {
+        job.failed++;
+      }
+      job.processed++;
+    }
+    // Respect rate limits
+    if (i + BATCH < toProcess.length) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
+  job.status = "done";
+  job.completedAt = new Date().toISOString();
+
+  // Persist job record to Supabase
+  if (supabase) {
+    await supabase.from("bulk_import_jobs").insert({
+      id: jobId,
+      status: job.status,
+      total_rows: job.total,
+      imported: job.imported,
+      skipped_duplicates: job.skipped_duplicates,
+      failed_rows: job.failed,
+      created_at: job.createdAt,
+      completed_at: job.completedAt,
+    });
   }
 }
 
@@ -1370,45 +1517,130 @@ app.get("/api/admin/essays", requireAdminSecret, async (_req: Request, res: Resp
   res.json({ essays: data ?? [] });
 });
 
-// ─── PATCH /api/admin/essays/:slug ───────────────────────────────────────────
+// ─── GET /api/admin/essays/:slug ─────────────────────────────────────────────
 
 /**
- * PATCH /api/admin/essays/:slug
+ * GET /api/admin/essays/:slug
  *
- * Update the published_at of an essay to schedule or publish it.
- *
- * Body:
- *   { published_at: string | null }
- *     - ISO 8601 datetime string  → schedule (future) or publish (past/now)
- *     - null                      → revert to draft
- *
- * Side effect: clears deployed_at so the cron will re-deploy the essay.
+ * Returns a single essay including content fields for the editor.
  *
  * Auth: X-Admin-Secret header.
  */
-app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res: Response) => {
+app.get("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const { published_at } = req.body as { published_at: string | null };
 
   if (!supabase) {
     return res.status(503).json({ error: "Supabase not configured" });
   }
 
-  if (published_at !== null && published_at !== undefined) {
-    const d = new Date(published_at as string);
+  const { data, error } = await supabase
+    .from("essays")
+    .select("slug, title, kicker, description, meta_description, read_time, path, body_markdown, published_at, deployed_at, created_at, updated_at")
+    .eq("slug", slug)
+    .single();
+
+  if (error) {
+    console.error("[admin/essays] get single error:", error);
+    return res.status(500).json({ error: "Failed to load essay" });
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: "Essay not found" });
+  }
+
+  res.json({ essay: data });
+});
+
+// ─── PATCH /api/admin/essays/:slug ───────────────────────────────────────────
+
+/**
+ * PATCH /api/admin/essays/:slug
+ *
+ * Update essay fields. Accepts:
+ *   - published_at: string | null  → schedule/publish/draft (no version created)
+ *   - body_markdown, title, meta_description, kicker, description, read_time
+ *     → content update; current state is snapshotted into essay_versions first
+ *   - change_summary: string | null  → optional label for the version
+ *
+ * Side effect when content changes: inserts a row into essay_versions.
+ * Side effect when published_at changes: clears deployed_at for cron re-deploy.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const body = req.body as {
+    published_at?: string | null;
+    body_markdown?: string;
+    title?: string;
+    meta_description?: string;
+    kicker?: string;
+    description?: string;
+    read_time?: string;
+    change_summary?: string | null;
+  };
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  if (body.published_at !== null && body.published_at !== undefined) {
+    const d = new Date(body.published_at);
     if (isNaN(d.getTime())) {
       return res.status(400).json({ error: "Invalid published_at value" });
     }
   }
 
+  const contentFields = ["body_markdown", "title", "meta_description", "kicker", "description", "read_time"] as const;
+  const isContentUpdate = contentFields.some((f) => body[f] !== undefined);
+
+  // If content fields are changing, snapshot the current state into essay_versions first.
+  if (isContentUpdate) {
+    const { data: current, error: fetchError } = await supabase
+      .from("essays")
+      .select("title, body_markdown, meta_description")
+      .eq("slug", slug)
+      .single();
+
+    if (fetchError) {
+      console.error("[admin/essays] patch fetch-current error:", fetchError);
+      return res.status(500).json({ error: "Failed to fetch current essay state" });
+    }
+
+    if (!current) {
+      return res.status(404).json({ error: "Essay not found" });
+    }
+
+    const { error: versionError } = await supabase.from("essay_versions").insert({
+      essay_slug: slug,
+      title: current.title,
+      body_markdown: current.body_markdown ?? null,
+      meta_description: current.meta_description ?? null,
+      changed_by: "admin",
+      change_summary: body.change_summary ?? null,
+    });
+
+    if (versionError) {
+      console.error("[admin/essays] patch version insert error:", versionError);
+      return res.status(500).json({ error: "Failed to create version snapshot" });
+    }
+  }
+
+  // Build the update payload.
+  const update: Record<string, unknown> = {};
+  if (body.published_at !== undefined) {
+    update.published_at = body.published_at ?? null;
+    update.deployed_at = null; // clear so cron re-deploys when published_at arrives
+  }
+  for (const f of contentFields) {
+    if (body[f] !== undefined) update[f] = body[f];
+  }
+
   const { data, error } = await supabase
     .from("essays")
-    .update({
-      published_at: published_at ?? null,
-      deployed_at: null, // clear so cron re-deploys when published_at arrives
-    })
+    .update(update)
     .eq("slug", slug)
-    .select("slug, title, published_at, deployed_at")
+    .select("slug, title, kicker, description, meta_description, read_time, body_markdown, published_at, deployed_at")
     .single();
 
   if (error) {
@@ -1421,6 +1653,171 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   }
 
   res.json({ essay: data });
+});
+
+// ─── GET /api/admin/essays/:slug/versions ────────────────────────────────────
+
+/**
+ * GET /api/admin/essays/:slug/versions
+ *
+ * Returns paginated version list for an essay (20 per page).
+ * Each entry includes: id, created_at, changed_by, change_summary, word_count.
+ *
+ * Query params:
+ *   page  (default 1)
+ *
+ * Auth: X-Admin-Secret header.
+ */
+function countWords(text: string | null | undefined): number {
+  if (!text) return 0;
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+app.get("/api/admin/essays/:slug/versions", requireAdminSecret, async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+  const pageSize = 20;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { data, error, count } = await supabase
+    .from("essay_versions")
+    .select("id, created_at, changed_by, change_summary, body_markdown", { count: "exact" })
+    .eq("essay_slug", slug)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error("[admin/essays] versions list error:", error);
+    return res.status(500).json({ error: "Failed to load versions" });
+  }
+
+  const versions = (data ?? []).map((v) => ({
+    id: v.id,
+    created_at: v.created_at,
+    changed_by: v.changed_by,
+    change_summary: v.change_summary,
+    word_count: countWords(v.body_markdown),
+  }));
+
+  res.json({ versions, total: count ?? 0, page, page_size: pageSize });
+});
+
+// ─── GET /api/admin/essays/:slug/versions/:versionId ─────────────────────────
+
+/**
+ * GET /api/admin/essays/:slug/versions/:versionId
+ *
+ * Returns full content of a specific version.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/essays/:slug/versions/:versionId", requireAdminSecret, async (req: Request, res: Response) => {
+  const { slug, versionId } = req.params;
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { data, error } = await supabase
+    .from("essay_versions")
+    .select("id, essay_slug, title, body_markdown, meta_description, changed_by, change_summary, created_at")
+    .eq("essay_slug", slug)
+    .eq("id", versionId)
+    .single();
+
+  if (error) {
+    console.error("[admin/essays] version get error:", error);
+    return res.status(500).json({ error: "Failed to load version" });
+  }
+
+  if (!data) {
+    return res.status(404).json({ error: "Version not found" });
+  }
+
+  res.json({ version: data });
+});
+
+// ─── POST /api/admin/essays/:slug/versions/:versionId/revert ─────────────────
+
+/**
+ * POST /api/admin/essays/:slug/versions/:versionId/revert
+ *
+ * Reverts the live essay body to the content of the given version.
+ * Creates a new version entry (snapshot of current state) before reverting,
+ * with change_summary "Reverted to <original created_at>".
+ * Does not delete any history.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.post("/api/admin/essays/:slug/versions/:versionId/revert", requireAdminSecret, async (req: Request, res: Response) => {
+  const { slug, versionId } = req.params;
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  // Load the target version
+  const { data: targetVersion, error: tvError } = await supabase
+    .from("essay_versions")
+    .select("id, title, body_markdown, meta_description, created_at")
+    .eq("essay_slug", slug)
+    .eq("id", versionId)
+    .single();
+
+  if (tvError || !targetVersion) {
+    return res.status(404).json({ error: "Version not found" });
+  }
+
+  // Snapshot current state before reverting
+  const { data: current, error: fetchError } = await supabase
+    .from("essays")
+    .select("title, body_markdown, meta_description")
+    .eq("slug", slug)
+    .single();
+
+  if (fetchError || !current) {
+    return res.status(404).json({ error: "Essay not found" });
+  }
+
+  const revertSummary = `Reverted to ${new Date(targetVersion.created_at).toISOString()}`;
+
+  const { error: snapError } = await supabase.from("essay_versions").insert({
+    essay_slug: slug,
+    title: current.title,
+    body_markdown: current.body_markdown ?? null,
+    meta_description: current.meta_description ?? null,
+    changed_by: "admin",
+    change_summary: revertSummary,
+  });
+
+  if (snapError) {
+    console.error("[admin/essays] revert snapshot error:", snapError);
+    return res.status(500).json({ error: "Failed to snapshot current state" });
+  }
+
+  // Apply the reverted content
+  const { data: updated, error: updateError } = await supabase
+    .from("essays")
+    .update({
+      title: targetVersion.title,
+      body_markdown: targetVersion.body_markdown,
+      meta_description: targetVersion.meta_description,
+    })
+    .eq("slug", slug)
+    .select("slug, title, body_markdown, meta_description, published_at")
+    .single();
+
+  if (updateError || !updated) {
+    console.error("[admin/essays] revert update error:", updateError);
+    return res.status(500).json({ error: "Failed to apply revert" });
+  }
+
+  res.json({ essay: updated, reverted_to: targetVersion.created_at });
 });
 
 // ─── Email preference center ──────────────────────────────────────────────────
@@ -3476,6 +3873,116 @@ app.get("/api/admin/email/suppression-csv", requireAdminSecret, async (_req: Req
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(csv);
+});
+
+// ─── POST /api/admin/email/import-csv ────────────────────────────────────────
+
+/**
+ * POST /api/admin/email/import-csv
+ *
+ * Multipart form upload — field name "file" must be a CSV.
+ * Optional query params: email_col, first_name_col, last_name_col
+ *   (auto-detected from headers when omitted)
+ *
+ * Returns immediately with { jobId, total } — use the status endpoint to poll.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.post(
+  "/api/admin/email/import-csv",
+  requireAdminSecret,
+  csvUpload.single("file"),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded — send multipart/form-data with field 'file'" });
+      return;
+    }
+
+    if (!RESEND_API_KEY || !RESEND_AUDIENCE_ID) {
+      res.status(503).json({ error: "RESEND_API_KEY / RESEND_AUDIENCE_ID not configured" });
+      return;
+    }
+
+    const csvText = req.file.buffer.toString("utf-8");
+
+    // Parse CSV
+    const parsed = Papa.parse<Record<string, string>>(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim(),
+    });
+
+    const headers = parsed.meta.fields ?? [];
+    if (headers.length === 0) {
+      res.status(400).json({ error: "CSV appears to have no headers" });
+      return;
+    }
+
+    // Resolve columns
+    const emailCol =
+      (req.query.email_col as string | undefined) ??
+      findEmailColumn(headers);
+
+    if (!emailCol || !headers.includes(emailCol)) {
+      res.status(400).json({
+        error: "CSV must contain an email column (email / Email / EMAIL / e-mail)",
+        headers,
+      });
+      return;
+    }
+
+    const firstNameCol =
+      (req.query.first_name_col as string | undefined) ??
+      headers.find((h) => /^first.?name$/i.test(h));
+
+    const lastNameCol =
+      (req.query.last_name_col as string | undefined) ??
+      headers.find((h) => /^last.?name$/i.test(h));
+
+    const rows = parsed.data;
+    const jobId = randomUUID();
+    const job: ImportJob = {
+      id: jobId,
+      status: "running",
+      total: rows.length,
+      processed: 0,
+      imported: 0,
+      skipped_duplicates: 0,
+      failed: 0,
+      createdAt: new Date().toISOString(),
+    };
+    importJobs.set(jobId, job);
+
+    // Start background processing — respond immediately
+    runCsvImport(jobId, rows, emailCol, firstNameCol, lastNameCol).catch((err) => {
+      const j = importJobs.get(jobId);
+      if (j) {
+        j.status = "failed";
+        j.error = String(err?.message ?? err);
+        j.completedAt = new Date().toISOString();
+      }
+      console.error(`[import-csv] Job ${jobId} failed:`, err);
+    });
+
+    res.json({ jobId, total: rows.length });
+  }
+);
+
+// ─── GET /api/admin/email/import-csv/status/:jobId ────────────────────────────
+
+/**
+ * GET /api/admin/email/import-csv/status/:jobId
+ *
+ * Returns current state of a bulk import job.
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/email/import-csv/status/:jobId", requireAdminSecret, (req: Request, res: Response) => {
+  const job = importJobs.get(req.params.jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job not found — jobs are only kept in memory for the server lifetime" });
+    return;
+  }
+  res.json(job);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
