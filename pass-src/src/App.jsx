@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
 import * as Sentry from '@sentry/react';
+import { useAuthContext, useWalletsContext } from './lib/auth-context.jsx';
 import { useMembershipStatus } from './hooks/useMembershipStatus.js';
 import MintFlow from './components/MintFlow.jsx';
 import MembersArea from './components/MembersArea.jsx';
@@ -41,10 +41,10 @@ export default function App() {
 }
 
 function AppInner() {
-  const { ready, authenticated, login, logout, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { ready, authenticated, login, logout, user } = useAuthContext();
+  const { wallets } = useWalletsContext();
   const walletAddress = wallets?.[0]?.address;
-  const { isMember, isStripeSubscriber, stripeDetails, isLoading: memberLoading, refetch } = useMembershipStatus(walletAddress);
+  const { isMember, isStripeSubscriber, isTrialing, stripeDetails, isLoading: memberLoading, refetch } = useMembershipStatus(walletAddress);
 
   // Check if we just returned from a successful Stripe checkout
   const params = new URLSearchParams(window.location.search);
@@ -101,6 +101,7 @@ function AppInner() {
           <MembersArea
             walletAddress={walletAddress}
             isStripeSubscriber={isStripeSubscriber}
+            isTrialing={isTrialing}
             stripeDetails={stripeDetails}
           />
         ) : (
@@ -111,7 +112,7 @@ function AppInner() {
       <Footer />
 
       {showToast && (
-        <div className="toast">Subscription updated.</div>
+        <div className="toast" data-testid="subscription-updated-toast">Subscription updated.</div>
       )}
     </>
   );
@@ -120,7 +121,7 @@ function AppInner() {
 function UnauthenticatedView({ onLogin }) {
   return (
     <>
-      <div className="pass-hero">
+      <div className="pass-hero" data-testid="unauthenticated-hero">
         <h1 className="pass-headline">Acceptance Pass</h1>
         <p className="pass-subtitle">
           A membership credential for the Paradox of Acceptance community.
@@ -140,7 +141,7 @@ function UnauthenticatedView({ onLogin }) {
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <button className="btn-primary" onClick={onLogin}>
+        <button className="btn-primary" onClick={onLogin} data-testid="get-access-btn">
           Get access
         </button>
       </div>

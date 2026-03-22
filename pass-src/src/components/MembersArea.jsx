@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { API_BASE_URL } from '../lib/config.js';
+import CancelSurveyModal from './CancelSurveyModal.jsx';
 
-export default function MembersArea({ walletAddress, isStripeSubscriber, stripeDetails }) {
+export default function MembersArea({ walletAddress, isStripeSubscriber, isTrialing, stripeDetails }) {
   return (
     <>
-      <div className="pass-hero">
+      <div className="pass-hero" data-testid="members-area">
         <div className="member-badge">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
@@ -72,7 +73,7 @@ export default function MembersArea({ walletAddress, isStripeSubscriber, stripeD
       </div>
 
       {isStripeSubscriber && (
-        <SubscriptionSection walletAddress={walletAddress} stripeDetails={stripeDetails} />
+        <SubscriptionSection walletAddress={walletAddress} isTrialing={isTrialing} stripeDetails={stripeDetails} />
       )}
 
       <div className="mint-stats">
@@ -82,9 +83,10 @@ export default function MembersArea({ walletAddress, isStripeSubscriber, stripeD
   );
 }
 
-function SubscriptionSection({ walletAddress, stripeDetails }) {
+function SubscriptionSection({ walletAddress, isTrialing, stripeDetails }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showCancelSurvey, setShowCancelSurvey] = useState(false);
 
   const handleManage = useCallback(async () => {
     if (!walletAddress || !API_BASE_URL) return;
@@ -121,43 +123,109 @@ function SubscriptionSection({ walletAddress, stripeDetails }) {
       })
     : null;
 
+  const trialDaysLeft = isTrialing && stripeDetails?.trialEnd
+    ? Math.max(0, Math.ceil((new Date(stripeDetails.trialEnd) - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  const trialEndDate = isTrialing && stripeDetails?.trialEnd
+    ? new Date(stripeDetails.trialEnd).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
   return (
-    <div className="subscription-section">
-      <div className="members-label" style={{ marginBottom: 16 }}>Subscription</div>
-      <div className="subscription-row">
-        <span className="subscription-key">Plan</span>
-        <span className="subscription-val">Pro</span>
-      </div>
-      {renewalDate && (
+    <>
+      <div className="subscription-section" data-testid="subscription-section">
+        <div className="members-label" style={{ marginBottom: 16 }}>Subscription</div>
+        {isTrialing && trialDaysLeft !== null && (
+          <div
+            data-testid="trial-countdown-banner"
+            className="subscription-row"
+            style={{ background: '#f5f0e8', borderRadius: 6, padding: '8px 12px', marginBottom: 8 }}
+          >
+            <span className="subscription-key" style={{ color: '#7d8c6e', fontWeight: 500 }}>
+              Free trial
+            </span>
+            <span data-testid="trial-days-left" className="subscription-val" style={{ color: '#7d8c6e' }}>
+              {trialDaysLeft === 0 ? 'Ends today' : `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left`}
+            </span>
+          </div>
+        )}
         <div className="subscription-row">
-          <span className="subscription-key">Renews</span>
-          <span className="subscription-val">{renewalDate}</span>
+          <span className="subscription-key">Plan</span>
+          <span className="subscription-val">Pro</span>
         </div>
-      )}
-      {stripeDetails?.last4 && (
-        <div className="subscription-row">
-          <span className="subscription-key">Card</span>
-          <span className="subscription-val">•••• {stripeDetails.last4}</span>
+        {isTrialing && trialEndDate && (
+          <div className="subscription-row">
+            <span className="subscription-key">Trial ends</span>
+            <span className="subscription-val">{trialEndDate}</span>
+          </div>
+        )}
+        {!isTrialing && renewalDate && (
+          <div className="subscription-row">
+            <span className="subscription-key">Renews</span>
+            <span className="subscription-val">{renewalDate}</span>
+          </div>
+        )}
+        {stripeDetails?.last4 && (
+          <div className="subscription-row">
+            <span className="subscription-key">Card</span>
+            <span className="subscription-val">•••• {stripeDetails.last4}</span>
+          </div>
+        )}
+        {stripeDetails?.lastTaxAmountCents != null && stripeDetails.lastTaxAmountCents > 0 && (
+          <div className="subscription-row">
+            <span className="subscription-key">Tax (last invoice)</span>
+            <span className="subscription-val">
+              ${(stripeDetails.lastTaxAmountCents / 100).toFixed(2)}
+            </span>
+          </div>
+        )}
+        <div style={{ marginTop: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            data-testid="manage-subscription-btn"
+            className="btn-secondary"
+            onClick={handleManage}
+            disabled={loading}
+            style={{ fontSize: 13 }}
+          >
+            {loading ? (
+              <>
+                <span className="spinner" style={{ width: 12, height: 12, borderColor: '#999', borderTopColor: 'transparent' }} />
+                {' '}Opening...
+              </>
+            ) : (
+              'Manage subscription →'
+            )}
+          </button>
+          <button
+            data-testid="cancel-subscription-btn"
+            onClick={() => setShowCancelSurvey(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+              color: '#999',
+              textDecoration: 'underline',
+              padding: 0,
+            }}
+          >
+            Cancel subscription
+          </button>
         </div>
-      )}
-      <div style={{ marginTop: 20 }}>
-        <button
-          className="btn-secondary"
-          onClick={handleManage}
-          disabled={loading}
-          style={{ fontSize: 13 }}
-        >
-          {loading ? (
-            <>
-              <span className="spinner" style={{ width: 12, height: 12, borderColor: '#999', borderTopColor: 'transparent' }} />
-              {' '}Opening...
-            </>
-          ) : (
-            'Manage subscription →'
-          )}
-        </button>
+        {error && <p className="status-line error" data-testid="portal-error" style={{ marginTop: 10 }}>{error}</p>}
       </div>
-      {error && <p className="status-line error" style={{ marginTop: 10 }}>{error}</p>}
-    </div>
+
+      {showCancelSurvey && (
+        <CancelSurveyModal
+          walletAddress={walletAddress}
+          onClose={() => setShowCancelSurvey(false)}
+          onProceedToPortal={handleManage}
+        />
+      )}
+    </>
   );
 }

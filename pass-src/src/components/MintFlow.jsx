@@ -1,18 +1,25 @@
 import React, { useState, useCallback } from 'react';
-import { useWallets } from '@privy-io/react-auth';
+import { useWalletsContext } from '../lib/auth-context.jsx';
 import { createWalletClient, custom, encodeFunctionData } from 'viem';
 import { ACCEPTANCE_PASS_ABI } from '../lib/contract.js';
 import { CONTRACT_ADDRESS, targetChain, API_BASE_URL } from '../lib/config.js';
 import { useMembershipStatus } from '../hooks/useMembershipStatus.js';
 
 export default function MintFlow({ walletAddress }) {
-  const { wallets } = useWallets();
+  const { wallets } = useWalletsContext();
   const { refetch } = useMembershipStatus(walletAddress);
   const [minting, setMinting] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [txHash, setTxHash] = useState(null);
+
+  // Promo code state
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoResult, setPromoResult] = useState(null); // { valid, promotionCodeId, percentOff, amountOff, currency, name } | null
+  const [promoError, setPromoError] = useState(null);
 
   const handleMint = useCallback(async () => {
     if (!wallets?.[0] || !CONTRACT_ADDRESS) return;
@@ -61,6 +68,34 @@ export default function MintFlow({ walletAddress }) {
     }
   }, [wallets, refetch]);
 
+  const handleValidatePromo = useCallback(async () => {
+    if (!promoInput.trim() || !API_BASE_URL) return;
+
+    setPromoValidating(true);
+    setPromoError(null);
+    setPromoResult(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/stripe/validate-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoInput.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPromoError('Could not validate code. Please try again.');
+      } else if (!data.valid) {
+        setPromoError('Invalid or expired promo code.');
+      } else {
+        setPromoResult(data);
+      }
+    } catch {
+      setPromoError('Could not validate code. Please try again.');
+    } finally {
+      setPromoValidating(false);
+    }
+  }, [promoInput]);
+
   const handleStripeCheckout = useCallback(async () => {
     if (!walletAddress || !API_BASE_URL) return;
 
@@ -68,10 +103,14 @@ export default function MintFlow({ walletAddress }) {
     setError(null);
 
     try {
+      const body = { walletAddress };
+      if (promoResult?.valid && promoResult?.promotionCodeId) {
+        body.promoCode = promoInput.trim();
+      }
       const res = await fetch(`${API_BASE_URL}/api/stripe/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -183,6 +222,7 @@ export default function MintFlow({ walletAddress }) {
           </p>
           <div style={{ textAlign: 'center', marginTop: 8 }}>
             <button
+              data-testid="subscribe-with-card-btn"
               className="btn-secondary"
               onClick={handleStripeCheckout}
               disabled={subscribing || !walletAddress}
@@ -197,6 +237,103 @@ export default function MintFlow({ walletAddress }) {
                 'Subscribe with card →'
               )}
             </button>
+          </div>
+
+          {/* Promo code field */}
+          <div style={{ marginTop: 16 }}>
+            <button
+              onClick={() => {
+                setPromoOpen(o => !o);
+                setPromoError(null);
+                setPromoResult(null);
+                setPromoInput('');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 13,
+                color: '#888',
+                textDecoration: 'underline',
+                padding: 0,
+              }}
+            >
+              {promoOpen ? 'Hide promo code' : 'Have a promo code?'}
+            </button>
+
+            {promoOpen && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  data-testid="promo-code-input"
+                  type="text"
+                  value={promoInput}
+                  onChange={e => {
+                    setPromoInput(e.target.value);
+                    setPromoResult(null);
+                    setPromoError(null);
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleValidatePromo(); }}
+                  placeholder="Enter code"
+                  disabled={promoValidating || !!promoResult}
+                  style={{
+                    flex: '1 1 120px',
+                    padding: '8px 12px',
+                    fontSize: 13,
+                    border: '1px solid #ddd',
+                    borderRadius: 4,
+                    outline: 'none',
+                    background: '#faf8f4',
+                    color: '#2c2c2c',
+                  }}
+                />
+                {!promoResult ? (
+                  <button
+                    data-testid="promo-apply-btn"
+                    onClick={handleValidatePromo}
+                    disabled={promoValidating || !promoInput.trim()}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: 13,
+                      background: '#2c2c2c',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: promoValidating || !promoInput.trim() ? 'not-allowed' : 'pointer',
+                      opacity: promoValidating || !promoInput.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {promoValidating ? 'Checking…' : 'Apply'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setPromoResult(null); setPromoInput(''); }}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      background: 'none',
+                      color: '#888',
+                      border: '1px solid #ddd',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+
+            {promoError && (
+              <p data-testid="promo-error" style={{ fontSize: 12, color: '#c0392b', marginTop: 6 }}>{promoError}</p>
+            )}
+            {promoResult?.valid && (
+              <p data-testid="promo-success" style={{ fontSize: 12, color: '#7d8c6e', marginTop: 6 }}>
+                ✓ Code applied
+                {promoResult.percentOff != null && ` — ${promoResult.percentOff}% off`}
+                {promoResult.amountOff != null && promoResult.currency &&
+                  ` — ${(promoResult.amountOff / 100).toFixed(2)} ${promoResult.currency.toUpperCase()} off`}
+              </p>
+            )}
           </div>
         </div>
       )}
