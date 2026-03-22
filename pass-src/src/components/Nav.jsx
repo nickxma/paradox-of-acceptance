@@ -15,6 +15,7 @@ export default function Nav({ authenticated, onLogin, onLogout, user }) {
           <a href="/#start-here">Tools</a>
           <a href="/mindfulness-essays/">Essays</a>
           <a href="/pass/" className="active">Pass</a>
+          <a href="/pricing/">Pricing</a>
         </div>
       </div>
 

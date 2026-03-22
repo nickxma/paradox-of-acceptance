@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Paradox of Acceptance</title>
+<meta name="description" content="Free and Pro membership options for the Paradox of Acceptance community. Get started free or start a 14-day trial.">
+<meta property="og:title" content="Pricing — Paradox of Acceptance" />
+<meta property="og:description" content="Free and Pro membership options for the Paradox of Acceptance community." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://paradoxofacceptance.xyz/pricing/" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page { padding: 64px 280px 80px; max-width: 100%; }
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding: 24px 280px; flex-wrap: wrap; gap: 16px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+.nav-links a.active { color: #111; }
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* Hero */
+.pricing-hero { text-align: center; max-width: 560px; margin: 0 auto 48px; }
+.pricing-headline { font-family: 'Newsreader', serif; font-size: 40px; font-weight: 400; color: #111; line-height: 1.2; margin-bottom: 16px; }
+.pricing-subtitle { font-size: 16px; color: #666; line-height: 1.65; }
+
+/* Billing toggle */
+.billing-toggle { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 48px; }
+.billing-option { font-size: 14px; font-weight: 500; color: #999; cursor: pointer; transition: color 0.15s; }
+.billing-option.active { color: #111; }
+.toggle-track { position: relative; width: 40px; height: 22px; background: #111; border-radius: 11px; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.toggle-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+.toggle-track.monthly .toggle-thumb { transform: translateX(0); }
+.toggle-track.annual .toggle-thumb { transform: translateX(18px); }
+.billing-badge { font-size: 11px; font-weight: 600; color: #22C55E; background: #ECFDF5; padding: 2px 8px; border-radius: 10px; }
+
+/* Pricing grid */
+.pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 720px; margin: 0 auto 64px; }
+.pricing-card { border: 1px solid #E0E0E0; border-radius: 10px; padding: 36px 32px; background: #FAFAFA; }
+.pricing-card.pro { border-color: #111; background: #fff; }
+.plan-label { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px; }
+.pricing-card.pro .plan-label { color: #111; }
+.price-amount { font-family: 'Newsreader', serif; font-size: 42px; font-weight: 400; color: #111; line-height: 1; margin-bottom: 4px; }
+.price-amount sup { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; vertical-align: top; margin-top: 8px; display: inline-block; }
+.price-amount .cents { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; }
+.price-period { font-size: 13px; color: #999; margin-bottom: 8px; }
+.price-annual-note { font-size: 12px; color: #22C55E; font-weight: 500; min-height: 18px; margin-bottom: 20px; }
+.price-strikethrough { text-decoration: line-through; color: #CCC; font-size: 13px; margin-right: 4px; }
+.plan-cta { display: block; width: 100%; text-align: center; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 500; padding: 13px 24px; border-radius: 6px; cursor: pointer; transition: all 0.15s; border: none; text-decoration: none; }
+.plan-cta.free { background: transparent; color: #111; border: 1px solid #DDD; }
+.plan-cta.free:hover { border-color: #999; }
+.plan-cta.pro-cta { background: #111; color: #fff; }
+.plan-cta.pro-cta:hover { background: #333; }
+
+/* Feature table */
+.feature-table { max-width: 720px; margin: 0 auto 64px; }
+.feature-table-header { display: grid; grid-template-columns: 1fr 100px 100px; gap: 0; margin-bottom: 8px; padding: 0 0 12px; border-bottom: 1px solid #EEEEEE; }
+.feature-col-label { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; text-align: center; }
+.feature-col-label:first-child { text-align: left; }
+.feature-row { display: grid; grid-template-columns: 1fr 100px 100px; gap: 0; padding: 14px 0; border-bottom: 1px solid #F5F5F5; align-items: center; }
+.feature-name { font-size: 14px; color: #444; }
+.feature-val { font-size: 13px; text-align: center; font-weight: 500; }
+.feature-val.yes { color: #22C55E; }
+.feature-val.no { color: #CCC; }
+.feature-val.neutral { color: #111; }
+.feature-val.muted { color: #999; }
+
+/* FAQ */
+.faq-section { max-width: 640px; margin: 0 auto; }
+.faq-label { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; text-align: center; }
+.faq-item { border-bottom: 1px solid #EEEEEE; }
+.faq-question { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; cursor: pointer; font-size: 15px; font-weight: 500; color: #111; list-style: none; gap: 16px; }
+.faq-question::marker, .faq-question::-webkit-details-marker { display: none; }
+.faq-chevron { font-size: 16px; color: #999; flex-shrink: 0; transition: transform 0.2s; }
+details[open] .faq-chevron { transform: rotate(180deg); }
+.faq-answer { font-size: 15px; color: #666; line-height: 1.7; padding-bottom: 20px; }
+
+/* Footer */
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav { padding: 20px 24px; }
+  .nav-links { gap: 20px; }
+  .page { padding: 48px 24px 64px; }
+  .footer { padding: 24px; }
+  .pricing-headline { font-size: 32px; }
+  .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+  .feature-table-header { grid-template-columns: 1fr 80px 80px; }
+  .feature-row { grid-template-columns: 1fr 80px 80px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/pass/">Pass</a>
+      <a href="/pricing/" class="active">Pricing</a>
+    </div>
+  </div>
+</nav>
+<hr class="divider">
+
+<div class="page">
+
+  <div class="pricing-hero">
+    <h1 class="pricing-headline">Simple, honest pricing</h1>
+    <p class="pricing-subtitle">
+      Start free. Upgrade when you want more.
+      No dark patterns, no upsells — cancel anytime.
+    </p>
+  </div>
+
+  <!-- Billing toggle -->
+  <div class="billing-toggle">
+    <span class="billing-option active" id="label-monthly" onclick="setBilling('monthly')">Monthly</span>
+    <div class="toggle-track monthly" id="toggle-track" onclick="toggleBilling()">
+      <div class="toggle-thumb"></div>
+    </div>
+    <span class="billing-option" id="label-annual" onclick="setBilling('annual')">
+      Annual <span class="billing-badge">2 months free</span>
+    </span>
+  </div>
+
+  <!-- Pricing cards -->
+  <div class="pricing-grid">
+
+    <!-- Free -->
+    <div class="pricing-card">
+      <div class="plan-label">Free</div>
+      <div class="price-amount"><sup>$</sup>0</div>
+      <p class="price-period">forever</p>
+      <p class="price-annual-note">&nbsp;</p>
+      <a href="/pass/" class="plan-cta free">Get started free</a>
+    </div>
+
+    <!-- Pro -->
+    <div class="pricing-card pro">
+      <div class="plan-label">Pro</div>
+      <div class="price-amount" id="pro-price"><sup>$</sup>9</div>
+      <p class="price-period" id="pro-period">per month</p>
+      <p class="price-annual-note" id="pro-annual-note">&nbsp;</p>
+      <a href="/pass/" class="plan-cta pro-cta">Start 14-day trial</a>
+    </div>
+
+  </div>
+
+  <!-- Feature comparison -->
+  <div class="feature-table">
+    <div class="feature-table-header">
+      <div class="feature-col-label">Feature</div>
+      <div class="feature-col-label">Free</div>
+      <div class="feature-col-label">Pro</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Q&amp;A questions per day</div>
+      <div class="feature-val muted">5</div>
+      <div class="feature-val yes">Unlimited</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Community access</div>
+      <div class="feature-val muted">Read-only</div>
+      <div class="feature-val yes">Full</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Direct messages</div>
+      <div class="feature-val no">—</div>
+      <div class="feature-val yes">Yes</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Session notes</div>
+      <div class="feature-val no">—</div>
+      <div class="feature-val yes">Yes</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Wallet features</div>
+      <div class="feature-val no">—</div>
+      <div class="feature-val yes">Yes</div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-name">Support</div>
+      <div class="feature-val muted">Community</div>
+      <div class="feature-val neutral">Priority</div>
+    </div>
+
+  </div>
+
+  <!-- FAQ -->
+  <div class="faq-section">
+    <div class="faq-label">Frequently asked questions</div>
+
+    <details class="faq-item">
+      <summary class="faq-question">
+        Can I cancel anytime?
+        <span class="faq-chevron">&#8964;</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. Cancel from your account settings at any time — no questions, no friction.
+        You keep access until the end of your current billing period.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary class="faq-question">
+        What is wallet-gated access?
+        <span class="faq-chevron">&#8964;</span>
+      </summary>
+      <p class="faq-answer">
+        Wallet-gated access means membership is verified by your Ethereum wallet holding
+        an Acceptance Pass NFT — a non-transferable credential minted on Base (an Ethereum L2).
+        If you prefer not to use crypto, the Pro subscription gives you the same access
+        with a regular credit card instead.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary class="faq-question">
+        How does billing work?
+        <span class="faq-chevron">&#8964;</span>
+      </summary>
+      <p class="faq-answer">
+        Pro starts with a 14-day free trial — no charge until the trial ends.
+        Monthly plans renew every 30 days. Annual plans are billed once per year at a discounted rate
+        (equivalent to 10 months instead of 12).
+        All payments are processed securely by Stripe.
+      </p>
+    </details>
+
+  </div>
+
+</div>
+
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/pass/">Pass</a>
+    <a href="/pricing/">Pricing</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/terms/">Terms</a>
+  </div>
+</footer>
+
+<script>
+var billing = 'monthly';
+
+function setBilling(mode) {
+  billing = mode;
+  var track = document.getElementById('toggle-track');
+  var labelMonthly = document.getElementById('label-monthly');
+  var labelAnnual = document.getElementById('label-annual');
+  var proPrice = document.getElementById('pro-price');
+  var proPeriod = document.getElementById('pro-period');
+  var proNote = document.getElementById('pro-annual-note');
+
+  if (mode === 'annual') {
+    track.className = 'toggle-track annual';
+    labelMonthly.className = 'billing-option';
+    labelAnnual.className = 'billing-option active';
+    proPrice.innerHTML = '<sup>$</sup>7';
+    proPeriod.textContent = 'per month';
+    proNote.innerHTML = '<span class="price-strikethrough">$9</span> billed $84/year';
+  } else {
+    track.className = 'toggle-track monthly';
+    labelMonthly.className = 'billing-option active';
+    labelAnnual.className = 'billing-option';
+    proPrice.innerHTML = '<sup>$</sup>9';
+    proPeriod.textContent = 'per month';
+    proNote.innerHTML = '&nbsp;';
+  }
+}
+
+function toggleBilling() {
+  setBilling(billing === 'monthly' ? 'annual' : 'monthly');
+}
+</script>
+
+</body>
+</html>
