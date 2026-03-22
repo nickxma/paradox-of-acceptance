@@ -28,6 +28,7 @@ Copy `newsletter/.env.example` to `newsletter/.env`.
 | `PREFERENCES_JWT_SECRET` | `openssl rand -hex 32` | Recommended | `/api/email/preferences` endpoints return 503; manage-preferences links in emails will degrade gracefully |
 | `SERVER_URL` | e.g. `https://paradoxofacceptance.xyz` | Optional | Defaults to production URL; affects unsubscribe and preferences link generation |
 | `PORT` | e.g. `3200` | Optional | Defaults to `3200` |
+| `PREVIEW_SECRET` | `openssl rand -hex 32` | Recommended | `/api/admin/essays/:slug/preview-token` returns 503; preview links cannot be generated |
 
 ### Acceptance Pass frontend (`pass-src/.env`)
 
@@ -96,6 +97,61 @@ npm run server
 
 For production/persistent hosting, run it as a background process or set up a simple systemd/launchd service. No deployment automation currently exists (GitHub auth pending).
 
+### Enable /newsletter/{slug} clean URLs
+
+The newsletter server (`server.ts`) now handles `GET /newsletter/:slug` and returns a server-side-rendered HTML page. For these URLs to work in production, the reverse proxy (nginx/Caddy) must route slug paths to the Node.js server **before** falling through to static files.
+
+**Nginx example** (add to the server block, before the GitHub Pages static location):
+
+```nginx
+# Newsletter issue browser previews — route to Node.js server
+# Must come before the static catch-all so slugs are handled by the app
+location ~ ^/newsletter/([a-z0-9][a-z0-9-]*[a-z0-9])/?$ {
+    proxy_pass http://127.0.0.1:3200;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+**Caddy example:**
+
+```caddyfile
+@newsletter_slug path_regexp ^/newsletter/([a-z0-9][a-z0-9-]+[a-z0-9])/?$
+reverse_proxy @newsletter_slug http://127.0.0.1:3200
+```
+
+Static paths (`/newsletter/` and `/newsletter/issue/`) continue to be served from GitHub Pages — the regex above only matches `/newsletter/{slug}` patterns, not those exact paths.
+
+### Enable /essays/preview/{token} preview links
+
+Essay draft preview pages are server-rendered by `server.ts`. Add these proxy rules alongside the newsletter slug rule:
+
+**Nginx example:**
+
+```nginx
+# Essay draft previews — route all /essays/preview/ requests to Node.js server
+location ~ ^/essays/preview/ {
+    proxy_pass http://127.0.0.1:3200;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+**Caddy example:**
+
+```caddyfile
+@essay_preview path /essays/preview/*
+reverse_proxy @essay_preview http://127.0.0.1:3200
+```
+
+The public feedback API (`POST /api/essays/preview/:token/feedback`) is also served by the Node.js server — it will work automatically since `/api/` is already proxied.
+
+**Setup steps:**
+1. Run `newsletter/essay-preview-schema.sql` in Supabase SQL Editor.
+2. Add `PREVIEW_SECRET` to `newsletter/.env` (`openssl rand -hex 32`).
+3. Add the nginx/Caddy rule above and reload the proxy.
+4. In the essay editor (`/admin/essays/edit/?slug=…`), use the **Preview Link** panel to generate, copy, or revoke links.
+
 ---
 
 ## 3. Send a Newsletter
@@ -159,6 +215,10 @@ Add a `sendType` field to control preference-based filtering (default: `"newslet
 Valid `sendType` values: `"newsletter"`, `"weekly_digest"`, `"course_updates"`. Subscribers who have opted out of that category are automatically excluded.
 
 For ~26K recipients, expect 2–3 minutes. Check Resend dashboard for delivery stats after.
+
+### 4b. Run newsletter slug migration
+
+Run `newsletter/slug_migration.sql` in the Supabase SQL Editor to add the `slug` column. This enables clean `/newsletter/{slug}/` permalink URLs. Safe to run on an existing database — uses `IF NOT EXISTS`.
 
 ### 5. Subscriber preference center
 

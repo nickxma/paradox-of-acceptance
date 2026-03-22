@@ -1705,13 +1705,18 @@ app.get("/api/newsletter/archive/slug/:slug", async (req: Request, res: Response
  * Requires nginx (or reverse proxy) to route /newsletter/:slug to this server.
  * Static paths /newsletter/ and /newsletter/issue/ are still served by GitHub Pages.
  */
-app.get("/newsletter/:slug([a-z0-9-]+)", async (req: Request, res: Response) => {
+app.get("/newsletter/:slug", async (req: Request, res: Response) => {
   if (!supabase) {
     res.redirect("/newsletter/");
     return;
   }
 
   const { slug } = req.params;
+  // Only handle clean slug patterns; let other paths fall through
+  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) {
+    res.redirect("/newsletter/");
+    return;
+  }
 
   const { data, error } = await supabase
     .from("newsletter_sends")

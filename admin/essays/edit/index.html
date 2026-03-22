@@ -648,6 +648,46 @@ header {
 }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* ─── Preview link section ──────────────────────────────────── */
+.preview-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.preview-url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: #555;
+  background: #fafafa;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-meta {
+  font-size: 12px;
+  color: #888;
+  margin-top: 6px;
+}
+.preview-meta strong { color: #555; font-weight: 600; }
+.preview-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.feedback-list { margin-top: 12px; }
+.feedback-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 13px;
+}
+.feedback-item:last-child { border-bottom: none; }
+.feedback-item-meta { font-size: 11px; color: #aaa; margin-bottom: 3px; }
+.feedback-item-comment { color: #333; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.feedback-empty { font-size: 13px; color: #aaa; }
+
 @media (max-width: 768px) {
   .content { padding: 20px 16px; }
   header { padding: 0 16px; }
@@ -804,7 +844,63 @@ header {
           </label>
         </div>
       </div>
+      <div class="toggle-row" style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="toggle-label">Ping search engines</div>
+          <div class="toggle-hint">Notifies Google &amp; Bing of the updated sitemap and requests re-indexing.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="ping-status" style="font-size:11px;color:#aaa"></span>
+          <button class="btn btn-ghost" id="btn-ping" onclick="pingSearchEngines()" style="white-space:nowrap">Ping search engines</button>
+        </div>
+      </div>
     </div>
+
+    <!-- Preview Link -->
+    <div class="form-panel">
+      <div class="form-section-label">Preview Link</div>
+      <div id="preview-section-loading" class="form-row" style="color:#aaa;font-size:13px">Loading…</div>
+
+      <!-- No active link -->
+      <div id="preview-section-none" class="form-row" style="display:none">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:13px;color:#555;margin-bottom:6px">No active preview link.</div>
+            <div style="font-size:12px;color:#aaa">Generate a 7-day link to share this draft with collaborators.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <input type="text" id="preview-hint-input" class="form-input" placeholder="Recipient name (optional)" style="width:200px;font-size:13px" />
+            <button class="btn btn-dark" id="btn-generate-preview" onclick="generatePreviewLink()" style="white-space:nowrap">Generate preview link</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active link -->
+      <div id="preview-section-active" class="form-row" style="display:none">
+        <div class="preview-link-row">
+          <input type="text" id="preview-url-display" class="preview-url-input" readonly />
+          <button class="btn btn-ghost" id="btn-copy-preview" onclick="copyPreviewLink()" style="white-space:nowrap">Copy link</button>
+        </div>
+        <div class="preview-meta" id="preview-meta-line"></div>
+        <div class="preview-actions" style="margin-top:10px">
+          <input type="text" id="preview-hint-regen" class="form-input" placeholder="Recipient name (optional)" style="width:180px;font-size:13px" />
+          <button class="btn btn-ghost" onclick="generatePreviewLink(true)" style="white-space:nowrap">Regenerate</button>
+          <button class="btn btn-ghost" onclick="revokePreviewLink()" style="color:#dc2626;border-color:#fca5a5;white-space:nowrap">Revoke</button>
+          <button class="btn btn-ghost" onclick="loadFeedback()" style="white-space:nowrap" id="btn-view-feedback">View feedback (<span id="feedback-count">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- Feedback list (lazy loaded) -->
+      <div id="preview-feedback-section" style="display:none">
+        <div class="form-section-label" style="border-top:1px solid #f0f0f0">Feedback</div>
+        <div class="form-row">
+          <div id="feedback-list-content" class="feedback-list">
+            <div class="feedback-empty">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     </div>
   </div>
 </div>
@@ -1019,6 +1115,7 @@ async function loadEssay() {
   essay = data.essay;
   populateForm(essay);
   markClean();
+  loadPreviewToken();
 }
 
 function populateForm(e) {
@@ -1094,6 +1191,37 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ─── Ping search engines ────────────────────────────────────────────────────
+
+async function pingSearchEngines() {
+  if (!essaySlug) return;
+
+  const btn = document.getElementById('btn-ping');
+  const statusEl = document.getElementById('ping-status');
+  btn.disabled = true;
+  btn.textContent = 'Pinging…';
+  statusEl.textContent = '';
+
+  const { ok, data } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/ping-search-engines',
+    { method: 'POST' },
+  );
+
+  btn.disabled = false;
+  btn.textContent = 'Ping search engines';
+
+  if (ok && data.pings) {
+    const summary = data.pings.map(p => `${p.engine} ${p.status_code ?? 'err'}`).join(' · ');
+    statusEl.style.color = '#888';
+    statusEl.textContent = summary;
+    showToast('Search engines pinged');
+  } else {
+    statusEl.style.color = '#dc2626';
+    statusEl.textContent = data.error || 'ping failed';
+    showToast(data.error || 'Ping failed', true);
+  }
+}
+
 // Warn on unsaved changes (soft — does not block SPA navigation)
 window.addEventListener('beforeunload', (e) => {
   if (isDirty) {
@@ -1101,6 +1229,146 @@ window.addEventListener('beforeunload', (e) => {
     e.returnValue = '';
   }
 });
+
+// ─── Preview link ───────────────────────────────────────────────
+
+let previewUrlValue = '';
+
+function showPreviewSection(section) {
+  document.getElementById('preview-section-loading').style.display = 'none';
+  document.getElementById('preview-section-none').style.display = section === 'none' ? '' : 'none';
+  document.getElementById('preview-section-active').style.display = section === 'active' ? '' : 'none';
+}
+
+async function loadPreviewToken() {
+  if (!essaySlug) return;
+  document.getElementById('preview-section-loading').style.display = '';
+  document.getElementById('preview-section-none').style.display = 'none';
+  document.getElementById('preview-section-active').style.display = 'none';
+  document.getElementById('preview-feedback-section').style.display = 'none';
+
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(essaySlug) + '/preview-token');
+  if (!ok) {
+    showPreviewSection('none');
+    return;
+  }
+
+  if (!data.active) {
+    showPreviewSection('none');
+    return;
+  }
+
+  renderPreviewActive(data);
+}
+
+function renderPreviewActive(data) {
+  previewUrlValue = data.preview_url || '';
+  document.getElementById('preview-url-display').value = previewUrlValue;
+
+  const hintEl = document.getElementById('preview-hint-regen');
+  hintEl.value = data.viewer_hint || '';
+
+  const countEl = document.getElementById('feedback-count');
+  countEl.textContent = String(data.feedback_count ?? 0);
+
+  const metaEl = document.getElementById('preview-meta-line');
+  const hint = data.viewer_hint ? `Shared with <strong>${escHtml(data.viewer_hint)}</strong> · ` : '';
+  const exp = data.expires_at ? `Expires ${new Date(data.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '';
+  metaEl.innerHTML = `${hint}${exp}`;
+
+  showPreviewSection('active');
+}
+
+async function generatePreviewLink(isRegen = false) {
+  const hintInputId = isRegen ? 'preview-hint-regen' : 'preview-hint-input';
+  const hint = document.getElementById(hintInputId)?.value?.trim() || '';
+  const btn = isRegen
+    ? document.querySelector('[onclick="generatePreviewLink(true)"]')
+    : document.getElementById('btn-generate-preview');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+
+  const { ok, data } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/preview-token',
+    { method: 'POST', body: JSON.stringify({ viewer_hint: hint }) },
+  );
+
+  if (btn) { btn.disabled = false; btn.textContent = isRegen ? 'Regenerate' : 'Generate preview link'; }
+
+  if (!ok) {
+    showToast(data.error || 'Failed to generate link', true);
+    return;
+  }
+
+  // Reload full token status to get feedback count
+  await loadPreviewToken();
+  showToast('Preview link generated');
+}
+
+function copyPreviewLink() {
+  if (!previewUrlValue) return;
+  navigator.clipboard.writeText(previewUrlValue).then(() => {
+    showToast('Link copied to clipboard');
+  }).catch(() => {
+    // Fallback: select text
+    const el = document.getElementById('preview-url-display');
+    el.select();
+    document.execCommand('copy');
+    showToast('Link copied');
+  });
+}
+
+async function revokePreviewLink() {
+  if (!confirm('Revoke this preview link? Anyone with the current link will lose access.')) return;
+
+  const { ok, data } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/preview-token',
+    { method: 'DELETE' },
+  );
+
+  if (!ok) {
+    showToast(data.error || 'Failed to revoke link', true);
+    return;
+  }
+
+  document.getElementById('preview-feedback-section').style.display = 'none';
+  showPreviewSection('none');
+  showToast('Preview link revoked');
+}
+
+async function loadFeedback() {
+  const sectionEl = document.getElementById('preview-feedback-section');
+  const listEl = document.getElementById('feedback-list-content');
+
+  sectionEl.style.display = '';
+  listEl.innerHTML = '<div class="feedback-empty">Loading…</div>';
+
+  const { ok, data } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/feedback',
+  );
+
+  if (!ok) {
+    listEl.innerHTML = '<div class="feedback-empty">Failed to load feedback.</div>';
+    return;
+  }
+
+  const items = data.feedback || [];
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="feedback-empty">No feedback yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(item => {
+    const date = item.submitted_at
+      ? new Date(item.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : '';
+    const by = item.viewer_hint ? `From ${escHtml(item.viewer_hint)} · ` : '';
+    return `<div class="feedback-item">
+      <div class="feedback-item-meta">${by}${escHtml(date)}</div>
+      <div class="feedback-item-comment">${escHtml(item.comment)}</div>
+    </div>`;
+  }).join('');
+}
 
 // ─── Version history panel ─────────────────────────────────────
 
