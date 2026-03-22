@@ -677,15 +677,135 @@ header {
 }
 .preview-meta strong { color: #555; font-weight: 600; }
 .preview-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.feedback-list { margin-top: 12px; }
+.feedback-tabs { display: flex; gap: 0; border-bottom: 1px solid #eee; margin-bottom: 14px; }
+.feedback-tab {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: inherit;
+  transition: color 0.12s;
+}
+.feedback-tab:hover { color: #333; }
+.feedback-tab.active { color: #111; border-bottom-color: #111; }
+.feedback-list { margin-top: 0; }
+.feedback-group { margin-bottom: 18px; }
+.feedback-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #aaa;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid #f5f5f5;
+  margin-bottom: 6px;
+}
+.feedback-group-snippet {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .feedback-item {
-  padding: 10px 0;
+  padding: 9px 0;
   border-bottom: 1px solid #f5f5f5;
   font-size: 13px;
 }
 .feedback-item:last-child { border-bottom: none; }
-.feedback-item-meta { font-size: 11px; color: #aaa; margin-bottom: 3px; }
+.feedback-item-meta { font-size: 11px; color: #aaa; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
 .feedback-item-comment { color: #333; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.feedback-item-actions { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.btn-resolve {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+}
+.btn-resolve:hover { background: #f5f5f5; }
+.btn-resolve.resolved { border-color: #bbf7d0; color: #16a34a; background: #f0fdf4; }
+.btn-resolve.resolved:hover { background: #dcfce7; }
+.btn-reply-toggle {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+.btn-reply-toggle:hover { color: #111; }
+.feedback-reply-form { margin-top: 6px; display: none; }
+.feedback-reply-form.open { display: block; }
+.feedback-reply-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 56px;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+}
+.feedback-reply-input:focus { border-color: #111; }
+.feedback-reply-actions { display: flex; gap: 6px; margin-top: 5px; }
+.btn-reply-submit {
+  padding: 5px 14px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-reply-submit:hover { background: #333; }
+.btn-reply-submit:disabled { background: #aaa; cursor: not-allowed; }
+.btn-reply-cancel {
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-reply-cancel:hover { color: #111; }
+.feedback-admin-reply {
+  margin-top: 6px;
+  padding: 7px 10px;
+  background: #f8f8f8;
+  border-left: 2px solid #ddd;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.feedback-admin-reply-meta { font-size: 11px; color: #aaa; margin-bottom: 2px; }
 .feedback-empty { font-size: 13px; color: #aaa; }
 
 @media (max-width: 768px) {
@@ -989,8 +1109,12 @@ header {
 
       <!-- Feedback list (lazy loaded) -->
       <div id="preview-feedback-section" style="display:none">
-        <div class="form-section-label" style="border-top:1px solid #f0f0f0">Feedback</div>
+        <div class="form-section-label" style="border-top:1px solid #f0f0f0">Comments</div>
         <div class="form-row">
+          <div class="feedback-tabs">
+            <button class="feedback-tab active" id="tab-open" onclick="switchFeedbackTab('open')">Open (<span id="tab-open-count">0</span>)</button>
+            <button class="feedback-tab" id="tab-resolved" onclick="switchFeedbackTab('resolved')">Resolved (<span id="tab-resolved-count">0</span>)</button>
+          </div>
           <div id="feedback-list-content" class="feedback-list">
             <div class="feedback-empty">Loading…</div>
           </div>
@@ -1451,6 +1575,31 @@ async function revokePreviewLink() {
   showToast('Preview link revoked');
 }
 
+// ─── Feedback / Comments panel ─────────────────────────────────────────────
+
+let allFeedback = [];
+let activeFeedbackTab = 'open';
+
+function switchFeedbackTab(tab) {
+  activeFeedbackTab = tab;
+  document.getElementById('tab-open').classList.toggle('active', tab === 'open');
+  document.getElementById('tab-resolved').classList.toggle('active', tab === 'resolved');
+  renderFeedbackList();
+}
+
+/** Extract a plain-text snippet from paragraph N in the essay markdown. */
+function getParagraphSnippet(markdown, idx) {
+  if (!markdown || idx == null) return null;
+  // Split into blocks; keep only plain-text paragraph blocks (not headings/code/blockquotes)
+  const blocks = markdown.split(/\n{2,}/)
+    .map(b => b.trim())
+    .filter(b => b.length > 0 && !b.startsWith('#') && !b.startsWith('```') && !b.startsWith('>') && !b.startsWith('- ') && !b.startsWith('* ') && !/^\d+\.\s/.test(b));
+  const block = blocks[idx];
+  if (!block) return null;
+  const plain = block.replace(/[*_`\[\]()]/g, '').replace(/!\[.*?\]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  return plain.length > 90 ? plain.slice(0, 87) + '\u2026' : plain;
+}
+
 async function loadFeedback() {
   const sectionEl = document.getElementById('preview-feedback-section');
   const listEl = document.getElementById('feedback-list-content');
@@ -1467,22 +1616,165 @@ async function loadFeedback() {
     return;
   }
 
-  const items = data.feedback || [];
-  if (items.length === 0) {
-    listEl.innerHTML = '<div class="feedback-empty">No feedback yet.</div>';
+  allFeedback = data.feedback || [];
+
+  // Update tab counts
+  const topLevel = allFeedback.filter(f => !f.reply_to_id);
+  document.getElementById('tab-open-count').textContent = topLevel.filter(f => !f.resolved).length;
+  document.getElementById('tab-resolved-count').textContent = topLevel.filter(f => f.resolved).length;
+
+  renderFeedbackList();
+}
+
+function renderFeedbackList() {
+  const listEl = document.getElementById('feedback-list-content');
+  const showResolved = activeFeedbackTab === 'resolved';
+
+  // Top-level items only (not replies), filtered by resolved state
+  const topLevel = allFeedback.filter(f => !f.reply_to_id && Boolean(f.resolved) === showResolved);
+  // Replies keyed by parent id
+  const repliesByParent = {};
+  allFeedback.filter(f => f.reply_to_id).forEach(r => {
+    if (!repliesByParent[r.reply_to_id]) repliesByParent[r.reply_to_id] = [];
+    repliesByParent[r.reply_to_id].push(r);
+  });
+
+  if (topLevel.length === 0) {
+    listEl.innerHTML = '<div class="feedback-empty">' + (showResolved ? 'No resolved comments.' : 'No open comments.') + '</div>';
     return;
   }
 
-  listEl.innerHTML = items.map(item => {
-    const date = item.submitted_at
-      ? new Date(item.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-      : '';
-    const by = item.viewer_hint ? `From ${escHtml(item.viewer_hint)} · ` : '';
-    return `<div class="feedback-item">
-      <div class="feedback-item-meta">${by}${escHtml(date)}</div>
-      <div class="feedback-item-comment">${escHtml(item.comment)}</div>
-    </div>`;
+  // Group by paragraph_index (null = general)
+  const groups = {};
+  topLevel.forEach(f => {
+    const key = f.paragraph_index != null ? String(f.paragraph_index) : 'general';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(f);
+  });
+
+  // Order: general first, then paragraphs in order
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    if (a === 'general') return -1;
+    if (b === 'general') return 1;
+    return Number(a) - Number(b);
+  });
+
+  const markdown = essay ? essay.body_markdown : null;
+
+  const html = groupKeys.map(key => {
+    const items = groups[key];
+    let label, snippet;
+    if (key === 'general') {
+      label = 'General feedback';
+      snippet = null;
+    } else {
+      const idx = Number(key);
+      label = 'Paragraph ' + (idx + 1);
+      snippet = getParagraphSnippet(markdown, idx);
+    }
+
+    const itemsHtml = items.map(item => {
+      const replies = repliesByParent[item.id] || [];
+      const date = item.submitted_at
+        ? new Date(item.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : '';
+      const by = item.commenter_name ? escHtml(item.commenter_name)
+        : item.viewer_hint ? escHtml(item.viewer_hint)
+        : 'Anonymous';
+
+      const resolveLabel = item.resolved ? 'Unresolve' : 'Resolve';
+      const resolveCls   = item.resolved ? 'btn-resolve resolved' : 'btn-resolve';
+
+      const repliesHtml = replies.map(r => {
+        const rDate = r.submitted_at
+          ? new Date(r.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '';
+        return '<div class="feedback-admin-reply">' +
+          '<div class="feedback-admin-reply-meta">Nick \u2014 ' + escHtml(rDate) + '</div>' +
+          escHtml(r.comment) +
+          '</div>';
+      }).join('');
+
+      return '<div class="feedback-item" data-id="' + escAttr(item.id) + '">' +
+        '<div class="feedback-item-meta"><strong>' + by + '</strong><span>' + escHtml(date) + '</span></div>' +
+        '<div class="feedback-item-comment">' + escHtml(item.comment) + '</div>' +
+        repliesHtml +
+        '<div class="feedback-item-actions">' +
+          '<button class="' + resolveCls + '" onclick="toggleResolve(' + JSON.stringify(item.id) + ', ' + !item.resolved + ')">' + resolveLabel + '</button>' +
+          '<button class="btn-reply-toggle" onclick="toggleReplyForm(' + JSON.stringify(item.id) + ')">Reply</button>' +
+        '</div>' +
+        '<div class="feedback-reply-form" id="reply-form-' + escAttr(item.id) + '">' +
+          '<textarea class="feedback-reply-input" placeholder="Reply from Nick\u2026" rows="2"></textarea>' +
+          '<div class="feedback-reply-actions">' +
+            '<button class="btn-reply-submit" onclick="submitReply(' + JSON.stringify(item.id) + ')">Send reply</button>' +
+            '<button class="btn-reply-cancel" onclick="toggleReplyForm(' + JSON.stringify(item.id) + ')">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="feedback-group">' +
+      '<div class="feedback-group-label">' + escHtml(label) + '</div>' +
+      (snippet ? '<div class="feedback-group-snippet">\u201c' + escHtml(snippet) + '\u201d</div>' : '') +
+      '<div class="feedback-list">' + itemsHtml + '</div>' +
+    '</div>';
   }).join('');
+
+  listEl.innerHTML = html;
+}
+
+async function toggleResolve(feedbackId, resolved) {
+  const { ok } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/feedback/' + encodeURIComponent(feedbackId),
+    { method: 'PATCH', body: JSON.stringify({ resolved }) },
+  );
+  if (!ok) { showToast('Failed to update comment', true); return; }
+
+  // update local state and re-render
+  const item = allFeedback.find(f => f.id === feedbackId);
+  if (item) item.resolved = resolved;
+
+  const topLevel = allFeedback.filter(f => !f.reply_to_id);
+  document.getElementById('tab-open-count').textContent = topLevel.filter(f => !f.resolved).length;
+  document.getElementById('tab-resolved-count').textContent = topLevel.filter(f => f.resolved).length;
+  renderFeedbackList();
+}
+
+function toggleReplyForm(feedbackId) {
+  const form = document.getElementById('reply-form-' + feedbackId);
+  if (!form) return;
+  const isOpen = form.classList.contains('open');
+  form.classList.toggle('open', !isOpen);
+  if (!isOpen) form.querySelector('textarea').focus();
+}
+
+async function submitReply(feedbackId) {
+  const form = document.getElementById('reply-form-' + feedbackId);
+  if (!form) return;
+  const textarea = form.querySelector('textarea');
+  const comment = textarea.value.trim();
+  if (!comment) { textarea.focus(); return; }
+
+  const submitBtn = form.querySelector('.btn-reply-submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Sending\u2026';
+
+  const { ok, data } = await apiRequest(
+    '/api/admin/essays/' + encodeURIComponent(essaySlug) + '/feedback/' + encodeURIComponent(feedbackId) + '/reply',
+    { method: 'POST', body: JSON.stringify({ comment }) },
+  );
+
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Send reply';
+
+  if (!ok) { showToast(data.error || 'Failed to send reply', true); return; }
+
+  textarea.value = '';
+  form.classList.remove('open');
+  // Add reply to local state and re-render
+  allFeedback.push(data.feedback);
+  renderFeedbackList();
+  showToast('Reply sent');
 }
 
 // ─── Version history panel ─────────────────────────────────────

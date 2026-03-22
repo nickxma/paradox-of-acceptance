@@ -9,10 +9,12 @@
  *   npm run server
  *
  * Endpoints:
- *   POST /send                — send newsletter (test or full list) — legacy
- *   POST /api/newsletter/send — send newsletter (admin, with send log)
- *   GET  /health              — health check
- *   GET  /status/:id          — check broadcast status
+ *   POST /send                    — send newsletter (test or full list) — legacy
+ *   POST /api/newsletter/send     — send newsletter (admin, with send log)
+ *   GET  /api/unsubscribe?token=  — web unsubscribe (confirmation page)
+ *   POST /api/unsubscribe?token=  — RFC 8058 one-click unsubscribe (mail client)
+ *   GET  /health                  — health check
+ *   GET  /status/:id              — check broadcast status
  *
  * Auth:
  *   /send endpoints use X-Api-Key header
@@ -36,6 +38,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import Papa from "papaparse";
+import { promises as dnsPromises } from "dns";
 
 dotenv.config();
 
@@ -185,6 +188,59 @@ function verifyUnsubscribeToken(token: string): string | null {
     return null;
   }
   return email;
+}
+
+/**
+ * Log an unsubscribe event to the unsubscribe_events table.
+ * No-op if Supabase is not configured.
+ */
+async function logUnsubscribeEvent(email: string, source: "web" | "one_click"): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from("unsubscribe_events").insert({
+    email: email.toLowerCase().trim(),
+    source,
+    unsubscribed_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error("[unsubscribe] Failed to log unsubscribe event:", error);
+  }
+}
+
+/**
+ * Mark a contact as unsubscribed in Resend and log the event.
+ * Returns true if contact was found and updated, false if not found (treated as already removed).
+ * Throws on Resend API errors.
+ */
+async function processUnsubscribeContact(
+  resend: Resend,
+  email: string,
+  source: "web" | "one_click"
+): Promise<boolean> {
+  const { data: contacts, error: listError } = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID! });
+  if (listError) {
+    throw new Error(`Failed to list contacts: ${JSON.stringify(listError)}`);
+  }
+
+  const contact = contacts?.data?.find((c: { email: string }) => c.email.toLowerCase() === email.toLowerCase());
+  if (!contact) {
+    console.log(`[unsubscribe] ${email} not found in audience (already removed or never subscribed)`);
+    await logUnsubscribeEvent(email, source);
+    return false;
+  }
+
+  const { error: updateError } = await resend.contacts.update({
+    audienceId: RESEND_AUDIENCE_ID!,
+    id: contact.id,
+    unsubscribed: true,
+  });
+
+  if (updateError) {
+    throw new Error(`Failed to update contact: ${JSON.stringify(updateError)}`);
+  }
+
+  console.log(`[unsubscribe] ${email} marked as unsubscribed (source=${source})`);
+  await logUnsubscribeEvent(email, source);
+  return true;
 }
 
 // ─── Preferences JWT helpers ─────────────────────────────────────────────────
@@ -529,15 +585,47 @@ async function fetchEssayFromUrl(url: string): Promise<{ html: string; title: st
 }
 
 /**
+ * Inject a preheader hidden div immediately after <body ...> in a full HTML document.
+ * If no <body> tag is found, prepends the preheader div to the HTML.
+ */
+function injectPreheader(html: string, preheader: string): string {
+  const escaped = preheader.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const preheaderDiv = `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#faf8f4;line-height:1px;">${escaped}&nbsp;&#847;&nbsp;</div>`;
+  const bodyTagMatch = html.match(/<body[^>]*>/i);
+  if (bodyTagMatch) {
+    const insertAt = html.indexOf(bodyTagMatch[0]) + bodyTagMatch[0].length;
+    return html.slice(0, insertAt) + "\n  <!-- preheader (hidden preview text) -->\n  " + preheaderDiv + html.slice(insertAt);
+  }
+  return "<!-- preheader (hidden preview text) -->\n" + preheaderDiv + "\n" + html;
+}
+
+/**
+ * Extract the first sentence from an HTML string for use as preheader text.
+ * Strips tags and returns the first sentence (up to 150 chars).
+ */
+function extractFirstSentence(html: string): string {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const match = text.match(/^.{10,}?[.!?](?:\s|$)/);
+  const sentence = match ? match[0].trim() : text.substring(0, 150).trim();
+  return sentence.length > 150 ? sentence.substring(0, 150) + "…" : sentence;
+}
+
+/**
  * Convert markdown to email-friendly HTML.
  * Wraps in a minimal inline-styled container for email clients.
  */
-async function markdownToEmailHtml(markdown: string): Promise<string> {
+async function markdownToEmailHtml(markdown: string, preheader?: string): Promise<string> {
   const bodyHtml = await marked(markdown, { async: true });
-  return wrapEmailHtml(bodyHtml);
+  const resolvedPreheader = preheader ?? extractFirstSentence(bodyHtml);
+  return wrapEmailHtml(bodyHtml, resolvedPreheader);
 }
 
-function wrapEmailHtml(bodyHtml: string): string {
+function wrapEmailHtml(bodyHtml: string, preheader?: string): string {
+  const preheaderHtml = preheader
+    ? `  <!-- preheader (hidden preview text) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#faf8f4;line-height:1px;">${preheader.replace(/</g, "&lt;").replace(/>/g, "&gt;")}&nbsp;&#847;&nbsp;</div>\n`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -546,7 +634,7 @@ function wrapEmailHtml(bodyHtml: string): string {
   <title>Paradox of Acceptance</title>
 </head>
 <body style="margin:0;padding:0;background:#faf8f4;font-family:Georgia,'Times New Roman',serif;">
-  <div style="max-width:640px;margin:0 auto;padding:48px 24px;color:#2c2c2c;font-size:18px;line-height:1.8;">
+${preheaderHtml}  <div style="max-width:640px;margin:0 auto;padding:48px 24px;color:#2c2c2c;font-size:18px;line-height:1.8;">
     ${bodyHtml}
     <hr style="margin:48px 0;border:none;border-top:1px solid #e2ddd6;" />
     <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#999;line-height:1.5;">
@@ -910,37 +998,60 @@ app.get("/api/unsubscribe", async (req: Request, res: Response) => {
 
   const resend = new Resend(RESEND_API_KEY!);
 
-  // Find the contact by email to get their ID
-  const { data: contacts, error: listError } = await resend.contacts.list({ audienceId: RESEND_AUDIENCE_ID! });
-  if (listError) {
-    console.error(`[unsubscribe] Failed to list contacts for ${email}:`, listError);
+  try {
+    await processUnsubscribeContact(resend, email, "web");
+  } catch (err) {
+    console.error(`[unsubscribe] Error for ${email}:`, err);
     res.status(500).send("Unsubscribe failed — please try again later.");
     return;
   }
 
-  const contact = contacts?.data?.find((c: { email: string }) => c.email.toLowerCase() === email.toLowerCase());
-  if (!contact) {
-    // Contact not found — treat as already unsubscribed
-    console.log(`[unsubscribe] ${email} not found in audience (already removed or never subscribed)`);
-    res.send(unsubscribeSuccessPage(email));
-    return;
-  }
-
-  const { error: updateError } = await resend.contacts.update({
-    audienceId: RESEND_AUDIENCE_ID!,
-    id: contact.id,
-    unsubscribed: true,
-  });
-
-  if (updateError) {
-    console.error(`[unsubscribe] Failed to unsubscribe ${email}:`, updateError);
-    res.status(500).send("Unsubscribe failed — please try again later.");
-    return;
-  }
-
-  console.log(`[unsubscribe] ${email} marked as unsubscribed`);
   res.send(unsubscribeSuccessPage(email));
 });
+
+/**
+ * POST /api/unsubscribe?token=
+ *
+ * RFC 8058 one-click unsubscribe endpoint.
+ * Mail clients (Gmail, Yahoo) POST here when the user clicks "Unsubscribe"
+ * in the email header. No browser redirect — machine-to-machine.
+ *
+ * Request:
+ *   Content-Type: application/x-www-form-urlencoded
+ *   Body: List-Unsubscribe=One-Click
+ *
+ * Returns 200 with no body on success.
+ */
+app.post(
+  "/api/unsubscribe",
+  express.urlencoded({ extended: false }),
+  async (req: Request, res: Response) => {
+    const { token } = req.query as { token?: string };
+
+    if (!token) {
+      res.status(400).send();
+      return;
+    }
+
+    const email = verifyUnsubscribeToken(token);
+    if (!email) {
+      res.status(400).send();
+      return;
+    }
+
+    const resend = new Resend(RESEND_API_KEY!);
+
+    try {
+      await processUnsubscribeContact(resend, email, "one_click");
+    } catch (err) {
+      console.error(`[unsubscribe/one-click] Error for ${email}:`, err);
+      res.status(500).send();
+      return;
+    }
+
+    res.status(200).send();
+  }
+);
 
 function unsubscribeSuccessPage(email: string): string {
   return `<!DOCTYPE html>
@@ -1022,7 +1133,7 @@ app.post("/send", requireApiKey, async (req: Request, res: Response) => {
     if (essayUrl) {
       console.log(`[content] Fetching essay from: ${essayUrl}`);
       const { html: articleHtml } = await fetchEssayFromUrl(essayUrl);
-      html = wrapEmailHtml(articleHtml);
+      html = wrapEmailHtml(articleHtml, extractFirstSentence(articleHtml));
     } else {
       console.log(`[content] Converting markdown body`);
       html = await markdownToEmailHtml(markdownBody!);
@@ -1154,6 +1265,10 @@ async function sendBatched(
         subject: opts.subject,
         html: personalizedHtml,
         text: opts.text,
+        headers: {
+          "List-Unsubscribe": `<mailto:unsubscribe@paradoxofacceptance.xyz>, <${unsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
       };
     });
 
@@ -1199,7 +1314,7 @@ async function sendBatched(
  * Full-list sends require ALLOW_FULL_LIST_SEND=true in .env.
  */
 app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: Response) => {
-  const { subject, htmlBody, textBody, testMode, sendType, previewText, includeInArchive } = req.body as {
+  const { subject, htmlBody, textBody, testMode, sendType, previewText, includeInArchive, segmentFilter } = req.body as {
     subject?: string;
     htmlBody?: string;
     textBody?: string;
@@ -1207,6 +1322,8 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
     sendType?: "newsletter" | "weekly_digest" | "course_updates";
     previewText?: string;
     includeInArchive?: boolean;
+    /** Restrict send to a specific engagement segment. null/undefined = all subscribers. */
+    segmentFilter?: "active" | "warm" | "cold" | "new" | "active_warm" | null;
   };
 
   if (!subject?.trim()) {
@@ -1238,7 +1355,9 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
   if (isTestMode) {
     const token = generateUnsubscribeToken(TEST_EMAIL!);
     const unsubscribeUrl = `${SERVER_URL}/api/unsubscribe?token=${token}`;
-    const html = htmlBody.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
+    const resolvedPreheader = previewText?.trim() || extractFirstSentence(htmlBody);
+    const htmlWithPreheader = injectPreheader(htmlBody, resolvedPreheader);
+    const html = htmlWithPreheader.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
 
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM!,
@@ -1247,6 +1366,10 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
       subject: `[TEST] ${subject}`,
       html,
       text: textBody,
+      headers: {
+        "List-Unsubscribe": `<mailto:unsubscribe@paradoxofacceptance.xyz>, <${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     });
 
     const logEntry: SendLogEntry = {
@@ -1294,11 +1417,44 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
     console.log(`[newsletter/send] Filtered ${before - contacts.length} opt-outs for category="${category}" — ${contacts.length} remaining`);
   }
 
+  // Apply engagement segment filter if requested
+  if (segmentFilter && supabase) {
+    const validSegments: Record<string, string[]> = {
+      active: ["active"],
+      warm: ["warm"],
+      cold: ["cold"],
+      new: ["new"],
+      active_warm: ["active", "warm"],
+    };
+    const segments = validSegments[segmentFilter];
+    if (segments) {
+      const { data: segRows, error: segError } = await supabase
+        .from("subscribers")
+        .select("email")
+        .eq("status", "active")
+        .in("engagement_segment", segments);
+
+      if (segError) {
+        console.error("[newsletter/send] Failed to fetch segment filter list", segError);
+        res.status(500).json({ error: "Failed to fetch segment filter", detail: segError });
+        return;
+      }
+
+      const allowedEmails = new Set((segRows ?? []).map((r: { email: string }) => r.email.toLowerCase()));
+      const before = contacts.length;
+      contacts = contacts.filter((c) => allowedEmails.has(c.email.toLowerCase()));
+      console.log(`[newsletter/send] Segment filter="${segmentFilter}": ${before} → ${contacts.length} contacts`);
+    }
+  }
+
   console.log(`[newsletter/send] Starting broadcast to ${contacts.length} subscribers — "${subject}"`);
+
+  const livePreheader = previewText?.trim() || extractFirstSentence(htmlBody);
+  const htmlBodyWithPreheader = injectPreheader(htmlBody, livePreheader);
 
   const { sent, errors } = await sendBatched(resend, contacts, {
     subject,
-    html: htmlBody,
+    html: htmlBodyWithPreheader,
     text: textBody,
   });
 
@@ -1420,6 +1576,62 @@ app.get("/api/newsletter/sends", requireAdminSecret, async (_req: Request, res: 
     return;
   }
   res.json({ sends: data ?? [] });
+});
+
+// ─── GET /api/newsletter/segment-stats ───────────────────────────────────────
+
+/**
+ * GET /api/newsletter/segment-stats
+ *
+ * Returns subscriber counts per engagement segment from Supabase.
+ * Used by the newsletter composer to show audience size for each Send To option.
+ * Auth: X-Admin-Secret header.
+ *
+ * Response:
+ *   {
+ *     segments: {
+ *       all:    number,  // active subscribers total
+ *       active: number,  // opened/clicked in last 30 days
+ *       warm:   number,  // opened/clicked in last 90 days (not 30)
+ *       cold:   number,  // no open in 90+ days
+ *       new:    number,  // subscribed in last 7 days
+ *     }
+ *   }
+ */
+app.get("/api/newsletter/segment-stats", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  // Count active subscribers by engagement_segment
+  const { data, error } = await supabase
+    .from("subscribers")
+    .select("engagement_segment")
+    .eq("status", "active");
+
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch segment stats", detail: error });
+    return;
+  }
+
+  const rows = (data ?? []) as { engagement_segment: string | null }[];
+  const counts: Record<string, number> = { active: 0, warm: 0, cold: 0, new: 0 };
+  for (const row of rows) {
+    const seg = row.engagement_segment ?? "cold";
+    if (seg in counts) counts[seg]++;
+    else counts["cold"]++;
+  }
+
+  res.json({
+    segments: {
+      all: rows.length,
+      active: counts.active,
+      warm: counts.warm,
+      cold: counts.cold,
+      new: counts.new,
+    },
+  });
 });
 
 // ─── Newsletter Drafts CRUD ───────────────────────────────────────────────────
@@ -2260,6 +2472,45 @@ async function computeRelatedEssays(slug: string): Promise<RelatedEssay[]> {
   return tagBasedRelatedEssays(slug, 4);
 }
 
+// ─── GET /api/essays/pro-only ────────────────────────────────────────────────
+
+/**
+ * GET /api/essays/pro-only
+ *
+ * Returns the list of published essay slugs that are marked pro_only.
+ * Used by the essay listing page to show lock badges without server-side rendering.
+ *
+ * No auth required — only returns slugs, no gated content.
+ * Response: { slugs: string[] }
+ */
+app.options("/api/essays/pro-only", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.sendStatus(204);
+});
+
+app.get("/api/essays/pro-only", async (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { data, error } = await supabase
+    .from("essays")
+    .select("slug")
+    .eq("pro_only", true)
+    .not("published_at", "is", null);
+
+  if (error) {
+    console.error("[essays/pro-only] db error:", error);
+    return res.status(500).json({ error: "Failed to load pro-only essays" });
+  }
+
+  return res.json({ slugs: (data ?? []).map((r) => r.slug) });
+});
+
 // ─── GET /api/essays/:slug/related ───────────────────────────────────────────
 
 /**
@@ -2436,6 +2687,67 @@ app.get("/api/admin/essays", requireAdminSecret, async (req: Request, res: Respo
   }
 
   res.json({ essays: data ?? [] });
+});
+
+// ─── GET /api/admin/essay-metrics ─────────────────────────────────────────────
+
+/**
+ * GET /api/admin/essay-metrics
+ *
+ * Returns per-essay engagement aggregates derived from essay_reads:
+ *   - views: total read count (one row per reader per day)
+ *   - avg_read_seconds: median read_duration_seconds across all reads
+ *   - completion_rate: percentage of reads where scroll_percent >= 80
+ *                      (null if no scroll data exists for the essay)
+ *
+ * Response: { metrics: { [slug]: { views, avg_read_seconds, completion_rate } } }
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/essay-metrics", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    return res.json({ metrics: {} });
+  }
+
+  const { data, error } = await supabase
+    .from("essay_reads")
+    .select("essay_slug, read_duration_seconds, scroll_percent");
+
+  if (error) {
+    console.error("[admin/essay-metrics] Supabase error:", error);
+    return res.status(500).json({ error: "Failed to load metrics" });
+  }
+
+  type ReadRow = { essay_slug: string; read_duration_seconds: number; scroll_percent: number | null };
+  const bySlug = new Map<string, { durations: number[]; scrolls: (number | null)[] }>();
+  for (const row of (data ?? []) as ReadRow[]) {
+    if (!bySlug.has(row.essay_slug)) {
+      bySlug.set(row.essay_slug, { durations: [], scrolls: [] });
+    }
+    const entry = bySlug.get(row.essay_slug)!;
+    entry.durations.push(row.read_duration_seconds);
+    entry.scrolls.push(row.scroll_percent ?? null);
+  }
+
+  const metrics: Record<string, { views: number; avg_read_seconds: number; completion_rate: number | null }> = {};
+  for (const [slug, { durations, scrolls }] of bySlug) {
+    const sorted = [...durations].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? Math.round(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2)
+      : (sorted[mid] ?? 0);
+    const withScroll = scrolls.filter((s): s is number => s !== null);
+    const completionRate = withScroll.length > 0
+      ? Math.round(withScroll.filter(s => s >= 80).length * 100 / withScroll.length)
+      : null;
+    metrics[slug] = {
+      views: durations.length,
+      avg_read_seconds: median,
+      completion_rate: completionRate,
+    };
+  }
+
+  res.json({ metrics });
 });
 
 // ─── POST /api/admin/essays ───────────────────────────────────────────────────
@@ -2616,6 +2928,64 @@ function updateStaticEssayHead(slug: string, essay: {
   }
 }
 
+// ─── updateStaticEssayProOnly ─────────────────────────────────────────────────
+
+/**
+ * Adds or removes the pro-only gate from a static essay HTML file and updates
+ * the essay listing page with a lock badge.
+ *
+ * When proOnly = true:
+ *   - Adds data-pro-only="true" to the <body> tag of the essay HTML.
+ *   - Adds the essay-gate script tag to the essay HTML.
+ *   - Adds a lock badge span to the essay row in the listing index.
+ *
+ * When proOnly = false:
+ *   - Removes data-pro-only="true" from the <body> tag.
+ *   - Removes the essay-gate script tag.
+ *   - Removes the lock badge span from the listing index.
+ */
+function updateStaticEssayProOnly(slug: string, proOnly: boolean): void {
+  const essayHtmlPath = join(ESSAYS_BASE_DIR, slug, "index.html");
+  const listingHtmlPath = join(ESSAYS_BASE_DIR, "index.html");
+
+  // ── Update the essay page ────────────────────────────────────────────────
+  if (existsSync(essayHtmlPath)) {
+    try {
+      let html = readFileSync(essayHtmlPath, "utf-8");
+
+      if (proOnly) {
+        // Add data-pro-only attribute to <body>
+        if (!html.includes('data-pro-only="true"')) {
+          html = html.replace(/<body([^>]*)>/, '<body$1 data-pro-only="true">');
+        }
+        // Add gate script before </body> if not already present
+        if (!html.includes("/shared/essay-gate.js")) {
+          html = html.replace(
+            "</body>",
+            `<script src="/shared/essay-gate.js" defer></script>\n</body>`
+          );
+        }
+      } else {
+        // Remove data-pro-only attribute
+        html = html.replace(/\s*data-pro-only="true"/, "");
+        // Remove gate script
+        html = html.replace(
+          /\n?<script src="\/shared\/essay-gate\.js"[^>]*><\/script>\n?/,
+          "\n"
+        );
+      }
+
+      writeFileSync(essayHtmlPath, html, "utf-8");
+      console.log(`[pro-gate] updated essay HTML: ${essayHtmlPath} (proOnly=${proOnly})`);
+    } catch (err) {
+      console.error(`[pro-gate] failed to update essay HTML for ${slug}:`, err);
+    }
+  } else {
+    console.warn(`[pro-gate] essay HTML not found, skipping: ${essayHtmlPath}`);
+  }
+
+}
+
 // ─── GET /api/admin/essays/:slug ─────────────────────────────────────────────
 
 /**
@@ -2634,7 +3004,7 @@ app.get("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res:
 
   const { data, error } = await supabase
     .from("essays")
-    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, path, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id, created_at, updated_at")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, path, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id, pro_only, created_at, updated_at")
     .eq("slug", slug)
     .single();
 
@@ -2681,6 +3051,7 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
     seo_keywords?: string[] | null;
     change_summary?: string | null;
     post_to_twitter?: boolean;
+    pro_only?: boolean;
   };
 
   if (!supabase) {
@@ -2697,8 +3068,10 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   const contentFields = ["body_markdown", "title", "meta_description", "kicker", "description", "read_time"] as const;
   const seoFields = ["seo_title", "seo_description", "seo_keywords"] as const;
   const socialFields = ["post_to_twitter"] as const;
+  const accessFields = ["pro_only"] as const;
   const isContentUpdate = contentFields.some((f) => body[f] !== undefined);
   const isSeoUpdate = seoFields.some((f) => body[f] !== undefined);
+  const isAccessUpdate = accessFields.some((f) => body[f] !== undefined);
 
   // If content fields are changing, snapshot the current state into essay_versions first.
   if (isContentUpdate) {
@@ -2747,12 +3120,15 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   for (const f of socialFields) {
     if (body[f] !== undefined) update[f] = body[f];
   }
+  for (const f of accessFields) {
+    if (body[f] !== undefined) update[f] = body[f];
+  }
 
   const { data, error } = await supabase
     .from("essays")
     .update(update)
     .eq("slug", slug)
-    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id, pro_only")
     .single();
 
   if (error) {
@@ -2774,6 +3150,11 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   // Update static essay HTML head tags when content or SEO fields change
   if (isContentUpdate || isSeoUpdate) {
     updateStaticEssayHead(slug, data);
+  }
+
+  // Update pro_only gate in static HTML when access flag changes
+  if (isAccessUpdate && body.pro_only !== undefined) {
+    updateStaticEssayProOnly(slug, body.pro_only);
   }
 
   res.json({ essay: data });
@@ -3193,9 +3574,9 @@ app.get("/api/admin/essays/:slug/feedback", requireAdminSecret, async (req: Requ
 
   const { data, error } = await supabase
     .from("draft_feedback")
-    .select("id, viewer_hint, comment, submitted_at")
+    .select("id, viewer_hint, commenter_name, commenter_email, paragraph_index, comment, submitted_at, reply_to_id, is_admin_reply, resolved")
     .eq("essay_slug", slug)
-    .order("submitted_at", { ascending: false });
+    .order("submitted_at", { ascending: true });
 
   if (error) {
     console.error("[feedback] list error:", error);
@@ -3204,6 +3585,82 @@ app.get("/api/admin/essays/:slug/feedback", requireAdminSecret, async (req: Requ
   }
 
   res.json({ feedback: data ?? [] });
+});
+
+/**
+ * PATCH /api/admin/essays/:slug/feedback/:feedbackId
+ *
+ * Resolve or unresolve a feedback comment.
+ * Body: { resolved: boolean }
+ */
+app.patch("/api/admin/essays/:slug/feedback/:feedbackId", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug, feedbackId } = req.params;
+  const { resolved } = (req.body ?? {}) as { resolved?: boolean };
+
+  if (typeof resolved !== "boolean") {
+    res.status(400).json({ error: "resolved (boolean) is required" });
+    return;
+  }
+
+  const { error } = await supabase
+    .from("draft_feedback")
+    .update({ resolved })
+    .eq("id", feedbackId)
+    .eq("essay_slug", slug);
+
+  if (error) {
+    console.error("[feedback] resolve error:", error);
+    res.status(500).json({ error: "Failed to update feedback" });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/admin/essays/:slug/feedback/:feedbackId/reply
+ *
+ * Post an admin reply to a feedback comment. Stored as a new draft_feedback row
+ * with is_admin_reply=true and reply_to_id pointing to the parent.
+ * Body: { comment: string }
+ */
+app.post("/api/admin/essays/:slug/feedback/:feedbackId/reply", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug, feedbackId } = req.params;
+  const { comment } = (req.body ?? {}) as { comment?: string };
+
+  if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
+    res.status(400).json({ error: "comment is required" });
+    return;
+  }
+
+  const { data: inserted, error } = await supabase
+    .from("draft_feedback")
+    .insert({
+      essay_slug: slug,
+      comment: comment.trim().substring(0, 5000),
+      reply_to_id: feedbackId,
+      is_admin_reply: true,
+    })
+    .select("id, comment, submitted_at, reply_to_id, is_admin_reply, resolved")
+    .single();
+
+  if (error) {
+    console.error("[feedback] reply error:", error);
+    res.status(500).json({ error: "Failed to save reply" });
+    return;
+  }
+
+  res.status(201).json({ feedback: inserted });
 });
 
 // ─── Essay preview — public routes ───────────────────────────────────────────
@@ -3248,18 +3705,34 @@ app.post("/api/essays/preview/:token/feedback", async (req: Request, res: Respon
     return;
   }
 
-  const { comment } = (req.body ?? {}) as { comment?: string };
+  const { comment, paragraph_index, commenter_name, commenter_email } = (req.body ?? {}) as {
+    comment?: string;
+    paragraph_index?: number;
+    commenter_name?: string;
+    commenter_email?: string;
+  };
   if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
     res.status(400).json({ error: "comment is required" });
     return;
   }
   const trimmed = comment.trim().substring(0, 5000);
 
-  const { error: insertErr } = await supabase.from("draft_feedback").insert({
+  const record: Record<string, unknown> = {
     essay_slug: row.essay_slug,
     viewer_hint: row.viewer_hint ?? null,
     comment: trimmed,
-  });
+  };
+  if (typeof paragraph_index === "number" && Number.isInteger(paragraph_index) && paragraph_index >= 0) {
+    record.paragraph_index = paragraph_index;
+  }
+  if (commenter_name && typeof commenter_name === "string") {
+    record.commenter_name = commenter_name.trim().substring(0, 200);
+  }
+  if (commenter_email && typeof commenter_email === "string") {
+    record.commenter_email = commenter_email.trim().substring(0, 500);
+  }
+
+  const { error: insertErr } = await supabase.from("draft_feedback").insert(record);
 
   if (insertErr) {
     console.error("[feedback/submit] insert error:", insertErr);
@@ -3434,7 +3907,115 @@ a { color: #111; }
 .essay-body a { text-decoration: underline; text-underline-offset: 2px; }
 .essay-body hr { border: none; border-top: 1px solid #e8e8e8; margin: 2.5em 0; }
 
-/* ── Feedback ── */
+/* ── Inline paragraph comment ── */
+.para-wrapper { position: relative; }
+.para-comment-btn {
+  position: absolute;
+  left: -36px;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, border-color 0.15s;
+  color: #888;
+  padding: 0;
+}
+.para-wrapper:hover .para-comment-btn,
+.para-comment-btn:focus,
+.para-comment-btn.active { opacity: 1; border-color: #aaa; color: #555; }
+.para-comment-btn:hover { border-color: #111; color: #111; }
+
+/* comment popover */
+.para-popover {
+  display: none;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.para-popover.open { display: block; }
+.para-popover-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.para-popover-fields { display: flex; gap: 8px; margin-bottom: 8px; }
+.para-popover-name, .para-popover-email {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+  background: #fff;
+  min-width: 0;
+}
+.para-popover-name:focus, .para-popover-email:focus { border-color: #111; }
+.para-popover textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 72px;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+  background: #fff;
+}
+.para-popover textarea:focus { border-color: #111; }
+.para-popover-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.para-popover-submit {
+  padding: 7px 16px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.para-popover-submit:hover { background: #333; }
+.para-popover-submit:disabled { background: #aaa; cursor: not-allowed; }
+.para-popover-cancel {
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+}
+.para-popover-cancel:hover { color: #111; }
+.para-popover-status { font-size: 13px; min-height: 18px; }
+.para-popover-status.ok { color: #16a34a; }
+.para-popover-status.err { color: #dc2626; }
+
+/* comment icon check mark on success */
+.para-comment-btn.done { border-color: #16a34a !important; color: #16a34a !important; opacity: 1 !important; }
+
+/* ── General feedback (bottom) ── */
 .feedback-section {
   margin-top: 60px;
   border-top: 1px solid #e8e8e8;
@@ -3468,6 +4049,20 @@ a { color: #111; }
   color: #111;
 }
 .feedback-textarea:focus { border-color: #111; }
+.feedback-name-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.feedback-name-input, .feedback-email-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+  min-width: 0;
+}
+.feedback-name-input:focus, .feedback-email-input:focus { border-color: #111; }
 .feedback-submit {
   margin-top: 10px;
   padding: 9px 20px;
@@ -3491,6 +4086,12 @@ a { color: #111; }
 }
 .feedback-status.ok { color: #16a34a; }
 .feedback-status.err { color: #dc2626; }
+
+@media (max-width: 720px) {
+  .para-comment-btn { display: none; }
+  .para-popover-fields { flex-direction: column; }
+  .feedback-name-row { flex-direction: column; }
+}
 </style>
 </head>
 <body>
@@ -3511,19 +4112,35 @@ a { color: #111; }
   </div>
 
   <div class="feedback-section">
-    <div class="feedback-heading">Leave feedback</div>
-    <div class="feedback-subtext">Your thoughts go directly to Nick. No account needed.</div>
+    <div class="feedback-heading">General feedback</div>
+    <div class="feedback-subtext">Overall thoughts, reactions, or anything not tied to a specific paragraph. Your thoughts go directly to Nick — no account needed.</div>
+    <div class="feedback-name-row">
+      <input type="text" class="feedback-name-input" id="feedback-name" placeholder="Your name (optional)" autocomplete="name" />
+      <input type="email" class="feedback-email-input" id="feedback-email" placeholder="Email (optional)" autocomplete="email" />
+    </div>
     <textarea class="feedback-textarea" id="feedback-text" placeholder="What did you think? Any questions, typos, or reactions?"></textarea>
     <br>
-    <button class="feedback-submit" id="feedback-btn" onclick="submitFeedback()">Send feedback</button>
+    <button class="feedback-submit" id="feedback-btn" onclick="submitGeneralFeedback()">Send feedback</button>
     <div class="feedback-status" id="feedback-status"></div>
   </div>
 </div>
 
 <script>
-async function submitFeedback() {
+// ── Shared submission helper ──────────────────────────────────────────────────
+async function postFeedback(payload) {
+  return fetch('/api/essays/preview/${token}/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+// ── General (bottom) feedback ─────────────────────────────────────────────────
+async function submitGeneralFeedback() {
   const textarea = document.getElementById('feedback-text');
-  const btn = document.getElementById('feedback-btn');
+  const nameEl  = document.getElementById('feedback-name');
+  const emailEl = document.getElementById('feedback-email');
+  const btn    = document.getElementById('feedback-btn');
   const status = document.getElementById('feedback-status');
   const comment = textarea.value.trim();
   if (!comment) return;
@@ -3532,10 +4149,10 @@ async function submitFeedback() {
   status.textContent = '';
   status.className = 'feedback-status';
   try {
-    const res = await fetch('/api/essays/preview/${token}/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comment }),
+    const res = await postFeedback({
+      comment,
+      commenter_name:  nameEl.value.trim() || undefined,
+      commenter_email: emailEl.value.trim() || undefined,
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -3557,6 +4174,148 @@ async function submitFeedback() {
     status.className = 'feedback-status err';
   }
 }
+
+// ── Inline paragraph comments ─────────────────────────────────────────────────
+(function () {
+  var COMMENT_ICON = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h7A2.5 2.5 0 0 1 14 2.5v7.293a1 1 0 0 1-1.707.707L10 8.207V13.5a.5.5 0 0 1-.777.416L5.5 11.5H2.5A2.5 2.5 0 0 1 0 9V2.5zm2.5-1A1.5 1.5 0 0 0 3 3v6a1.5 1.5 0 0 0 1.5 1.5H6a.5.5 0 0 1 .277.084L9 12.215V10.5a.5.5 0 0 1 .5-.5h1.5a1.5 1.5 0 0 0 1.5-1.5V2.5A1.5 1.5 0 0 0 11.5 1.5z"/></svg>';
+  var CHECK_ICON  = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
+  var activePopover = null;
+
+  function closeActivePopover() {
+    if (activePopover) {
+      activePopover.classList.remove('open');
+      var btn = activePopover.previousElementSibling && activePopover.previousElementSibling.classList.contains('para-comment-btn')
+        ? activePopover.previousElementSibling
+        : null;
+      if (btn) btn.classList.remove('active');
+      activePopover = null;
+    }
+  }
+
+  function buildPopover(idx) {
+    var div = document.createElement('div');
+    div.className = 'para-popover';
+    div.setAttribute('data-para-idx', idx);
+    div.innerHTML = '<div class="para-popover-label">Comment on this paragraph</div>' +
+      '<div class="para-popover-fields">' +
+        '<input type="text" class="para-popover-name" placeholder="Your name (optional)" autocomplete="name" />' +
+        '<input type="email" class="para-popover-email" placeholder="Email (optional)" autocomplete="email" />' +
+      '</div>' +
+      '<textarea placeholder="What are you thinking about this paragraph?"></textarea>' +
+      '<div class="para-popover-actions">' +
+        '<button class="para-popover-submit" type="button">Post comment</button>' +
+        '<button class="para-popover-cancel" type="button">Cancel</button>' +
+        '<span class="para-popover-status"></span>' +
+      '</div>';
+    return div;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var body = document.getElementById('essay-body');
+    if (!body) return;
+
+    var paragraphs = body.querySelectorAll('p');
+    paragraphs.forEach(function (p, idx) {
+      // wrap paragraph
+      var wrapper = document.createElement('div');
+      wrapper.className = 'para-wrapper';
+      p.parentNode.insertBefore(wrapper, p);
+      wrapper.appendChild(p);
+
+      // comment trigger button
+      var btn = document.createElement('button');
+      btn.className = 'para-comment-btn';
+      btn.setAttribute('type', 'button');
+      btn.setAttribute('title', 'Comment on this paragraph');
+      btn.setAttribute('aria-label', 'Comment on paragraph ' + (idx + 1));
+      btn.innerHTML = COMMENT_ICON;
+      wrapper.insertBefore(btn, p);
+
+      // popover (lives after the paragraph so it shifts layout naturally)
+      var popover = buildPopover(idx);
+      wrapper.appendChild(popover);
+
+      // open / close
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (popover.classList.contains('open')) {
+          closeActivePopover();
+          return;
+        }
+        closeActivePopover();
+        popover.classList.add('open');
+        btn.classList.add('active');
+        activePopover = popover;
+        popover.querySelector('textarea').focus();
+      });
+
+      popover.querySelector('.para-popover-cancel').addEventListener('click', function () {
+        closeActivePopover();
+      });
+
+      popover.querySelector('.para-popover-submit').addEventListener('click', async function () {
+        var submitBtn   = this;
+        var textarea    = popover.querySelector('textarea');
+        var nameInput   = popover.querySelector('.para-popover-name');
+        var emailInput  = popover.querySelector('.para-popover-email');
+        var statusEl    = popover.querySelector('.para-popover-status');
+        var comment     = textarea.value.trim();
+        if (!comment) { textarea.focus(); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending\u2026';
+        statusEl.textContent = '';
+        statusEl.className = 'para-popover-status';
+
+        try {
+          var res = await postFeedback({
+            comment: comment,
+            paragraph_index: idx,
+            commenter_name:  nameInput.value.trim() || undefined,
+            commenter_email: emailInput.value.trim() || undefined,
+          });
+          var json = await res.json().catch(function() { return {}; });
+          if (res.ok) {
+            textarea.value = '';
+            nameInput.value = '';
+            emailInput.value = '';
+            statusEl.textContent = 'Sent \u2014 thanks!';
+            statusEl.className = 'para-popover-status ok';
+            btn.innerHTML = CHECK_ICON;
+            btn.classList.remove('active');
+            btn.classList.add('done');
+            setTimeout(function () { closeActivePopover(); }, 1200);
+          } else {
+            statusEl.textContent = json.error || 'Failed \u2014 please try again.';
+            statusEl.className = 'para-popover-status err';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Post comment';
+          }
+        } catch (err) {
+          statusEl.textContent = 'Network error \u2014 please try again.';
+          statusEl.className = 'para-popover-status err';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Post comment';
+        }
+      });
+    });
+
+    // close popover on outside click
+    document.addEventListener('click', function (e) {
+      if (activePopover && !activePopover.contains(e.target)) {
+        var btn = activePopover.previousElementSibling;
+        if (btn && !btn.contains(e.target)) {
+          closeActivePopover();
+        }
+      }
+    });
+
+    // close on Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeActivePopover();
+    });
+  });
+}());
 </script>
 </body>
 </html>`;
@@ -6835,6 +7594,238 @@ app.get("/api/referrals/resolve", async (req: Request, res: Response) => {
     .maybeSingle();
 
   res.json({ display_name: profile?.display_name ?? null });
+});
+
+// ─── GET /api/admin/reputation ────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/reputation
+ *
+ * Returns rolling 7-day sending reputation metrics computed from Supabase
+ * event tables, plus the most recent stored snapshot from reputation_log.
+ *
+ * Response:
+ *   delivered        — emails sent in the last 7 days (email_send_log status='sent')
+ *   bounced          — hard bounces in the last 7 days (email_events type='email.bounced')
+ *   complained       — spam complaints in the last 7 days (email_events type='email.complained')
+ *   unsubscribed     — unsubscribes in the last 7 days (unsubscribe_events)
+ *   bounce_rate      — bounced / delivered (0–1)
+ *   complaint_rate   — complained / delivered (0–1)
+ *   unsubscribe_rate — unsubscribed / delivered (0–1)
+ *   bounce_severity      — 'ok' | 'warning' | 'critical'
+ *   complaint_severity   — 'ok' | 'warning' | 'critical'
+ *   unsubscribe_severity — 'ok' | 'elevated'
+ *   overall          — 'healthy' | 'warning' | 'critical'
+ *   lastSnapshot     — most recent row from reputation_log (may be null)
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/reputation", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const WINDOW_DAYS = 7;
+  const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  // Delivered
+  const { count: delivered, error: deliveredErr } = await supabase
+    .from("email_send_log")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "sent")
+    .gte("created_at", windowStart);
+
+  if (deliveredErr) {
+    console.error("[admin/reputation] email_send_log query failed:", deliveredErr.message);
+    res.status(500).json({ error: "Failed to query email_send_log", detail: deliveredErr.message });
+    return;
+  }
+
+  // Bounces
+  const { count: bounced, error: bounceErr } = await supabase
+    .from("email_events")
+    .select("id", { count: "exact", head: true })
+    .eq("type", "email.bounced")
+    .gte("created_at", windowStart);
+
+  if (bounceErr) {
+    console.error("[admin/reputation] email_events (bounced) query failed:", bounceErr.message);
+    res.status(500).json({ error: "Failed to query email_events", detail: bounceErr.message });
+    return;
+  }
+
+  // Complaints
+  const { count: complained, error: complaintErr } = await supabase
+    .from("email_events")
+    .select("id", { count: "exact", head: true })
+    .eq("type", "email.complained")
+    .gte("created_at", windowStart);
+
+  if (complaintErr) {
+    console.error("[admin/reputation] email_events (complained) query failed:", complaintErr.message);
+    res.status(500).json({ error: "Failed to query email_events", detail: complaintErr.message });
+    return;
+  }
+
+  // Unsubscribes
+  const { count: unsubscribed, error: unsubErr } = await supabase
+    .from("unsubscribe_events")
+    .select("id", { count: "exact", head: true })
+    .gte("unsubscribed_at", windowStart);
+
+  if (unsubErr) {
+    console.error("[admin/reputation] unsubscribe_events query failed:", unsubErr.message);
+    res.status(500).json({ error: "Failed to query unsubscribe_events", detail: unsubErr.message });
+    return;
+  }
+
+  const deliveredCount = delivered ?? 0;
+  const bouncedCount = bounced ?? 0;
+  const complainedCount = complained ?? 0;
+  const unsubscribedCount = unsubscribed ?? 0;
+
+  const bounce_rate = deliveredCount > 0 ? bouncedCount / deliveredCount : 0;
+  const complaint_rate = deliveredCount > 0 ? complainedCount / deliveredCount : 0;
+  const unsubscribe_rate = deliveredCount > 0 ? unsubscribedCount / deliveredCount : 0;
+
+  const bounce_severity =
+    bounce_rate >= 0.02 ? "critical" : bounce_rate >= 0.005 ? "warning" : "ok";
+  const complaint_severity =
+    complaint_rate >= 0.001 ? "critical" : complaint_rate >= 0.0005 ? "warning" : "ok";
+  const unsubscribe_severity = unsubscribe_rate >= 0.005 ? "elevated" : "ok";
+
+  const overall =
+    bounce_severity === "critical" || complaint_severity === "critical" ? "critical" :
+    bounce_severity === "warning" || complaint_severity === "warning" ? "warning" : "healthy";
+
+  // Fetch the most recent stored snapshot
+  const { data: lastSnapshot } = await supabase
+    .from("reputation_log")
+    .select("date, delivered, bounced, complained, unsubscribed, bounce_rate, complaint_rate, unsubscribe_rate")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  res.json({
+    windowDays: WINDOW_DAYS,
+    windowStart,
+    delivered: deliveredCount,
+    bounced: bouncedCount,
+    complained: complainedCount,
+    unsubscribed: unsubscribedCount,
+    bounce_rate,
+    complaint_rate,
+    unsubscribe_rate,
+    bounce_severity,
+    complaint_severity,
+    unsubscribe_severity,
+    overall,
+    lastSnapshot: lastSnapshot ?? null,
+  });
+});
+
+// ─── GET /api/admin/email-health (DNS) ────────────────────────────────────────
+
+/**
+ * Checks DNS configuration for paradoxofacceptance.xyz email deliverability.
+ * Verifies SPF, DKIM (Resend selector), and DMARC records.
+ *
+ * Returns structured result:
+ *   spf    — 'pass' | 'fail' | 'missing'
+ *   dkim   — 'pass' | 'fail' | 'missing'
+ *   dmarc  — 'pass' | 'fail' | 'missing'
+ *   overall — 'healthy' | 'degraded' | 'critical'
+ *   details — raw record values for debugging
+ */
+async function checkEmailDomainHealth(): Promise<{
+  spf: "pass" | "fail" | "missing";
+  dkim: "pass" | "fail" | "missing";
+  dmarc: "pass" | "fail" | "missing";
+  overall: "healthy" | "degraded" | "critical";
+  details: { spfRecord?: string; dkimRecord?: string; dmarcRecord?: string };
+}> {
+  const domain = "paradoxofacceptance.xyz";
+  const details: { spfRecord?: string; dkimRecord?: string; dmarcRecord?: string } = {};
+
+  // ── SPF ──
+  let spf: "pass" | "fail" | "missing" = "missing";
+  try {
+    const txtRecords = await dnsPromises.resolveTxt(domain);
+    const spfRecord = txtRecords.map(r => r.join("")).find(r => r.startsWith("v=spf1"));
+    if (spfRecord) {
+      details.spfRecord = spfRecord;
+      spf = (spfRecord.includes("amazonses.com") || spfRecord.toLowerCase().includes("resend")) ? "pass" : "fail";
+    }
+  } catch {
+    // NXDOMAIN or lookup error — treat as missing
+  }
+
+  // ── DKIM (Resend selector: resend._domainkey.<domain>) ──
+  let dkim: "pass" | "fail" | "missing" = "missing";
+  try {
+    const txtRecords = await dnsPromises.resolveTxt(`resend._domainkey.${domain}`);
+    const dkimRecord = txtRecords.map(r => r.join("")).find(r => r.includes("v=DKIM1") || r.includes("p="));
+    if (dkimRecord) {
+      details.dkimRecord = dkimRecord.length > 100 ? dkimRecord.slice(0, 100) + "…" : dkimRecord;
+      dkim = "pass";
+    }
+  } catch {
+    // No DKIM record found
+  }
+
+  // ── DMARC ──
+  let dmarc: "pass" | "fail" | "missing" = "missing";
+  try {
+    const txtRecords = await dnsPromises.resolveTxt(`_dmarc.${domain}`);
+    const dmarcRecord = txtRecords.map(r => r.join("")).find(r => r.startsWith("v=DMARC1"));
+    if (dmarcRecord) {
+      details.dmarcRecord = dmarcRecord;
+      dmarc = /p=(quarantine|reject)/i.test(dmarcRecord) ? "pass" : "fail";
+    }
+  } catch {
+    // No DMARC record found
+  }
+
+  // ── Overall ──
+  const passCount = [spf, dkim, dmarc].filter(s => s === "pass").length;
+  let overall: "healthy" | "degraded" | "critical";
+  if (passCount === 3) {
+    overall = "healthy";
+  } else if (passCount === 0 || spf === "missing") {
+    overall = "critical";
+  } else {
+    overall = "degraded";
+  }
+
+  return { spf, dkim, dmarc, overall, details };
+}
+
+/**
+ * GET /api/admin/email-health
+ *
+ * Verifies DNS records for paradoxofacceptance.xyz email deliverability (SPF, DKIM, DMARC).
+ * Returns structured health result with overall status and per-check details.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/email-health", requireAdminSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await checkEmailDomainHealth();
+
+    if (result.overall !== "healthy") {
+      await captureSentryAlert(
+        `Email domain health ${result.overall}: SPF=${result.spf} DKIM=${result.dkim} DMARC=${result.dmarc}`,
+        result.overall === "critical" ? "error" : "warning",
+        result
+      );
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error("[email-health] DNS check failed:", err);
+    res.status(500).json({ error: "DNS health check failed" });
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
