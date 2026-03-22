@@ -25,7 +25,8 @@ Copy `newsletter/.env.example` to `newsletter/.env`.
 | `SUPABASE_URL` | Supabase → Project → Settings → API | Optional | Send log not persisted |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role | Optional | Send log not persisted |
 | `UNSUBSCRIBE_SECRET` | `openssl rand -hex 32` | Yes | HMAC token validation fails for unsubscribes |
-| `SERVER_URL` | e.g. `https://paradoxofacceptance.xyz` | Optional | Defaults to production URL; affects unsubscribe link generation |
+| `PREFERENCES_JWT_SECRET` | `openssl rand -hex 32` | Recommended | `/api/email/preferences` endpoints return 503; manage-preferences links in emails will degrade gracefully |
+| `SERVER_URL` | e.g. `https://paradoxofacceptance.xyz` | Optional | Defaults to production URL; affects unsubscribe and preferences link generation |
 | `PORT` | e.g. `3200` | Optional | Defaults to `3200` |
 
 ### Acceptance Pass frontend (`pass-src/.env`)
@@ -142,9 +143,42 @@ curl -X POST http://127.0.0.1:3200/api/newsletter/send \
   }'
 ```
 
-Use `{{unsubscribe}}` in `htmlBody` — it is replaced with each recipient's HMAC-signed unsubscribe URL automatically.
+Use `{{unsubscribe}}` and `{{manage_preferences}}` in `htmlBody` — both are replaced per-recipient automatically. `{{manage_preferences}}` becomes a 30-day signed JWT preferences link.
+
+Add a `sendType` field to control preference-based filtering (default: `"newsletter"`):
+
+```json
+{
+  "subject": "...",
+  "htmlBody": "...",
+  "testMode": false,
+  "sendType": "newsletter"
+}
+```
+
+Valid `sendType` values: `"newsletter"`, `"weekly_digest"`, `"course_updates"`. Subscribers who have opted out of that category are automatically excluded.
 
 For ~26K recipients, expect 2–3 minutes. Check Resend dashboard for delivery stats after.
+
+### 5. Subscriber preference center
+
+The preference center lives at `https://paradoxofacceptance.xyz/email/preferences/?token={jwt}`.
+
+**One-time setup (run in Supabase SQL Editor):**
+
+```sql
+-- Run newsletter/subscriber_preferences.sql
+```
+
+Subscribers arrive there via the `{{manage_preferences}}` link in email footers. The JWT token is HS256-signed using `PREFERENCES_JWT_SECRET` with a 30-day TTL.
+
+**Resend a preferences link manually:**
+
+```bash
+curl -X POST http://127.0.0.1:3200/api/email/preferences/send-link \
+  -H "Content-Type: application/json" \
+  -d '{"email": "subscriber@example.com"}'
+```
 
 ### 4. Check broadcast status
 

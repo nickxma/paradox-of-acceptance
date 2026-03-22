@@ -48,6 +48,7 @@ const PORT = parseInt(process.env.PORT || "3200", 10);
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 const CONVERGENCE_MVP_URL = (process.env.CONVERGENCE_MVP_URL ?? "").replace(/\/$/, "");
 const CONVERGENCE_ADMIN_WALLET = process.env.CONVERGENCE_ADMIN_WALLET ?? "";
+const PREFERENCES_JWT_SECRET = process.env.PREFERENCES_JWT_SECRET;
 
 // ─── Supabase (optional — for send log) ──────────────────────────────────────
 
@@ -82,6 +83,9 @@ function validateConfig() {
   if (!RESEND_WEBHOOK_SECRET) {
     console.warn("⚠️  RESEND_WEBHOOK_SECRET not set — webhook signature validation is disabled (dev/test only)");
   }
+  if (!PREFERENCES_JWT_SECRET) {
+    console.warn("⚠️  PREFERENCES_JWT_SECRET not set — /api/email/preferences endpoints will return 503");
+  }
 }
 
 // ─── Unsubscribe token helpers ────────────────────────────────────────────────
@@ -112,6 +116,54 @@ function verifyUnsubscribeToken(token: string): string | null {
     return null;
   }
   return email;
+}
+
+// ─── Preferences JWT helpers ─────────────────────────────────────────────────
+
+const PREFERENCES_TOKEN_TTL_SECS = 30 * 24 * 60 * 60; // 30 days
+
+/**
+ * Sign a preferences JWT (HS256) containing the subscriber's email.
+ * Returns a compact base64url-encoded token.
+ */
+function signPreferencesToken(email: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({ sub: email.toLowerCase().trim(), iat: now, exp: now + PREFERENCES_TOKEN_TTL_SECS })
+  ).toString("base64url");
+  const sig = createHmac("sha256", PREFERENCES_JWT_SECRET!)
+    .update(`${header}.${payload}`)
+    .digest("base64url");
+  return `${header}.${payload}.${sig}`;
+}
+
+type PreferencesTokenResult =
+  | { ok: true; email: string; expired: false }
+  | { ok: false; email?: never; expired: boolean };
+
+/**
+ * Verify a preferences JWT. Returns the subscriber email or an error state.
+ */
+function verifyPreferencesToken(token: string): PreferencesTokenResult {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return { ok: false, expired: false };
+    const [header, payload, sig] = parts;
+    const expected = createHmac("sha256", PREFERENCES_JWT_SECRET!)
+      .update(`${header}.${payload}`)
+      .digest("base64url");
+    const sigBuf = Buffer.from(sig, "base64url");
+    const expBuf = Buffer.from(expected, "base64url");
+    if (sigBuf.length !== expBuf.length) return { ok: false, expired: false };
+    if (!timingSafeEqual(sigBuf, expBuf)) return { ok: false, expired: false };
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof data.sub !== "string") return { ok: false, expired: false };
+    if (data.exp < Math.floor(Date.now() / 1000)) return { ok: false, expired: true };
+    return { ok: true, email: data.sub, expired: false };
+  } catch {
+    return { ok: false, expired: false };
+  }
 }
 
 // ─── Resend webhook signature verification ───────────────────────────────────
@@ -283,6 +335,7 @@ function wrapEmailHtml(bodyHtml: string): string {
     <hr style="margin:48px 0;border:none;border-top:1px solid #e2ddd6;" />
     <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#999;line-height:1.5;">
       You're receiving this because you subscribed to the Paradox of Acceptance newsletter.<br/>
+      <a href="{{manage_preferences}}" style="color:#7d8c6e;">Manage preferences</a> &nbsp;·&nbsp;
       <a href="{{unsubscribe}}" style="color:#7d8c6e;">Unsubscribe</a>
     </p>
   </div>
@@ -654,6 +707,23 @@ app.get("/status/:broadcastId", requireApiKey, async (req: Request, res: Respons
 // ─── POST /api/newsletter/send ────────────────────────────────────────────────
 
 /**
+ * Fetch subscriber_ids (emails) that have opted out of a specific send category.
+ * Returns an empty Set if Supabase is not configured (send proceeds to everyone).
+ */
+async function fetchOptOuts(category: "weekly_digest" | "newsletter" | "course_updates"): Promise<Set<string>> {
+  if (!supabase) return new Set();
+  const { data, error } = await supabase
+    .from("subscriber_preferences")
+    .select("subscriber_id")
+    .eq(category, false);
+  if (error) {
+    console.warn(`[preferences] Failed to fetch opt-outs for ${category}:`, error);
+    return new Set();
+  }
+  return new Set((data ?? []).map((row: { subscriber_id: string }) => row.subscriber_id.toLowerCase()));
+}
+
+/**
  * Fetch all subscribed contacts from the Resend audience.
  * Handles pagination automatically.
  */
@@ -692,9 +762,18 @@ async function sendBatched(
     const batch = contacts.slice(i, i + BATCH_SIZE);
 
     const emails = batch.map((contact) => {
-      const token = generateUnsubscribeToken(contact.email);
-      const unsubscribeUrl = `${SERVER_URL}/api/unsubscribe?token=${token}`;
-      const personalizedHtml = opts.html.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
+      const unsubToken = generateUnsubscribeToken(contact.email);
+      const unsubscribeUrl = `${SERVER_URL}/api/unsubscribe?token=${unsubToken}`;
+      let personalizedHtml = opts.html.replace(/\{\{unsubscribe\}\}/g, unsubscribeUrl);
+
+      if (PREFERENCES_JWT_SECRET) {
+        const prefToken = signPreferencesToken(contact.email);
+        const prefUrl = `${SERVER_URL}/email/preferences/?token=${prefToken}`;
+        personalizedHtml = personalizedHtml.replace(/\{\{manage_preferences\}\}/g, prefUrl);
+      } else {
+        // Strip the placeholder so it doesn't appear as raw text
+        personalizedHtml = personalizedHtml.replace(/\{\{manage_preferences\}\}/g, "#");
+      }
 
       return {
         from: EMAIL_FROM!,
@@ -748,11 +827,12 @@ async function sendBatched(
  * Full-list sends require ALLOW_FULL_LIST_SEND=true in .env.
  */
 app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: Response) => {
-  const { subject, htmlBody, textBody, testMode } = req.body as {
+  const { subject, htmlBody, textBody, testMode, sendType } = req.body as {
     subject?: string;
     htmlBody?: string;
     textBody?: string;
     testMode?: boolean;
+    sendType?: "newsletter" | "weekly_digest" | "course_updates";
   };
 
   if (!subject?.trim()) {
@@ -824,6 +904,15 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
     console.error("[newsletter/send] Failed to fetch contacts:", msg);
     res.status(500).json({ error: "Failed to fetch audience contacts", detail: msg });
     return;
+  }
+
+  // Filter out subscribers who opted out of this send category
+  const category = (sendType ?? "newsletter") as "newsletter" | "weekly_digest" | "course_updates";
+  const optOuts = await fetchOptOuts(category);
+  if (optOuts.size > 0) {
+    const before = contacts.length;
+    contacts = contacts.filter((c) => !optOuts.has(c.email.toLowerCase()));
+    console.log(`[newsletter/send] Filtered ${before - contacts.length} opt-outs for category="${category}" — ${contacts.length} remaining`);
   }
 
   console.log(`[newsletter/send] Starting broadcast to ${contacts.length} subscribers — "${subject}"`);
@@ -1035,6 +1124,198 @@ app.get("/api/essays/stats", requireAdminSecret, async (_req: Request, res: Resp
   essays.sort((a, b) => b.views - a.views);
 
   res.json({ essays });
+});
+
+// ─── Email preference center ──────────────────────────────────────────────────
+
+function requirePreferencesSecret(res: Response): boolean {
+  if (!PREFERENCES_JWT_SECRET) {
+    res.status(503).json({ error: "PREFERENCES_JWT_SECRET not configured" });
+    return false;
+  }
+  return true;
+}
+
+// CORS pre-flight for preferences endpoints (called from the static site)
+app.options("/api/email/preferences", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.options("/api/email/preferences/send-link", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+/**
+ * GET /api/email/preferences?token={jwt}
+ *
+ * Decode the JWT to get subscriber_id, return current preferences.
+ * If no row exists, returns the defaults (all true).
+ */
+app.get("/api/email/preferences", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!requirePreferencesSecret(res)) return;
+
+  const { token } = req.query as { token?: string };
+  if (!token) {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+
+  const result = verifyPreferencesToken(token);
+  if (!result.ok) {
+    res.status(401).json({ error: "Invalid or expired token", expired: result.expired });
+    return;
+  }
+
+  const email = result.email;
+  const defaults = { weekly_digest: true, newsletter: true, course_updates: true };
+
+  if (!supabase) {
+    res.json({ email, preferences: defaults });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("subscriber_preferences")
+    .select("weekly_digest, newsletter, course_updates")
+    .eq("subscriber_id", email)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[preferences] GET failed:", error);
+    res.status(500).json({ error: "Failed to load preferences" });
+    return;
+  }
+
+  res.json({ email, preferences: data ?? defaults });
+});
+
+/**
+ * PATCH /api/email/preferences
+ *
+ * Body: { token, weekly_digest, newsletter, course_updates }
+ * Upserts preferences for the subscriber identified by the JWT.
+ */
+app.patch("/api/email/preferences", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!requirePreferencesSecret(res)) return;
+
+  const { token, weekly_digest, newsletter, course_updates } = req.body as {
+    token?: string;
+    weekly_digest?: boolean;
+    newsletter?: boolean;
+    course_updates?: boolean;
+  };
+
+  if (!token) {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+
+  const result = verifyPreferencesToken(token);
+  if (!result.ok) {
+    res.status(401).json({ error: "Invalid or expired token", expired: result.expired });
+    return;
+  }
+
+  const email = result.email;
+
+  const updates: Record<string, boolean> = {};
+  if (typeof weekly_digest === "boolean") updates.weekly_digest = weekly_digest;
+  if (typeof newsletter === "boolean") updates.newsletter = newsletter;
+  if (typeof course_updates === "boolean") updates.course_updates = course_updates;
+
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No preference fields provided" });
+    return;
+  }
+
+  if (!supabase) {
+    console.warn("[preferences] PATCH skipped — Supabase not configured");
+    res.json({ ok: true, email, preferences: updates });
+    return;
+  }
+
+  const { error } = await supabase
+    .from("subscriber_preferences")
+    .upsert({ subscriber_id: email, ...updates }, { onConflict: "subscriber_id" });
+
+  if (error) {
+    console.error("[preferences] PATCH failed:", error);
+    res.status(500).json({ error: "Failed to save preferences" });
+    return;
+  }
+
+  console.log(`[preferences] Updated for ${email}:`, updates);
+  res.json({ ok: true, email, preferences: updates });
+});
+
+/**
+ * POST /api/email/preferences/send-link
+ *
+ * Body: { email }
+ * Sends a fresh preferences-link email so the subscriber can manage their prefs
+ * after their token has expired.
+ */
+app.post("/api/email/preferences/send-link", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!requirePreferencesSecret(res)) return;
+
+  const { email } = req.body as { email?: string };
+  if (!email || !email.includes("@")) {
+    res.status(400).json({ error: "Valid email is required" });
+    return;
+  }
+
+  const resend = new Resend(RESEND_API_KEY!);
+  const token = signPreferencesToken(email.toLowerCase().trim());
+  const prefUrl = `${SERVER_URL}/email/preferences/?token=${token}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage your email preferences</title>
+</head>
+<body style="margin:0;padding:0;background:#faf8f4;font-family:Georgia,'Times New Roman',serif;">
+  <div style="max-width:560px;margin:0 auto;padding:48px 24px;color:#2c2c2c;font-size:18px;line-height:1.8;">
+    <p style="margin:0 0 24px;">Here is your preferences link:</p>
+    <p style="margin:0 0 40px;">
+      <a href="${prefUrl}"
+         style="display:inline-block;background:#2c2c2c;color:#faf8f4;text-decoration:none;padding:12px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:500;border-radius:4px;">
+        Manage email preferences
+      </a>
+    </p>
+    <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#999;line-height:1.5;">
+      This link expires in 30 days.
+    </p>
+  </div>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from: EMAIL_FROM!,
+    to: email.toLowerCase().trim(),
+    replyTo: EMAIL_REPLY_TO || undefined,
+    subject: "Your email preferences link",
+    html,
+  });
+
+  if (error) {
+    console.error("[preferences/send-link] Failed to send:", error);
+    res.status(500).json({ error: "Failed to send preferences link" });
+    return;
+  }
+
+  console.log(`[preferences/send-link] Sent to ${email}`);
+  res.json({ ok: true });
 });
 
 // ─── POST /api/webhooks/resend ────────────────────────────────────────────────

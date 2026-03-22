@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Preferences — Paradox of Acceptance</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #faf8f4;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #2c2c2c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 48px;
+    }
+
+    header a {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #7d8c6e;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    header a:hover { text-decoration: underline; }
+
+    main {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    h1 {
+      font-family: Georgia, serif;
+      font-size: 26px;
+      font-weight: normal;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .subtitle {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .prefs-list {
+      list-style: none;
+      border-top: 1px solid #e2ddd6;
+    }
+
+    .pref-item {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid #e2ddd6;
+    }
+
+    .pref-label {
+      flex: 1;
+    }
+
+    .pref-label strong {
+      display: block;
+      font-size: 17px;
+      font-weight: normal;
+      margin-bottom: 3px;
+    }
+
+    .pref-label span {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #888;
+      line-height: 1.5;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      flex-shrink: 0;
+      position: relative;
+      width: 44px;
+      height: 26px;
+      margin-top: 2px;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #ccc;
+      border-radius: 9999px;
+      transition: background 200ms ease;
+      cursor: pointer;
+    }
+
+    .toggle input:checked + .toggle-track { background: #7d8c6e; }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 200ms ease;
+      pointer-events: none;
+    }
+
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    .save-row {
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-save {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      background: #2c2c2c;
+      color: #faf8f4;
+      border: none;
+      border-radius: 4px;
+      padding: 12px 28px;
+      cursor: pointer;
+      transition: background 150ms ease;
+    }
+
+    .btn-save:hover { background: #444; }
+    .btn-save:disabled { background: #aaa; cursor: default; }
+
+    .toast {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #7d8c6e;
+      opacity: 0;
+      transition: opacity 300ms ease;
+    }
+
+    .toast.show { opacity: 1; }
+
+    /* Expired / error states */
+    .state-panel {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .state-panel.visible { display: flex; }
+
+    .state-panel p {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .resend-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .input-email {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      padding: 10px 14px;
+      border: 1px solid #d0ccc7;
+      border-radius: 4px;
+      background: #fff;
+      color: #2c2c2c;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .input-email:focus { outline: none; border-color: #7d8c6e; }
+
+    .btn-resend {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      background: #2c2c2c;
+      color: #faf8f4;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 20px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 150ms ease;
+    }
+
+    .btn-resend:hover { background: #444; }
+    .btn-resend:disabled { background: #aaa; cursor: default; }
+
+    .error-text {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #c0392b;
+      margin-top: 4px;
+    }
+
+    #loading {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      color: #888;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="https://paradoxofacceptance.xyz">← Paradox of Acceptance</a>
+  </header>
+
+  <main>
+    <div id="loading">Loading your preferences…</div>
+
+    <!-- Main preferences form -->
+    <section id="prefs-section" style="display:none;">
+      <h1>Email preferences</h1>
+      <p class="subtitle">Choose what you'd like to receive. Changes take effect immediately.</p>
+
+      <ul class="prefs-list">
+        <li class="pref-item">
+          <div class="pref-label">
+            <strong>Newsletter</strong>
+            <span>Essays and long-form pieces — published whenever there's something worth saying.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="pref-newsletter" />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </li>
+        <li class="pref-item">
+          <div class="pref-label">
+            <strong>Weekly Digest</strong>
+            <span>A short weekly round-up of reflections, links, and practice notes.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="pref-weekly-digest" />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </li>
+        <li class="pref-item">
+          <div class="pref-label">
+            <strong>Course Updates</strong>
+            <span>New courses, early access, and updates to existing material.</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="pref-course-updates" />
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </li>
+      </ul>
+
+      <div class="save-row">
+        <button class="btn-save" id="btn-save">Save preferences</button>
+        <span class="toast" id="toast">Saved.</span>
+      </div>
+      <p class="error-text" id="save-error" style="margin-top:12px;"></p>
+    </section>
+
+    <!-- Expired token panel -->
+    <section id="expired-section" class="state-panel">
+      <h1>Your link has expired</h1>
+      <p>Preference links are valid for 30 days. Enter your email below and we'll send you a fresh one.</p>
+      <div class="resend-form">
+        <input type="email" class="input-email" id="resend-email" placeholder="your@email.com" />
+        <button class="btn-resend" id="btn-resend">Send link</button>
+      </div>
+      <p class="error-text" id="resend-error"></p>
+      <p id="resend-success" style="display:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:#7d8c6e;">
+        Check your inbox — we sent you a fresh preferences link.
+      </p>
+    </section>
+
+    <!-- Invalid token panel -->
+    <section id="invalid-section" class="state-panel">
+      <h1>Invalid link</h1>
+      <p>This preferences link is not valid. Try clicking the link in your email again, or <a href="https://paradoxofacceptance.xyz" style="color:#7d8c6e;">visit the site</a>.</p>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "https://paradoxofacceptance.xyz";
+
+    function getToken() {
+      return new URLSearchParams(window.location.search).get("token") || "";
+    }
+
+    function showSection(id) {
+      ["loading", "prefs-section", "expired-section", "invalid-section"].forEach((s) => {
+        const el = document.getElementById(s);
+        if (!el) return;
+        if (s === id) {
+          el.style.display = "";
+          el.classList.add("visible");
+        } else {
+          el.style.display = "none";
+          el.classList.remove("visible");
+        }
+      });
+    }
+
+    async function loadPreferences() {
+      const token = getToken();
+      if (!token) { showSection("invalid-section"); return; }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/email/preferences?token=${encodeURIComponent(token)}`);
+        if (res.status === 401) {
+          const body = await res.json();
+          showSection(body.expired ? "expired-section" : "invalid-section");
+          return;
+        }
+        if (!res.ok) { showSection("invalid-section"); return; }
+
+        const { preferences } = await res.json();
+        document.getElementById("pref-newsletter").checked = preferences.newsletter !== false;
+        document.getElementById("pref-weekly-digest").checked = preferences.weekly_digest !== false;
+        document.getElementById("pref-course-updates").checked = preferences.course_updates !== false;
+        showSection("prefs-section");
+      } catch {
+        showSection("invalid-section");
+      }
+    }
+
+    async function savePreferences() {
+      const token = getToken();
+      const btn = document.getElementById("btn-save");
+      const toastEl = document.getElementById("toast");
+      const errEl = document.getElementById("save-error");
+
+      btn.disabled = true;
+      errEl.textContent = "";
+      toastEl.classList.remove("show");
+
+      try {
+        const res = await fetch(`${API_BASE}/api/email/preferences`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            newsletter: document.getElementById("pref-newsletter").checked,
+            weekly_digest: document.getElementById("pref-weekly-digest").checked,
+            course_updates: document.getElementById("pref-course-updates").checked,
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          errEl.textContent = body.error || "Something went wrong. Please try again.";
+          return;
+        }
+
+        toastEl.classList.add("show");
+        setTimeout(() => toastEl.classList.remove("show"), 3000);
+      } catch {
+        errEl.textContent = "Network error. Please try again.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function sendResendLink() {
+      const email = document.getElementById("resend-email").value.trim();
+      const btn = document.getElementById("btn-resend");
+      const errEl = document.getElementById("resend-error");
+      const successEl = document.getElementById("resend-success");
+
+      if (!email || !email.includes("@")) {
+        errEl.textContent = "Please enter a valid email address.";
+        return;
+      }
+
+      btn.disabled = true;
+      errEl.textContent = "";
+      successEl.style.display = "none";
+
+      try {
+        const res = await fetch(`${API_BASE}/api/email/preferences/send-link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          errEl.textContent = body.error || "Failed to send link. Please try again.";
+          btn.disabled = false;
+          return;
+        }
+
+        successEl.style.display = "block";
+      } catch {
+        errEl.textContent = "Network error. Please try again.";
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("btn-save").addEventListener("click", savePreferences);
+    document.getElementById("btn-resend").addEventListener("click", sendResendLink);
+    document.getElementById("resend-email").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendResendLink();
+    });
+
+    loadPreferences();
+  </script>
+</body>
+</html>
