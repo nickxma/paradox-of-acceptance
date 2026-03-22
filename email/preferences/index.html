@@ -48,6 +48,16 @@
       line-height: 1.3;
     }
 
+    h2 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #888;
+      margin: 36px 0 12px;
+    }
+
     .subtitle {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
       font-size: 15px;
@@ -56,6 +66,7 @@
       line-height: 1.6;
     }
 
+    /* ── Toggle switches (notification types) ── */
     .prefs-list {
       list-style: none;
       border-top: 1px solid #e2ddd6;
@@ -124,6 +135,172 @@
 
     .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
 
+    /* ── Digest Topics (channel checkboxes) ── */
+    .digest-topics-section {
+      margin-top: 8px;
+    }
+
+    .digest-topics-note {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .channels-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid #e2ddd6;
+      padding-top: 16px;
+    }
+
+    .channel-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px;
+      border: 1px solid #d0ccc7;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #555;
+      background: #fff;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+      user-select: none;
+    }
+
+    .channel-chip input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .channel-chip.selected {
+      border-color: #7d8c6e;
+      background: #eef2eb;
+      color: #4a5c3e;
+    }
+
+    .channel-chip .check-icon {
+      display: none;
+      width: 13px;
+      height: 13px;
+    }
+
+    .channel-chip.selected .check-icon { display: inline; }
+
+    .channels-loading {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #aaa;
+      padding-top: 16px;
+    }
+
+    /* Preview button */
+    .digest-actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-preview {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      color: #7d8c6e;
+      border: 1px solid #7d8c6e;
+      border-radius: 4px;
+      padding: 9px 18px;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .btn-preview:hover { background: #eef2eb; }
+    .btn-preview:disabled { opacity: 0.5; cursor: default; }
+
+    /* Preview modal */
+    .preview-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+    }
+
+    .preview-modal-overlay.visible { display: flex; }
+
+    .preview-modal {
+      background: #faf8f4;
+      border-radius: 6px;
+      width: 100%;
+      max-width: 680px;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+
+    .preview-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2ddd6;
+    }
+
+    .preview-modal-header h3 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      margin: 0;
+    }
+
+    .btn-close-preview {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #888;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .btn-close-preview:hover { color: #2c2c2c; }
+
+    .preview-modal-body {
+      padding: 0;
+      overflow: hidden;
+      border-radius: 0 0 6px 6px;
+    }
+
+    .preview-modal-body iframe {
+      display: block;
+      width: 100%;
+      min-height: 480px;
+      border: none;
+    }
+
+    .preview-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #888;
+    }
+
+    /* ── Shared action row ── */
     .save-row {
       margin-top: 32px;
       display: flex;
@@ -239,6 +416,8 @@
       <h1>Email preferences</h1>
       <p class="subtitle">Choose what you'd like to receive. Changes take effect immediately.</p>
 
+      <h2>Notification types</h2>
+
       <ul class="prefs-list">
         <li class="pref-item">
           <div class="pref-label">
@@ -254,7 +433,7 @@
         <li class="pref-item">
           <div class="pref-label">
             <strong>Weekly Digest</strong>
-            <span>A short weekly round-up of reflections, links, and practice notes.</span>
+            <span>A short weekly round-up of top community discussions.</span>
           </div>
           <label class="toggle">
             <input type="checkbox" id="pref-weekly-digest" />
@@ -274,6 +453,21 @@
           </label>
         </li>
       </ul>
+
+      <!-- Digest Topics -->
+      <h2>Digest topics</h2>
+      <div class="digest-topics-section">
+        <p class="digest-topics-note">
+          We will only include posts from your selected topics in your weekly digest.
+          Select at least one topic to keep receiving digests.
+        </p>
+        <div id="channels-container">
+          <p class="channels-loading">Loading topics…</p>
+        </div>
+        <div class="digest-actions">
+          <button class="btn-preview" id="btn-preview" type="button">Preview my digest</button>
+        </div>
+      </div>
 
       <div class="save-row">
         <button class="btn-save" id="btn-save">Save preferences</button>
@@ -303,8 +497,26 @@
     </section>
   </main>
 
+  <!-- Digest preview modal -->
+  <div class="preview-modal-overlay" id="preview-modal-overlay">
+    <div class="preview-modal">
+      <div class="preview-modal-header">
+        <h3>Digest preview — based on your current selections</h3>
+        <button class="btn-close-preview" id="btn-close-preview" type="button" aria-label="Close preview">×</button>
+      </div>
+      <div class="preview-modal-body">
+        <div class="preview-loading" id="preview-loading">Loading preview…</div>
+        <iframe id="preview-iframe" style="display:none;" title="Digest preview"></iframe>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = "https://paradoxofacceptance.xyz";
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    // Maps slug → true/false (whether selected)
+    const channelSelections = {};
 
     function getToken() {
       return new URLSearchParams(window.location.search).get("token") || "";
@@ -324,6 +536,87 @@
       });
     }
 
+    // ── Channel chips ──────────────────────────────────────────────────────────
+
+    function renderChannels(channels, savedSlugs) {
+      const container = document.getElementById("channels-container");
+      if (!container) return;
+
+      // Determine which are selected: if savedSlugs is null or empty, all are selected
+      const allSelected = !savedSlugs || savedSlugs.length === 0;
+
+      const grid = document.createElement("div");
+      grid.className = "channels-grid";
+
+      for (const ch of channels) {
+        const isSelected = allSelected || savedSlugs.includes(ch.slug);
+        channelSelections[ch.slug] = isSelected;
+
+        const chip = document.createElement("label");
+        chip.className = "channel-chip" + (isSelected ? " selected" : "");
+        chip.dataset.slug = ch.slug;
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = isSelected;
+        checkbox.dataset.slug = ch.slug;
+
+        const checkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        checkIcon.setAttribute("viewBox", "0 0 12 12");
+        checkIcon.setAttribute("fill", "none");
+        checkIcon.setAttribute("stroke", "currentColor");
+        checkIcon.setAttribute("stroke-width", "2");
+        checkIcon.setAttribute("stroke-linecap", "round");
+        checkIcon.setAttribute("stroke-linejoin", "round");
+        checkIcon.classList.add("check-icon");
+        const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        polyline.setAttribute("points", "2,6 5,9 10,3");
+        checkIcon.appendChild(polyline);
+
+        const label = document.createTextNode(ch.name);
+
+        chip.appendChild(checkbox);
+        chip.appendChild(checkIcon);
+        chip.appendChild(label);
+
+        chip.addEventListener("click", (e) => {
+          e.preventDefault();
+          const slug = chip.dataset.slug;
+          channelSelections[slug] = !channelSelections[slug];
+          checkbox.checked = channelSelections[slug];
+          chip.classList.toggle("selected", channelSelections[slug]);
+        });
+
+        grid.appendChild(chip);
+      }
+
+      container.innerHTML = "";
+      container.appendChild(grid);
+    }
+
+    async function loadChannels(savedSlugs) {
+      try {
+        const res = await fetch(`${API_BASE}/api/channels`);
+        if (!res.ok) throw new Error("channels fetch failed");
+        const { channels } = await res.json();
+        renderChannels(channels, savedSlugs);
+      } catch {
+        // Fall back to known channels
+        const fallback = [
+          { slug: "general", name: "General" },
+          { slug: "meditation", name: "Meditation" },
+          { slug: "breathwork", name: "Breathwork" },
+          { slug: "philosophy", name: "Philosophy" },
+          { slug: "daily-practice", name: "Daily Practice" },
+          { slug: "resources", name: "Resources" },
+          { slug: "introductions", name: "Introductions" },
+        ];
+        renderChannels(fallback, savedSlugs);
+      }
+    }
+
+    // ── Load preferences ───────────────────────────────────────────────────────
+
     async function loadPreferences() {
       const token = getToken();
       if (!token) { showSection("invalid-section"); return; }
@@ -341,10 +634,25 @@
         document.getElementById("pref-newsletter").checked = preferences.newsletter !== false;
         document.getElementById("pref-weekly-digest").checked = preferences.weekly_digest !== false;
         document.getElementById("pref-course-updates").checked = preferences.course_updates !== false;
+
+        await loadChannels(preferences.digest_channels ?? null);
+
         showSection("prefs-section");
       } catch {
         showSection("invalid-section");
       }
+    }
+
+    // ── Save preferences ───────────────────────────────────────────────────────
+
+    function getSelectedChannels() {
+      const selected = Object.entries(channelSelections)
+        .filter(([, v]) => v)
+        .map(([slug]) => slug);
+      // If all channels selected (or none), send null (all)
+      const allSlugs = Object.keys(channelSelections);
+      if (selected.length === 0 || selected.length === allSlugs.length) return null;
+      return selected;
     }
 
     async function savePreferences() {
@@ -366,6 +674,7 @@
             newsletter: document.getElementById("pref-newsletter").checked,
             weekly_digest: document.getElementById("pref-weekly-digest").checked,
             course_updates: document.getElementById("pref-course-updates").checked,
+            digest_channels: getSelectedChannels(),
           }),
         });
 
@@ -383,6 +692,59 @@
         btn.disabled = false;
       }
     }
+
+    // ── Digest preview ─────────────────────────────────────────────────────────
+
+    async function openPreview() {
+      const token = getToken();
+      const overlay = document.getElementById("preview-modal-overlay");
+      const iframe = document.getElementById("preview-iframe");
+      const loadingEl = document.getElementById("preview-loading");
+
+      overlay.classList.add("visible");
+      iframe.style.display = "none";
+      loadingEl.style.display = "flex";
+
+      const selected = Object.entries(channelSelections)
+        .filter(([, v]) => v)
+        .map(([slug]) => slug);
+      const channelsParam = selected.length > 0 ? `&channels=${encodeURIComponent(selected.join(","))}` : "";
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/email/preferences/digest-preview?token=${encodeURIComponent(token)}${channelsParam}`
+        );
+
+        if (!res.ok) {
+          loadingEl.textContent = "Could not load preview.";
+          return;
+        }
+
+        const { html } = await res.json();
+        iframe.srcdoc = html;
+        iframe.style.display = "block";
+        loadingEl.style.display = "none";
+
+        // Auto-resize iframe once content loads
+        iframe.onload = () => {
+          try {
+            const h = iframe.contentDocument.body.scrollHeight;
+            if (h > 100) iframe.style.minHeight = h + "px";
+          } catch {}
+        };
+      } catch {
+        loadingEl.textContent = "Could not load preview.";
+      }
+    }
+
+    function closePreview() {
+      const overlay = document.getElementById("preview-modal-overlay");
+      const iframe = document.getElementById("preview-iframe");
+      overlay.classList.remove("visible");
+      iframe.srcdoc = "";
+    }
+
+    // ── Resend link ────────────────────────────────────────────────────────────
 
     async function sendResendLink() {
       const email = document.getElementById("resend-email").value.trim();
@@ -420,7 +782,14 @@
       }
     }
 
+    // ── Event listeners ────────────────────────────────────────────────────────
+
     document.getElementById("btn-save").addEventListener("click", savePreferences);
+    document.getElementById("btn-preview").addEventListener("click", openPreview);
+    document.getElementById("btn-close-preview").addEventListener("click", closePreview);
+    document.getElementById("preview-modal-overlay").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closePreview();
+    });
     document.getElementById("btn-resend").addEventListener("click", sendResendLink);
     document.getElementById("resend-email").addEventListener("keydown", (e) => {
       if (e.key === "Enter") sendResendLink();

@@ -31,6 +31,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import PDFDocument from "pdfkit";
 import { readFileSync, existsSync } from "fs";
+import OpenAI from "openai";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
@@ -55,12 +56,20 @@ const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 const CONVERGENCE_MVP_URL = (process.env.CONVERGENCE_MVP_URL ?? "").replace(/\/$/, "");
 const CONVERGENCE_ADMIN_WALLET = process.env.CONVERGENCE_ADMIN_WALLET ?? "";
 const PREFERENCES_JWT_SECRET = process.env.PREFERENCES_JWT_SECRET;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ─── Supabase (optional — for send log) ──────────────────────────────────────
 
 let supabase: SupabaseClient | null = null;
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+// ─── OpenAI (optional — for essay embeddings) ────────────────────────────────
+
+let openaiClient: OpenAI | null = null;
+if (OPENAI_API_KEY) {
+  openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY });
 }
 
 // Validate required config at startup
@@ -91,6 +100,9 @@ function validateConfig() {
   }
   if (!PREFERENCES_JWT_SECRET) {
     console.warn("⚠️  PREFERENCES_JWT_SECRET not set — /api/email/preferences endpoints will return 503");
+  }
+  if (!OPENAI_API_KEY) {
+    console.warn("⚠️  OPENAI_API_KEY not set — essay embeddings and related essays will use tag-based fallback only");
   }
 }
 
@@ -1479,6 +1491,236 @@ app.get("/api/essays/stats", requireAdminSecret, async (_req: Request, res: Resp
   res.json({ essays });
 });
 
+// ─── Essay embedding helpers ──────────────────────────────────────────────────
+
+interface RelatedEssay {
+  slug: string;
+  title: string;
+  description: string | null;
+  kicker: string | null;
+  read_time: string | null;
+  path: string;
+  tags: string[];
+  similarity?: number;
+}
+
+/** Generate a text-embedding-3-small vector for the given text. */
+async function generateEssayEmbedding(text: string): Promise<number[] | null> {
+  if (!openaiClient) return null;
+  const response = await openaiClient.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+    dimensions: 1536,
+  });
+  if (supabase) {
+    const usage = response.usage;
+    await supabase.from("openai_usage").insert({
+      model: "text-embedding-3-small",
+      operation: "essay_embedding",
+      prompt_tokens: usage.prompt_tokens,
+      completion_tokens: 0,
+      total_tokens: usage.total_tokens,
+    });
+  }
+  return response.data[0].embedding;
+}
+
+/** Store or update an embedding for an essay slug. */
+async function upsertEssayEmbedding(slug: string, bodyMarkdown: string): Promise<void> {
+  if (!supabase) return;
+  const embedding = await generateEssayEmbedding(bodyMarkdown);
+  if (!embedding) return;
+  const { error } = await supabase.from("essay_embeddings").upsert(
+    { essay_slug: slug, embedding: JSON.stringify(embedding), generated_at: new Date().toISOString() },
+    { onConflict: "essay_slug" }
+  );
+  if (error) {
+    console.error(`[embeddings] upsert error for ${slug}:`, error);
+  }
+  // Bust the related cache for this essay and any essay that cached it
+  await supabase.from("related_essays_cache").delete().eq("slug", slug);
+}
+
+/** Tag-based fallback: return essays sharing >= 2 tags with the given slug. */
+async function tagBasedRelatedEssays(slug: string, limit: number): Promise<RelatedEssay[]> {
+  if (!supabase) return [];
+  // Fetch tags for the source essay
+  const { data: src } = await supabase
+    .from("essays")
+    .select("tags")
+    .eq("slug", slug)
+    .single();
+
+  if (!src?.tags?.length) return [];
+
+  // Fetch all other published essays
+  const { data: others } = await supabase
+    .from("essays")
+    .select("slug, title, description, kicker, read_time, path, tags")
+    .neq("slug", slug)
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString());
+
+  if (!others) return [];
+
+  // Score by shared tags
+  const scored = others
+    .map((e) => {
+      const shared = (e.tags as string[]).filter((t: string) => (src.tags as string[]).includes(t)).length;
+      return { ...e, sharedTags: shared };
+    })
+    .filter((e) => e.sharedTags >= 2)
+    .sort((a, b) => b.sharedTags - a.sharedTags)
+    .slice(0, limit);
+
+  return scored.map(({ sharedTags: _st, ...rest }) => rest as RelatedEssay);
+}
+
+/** Compute related essays for a slug using vector similarity (with tag fallback). */
+async function computeRelatedEssays(slug: string): Promise<RelatedEssay[]> {
+  if (!supabase) return [];
+
+  // Check if embeddings exist for this slug
+  const { data: srcEmb } = await supabase
+    .from("essay_embeddings")
+    .select("essay_slug")
+    .eq("essay_slug", slug)
+    .maybeSingle();
+
+  if (srcEmb) {
+    const { data, error } = await supabase.rpc("find_related_essays", {
+      p_slug: slug,
+      p_limit: 4,
+    });
+    if (!error && data && (data as RelatedEssay[]).length >= 2) {
+      return data as RelatedEssay[];
+    }
+  }
+
+  // Fallback to tag-based
+  return tagBasedRelatedEssays(slug, 4);
+}
+
+// ─── GET /api/essays/:slug/related ───────────────────────────────────────────
+
+/**
+ * GET /api/essays/:slug/related
+ *
+ * Returns up to 4 related essays for the given slug.
+ * Uses pgvector cosine similarity when embeddings exist; falls back to tag
+ * overlap (>= 2 shared tags). Results cached in related_essays_cache for 24h.
+ *
+ * No auth required — called from public essay pages.
+ */
+
+app.options("/api/essays/:slug/related", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.sendStatus(204);
+});
+
+app.get("/api/essays/:slug/related", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  const { slug } = req.params;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    res.status(400).json({ error: "Invalid slug" });
+    return;
+  }
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+  // Check cache
+  const { data: cached } = await supabase
+    .from("related_essays_cache")
+    .select("related, generated_at")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (
+    cached?.related &&
+    Date.now() - new Date(cached.generated_at as string).getTime() < CACHE_TTL_MS
+  ) {
+    res.json({ essays: cached.related, source: "cache" });
+    return;
+  }
+
+  // Compute fresh results
+  const related = await computeRelatedEssays(slug);
+
+  // Write cache
+  await supabase.from("related_essays_cache").upsert(
+    { slug, related, generated_at: new Date().toISOString() },
+    { onConflict: "slug" }
+  );
+
+  res.json({ essays: related, source: "computed" });
+});
+
+// ─── POST /api/admin/essays/seed-embeddings ───────────────────────────────────
+
+/**
+ * POST /api/admin/essays/seed-embeddings
+ *
+ * Background job: generates embeddings for all published essays that don't
+ * have one yet. Batches calls with a 1s delay between them to respect OpenAI
+ * rate limits. Safe to call multiple times (idempotent — skips existing embeddings).
+ *
+ * Auth: X-Admin-Secret header.
+ * Response: immediate acknowledgement; processing continues in background.
+ */
+app.post("/api/admin/essays/seed-embeddings", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  if (!openaiClient) {
+    res.status(503).json({ error: "OPENAI_API_KEY not configured" });
+    return;
+  }
+
+  // Fetch all published essays with body_markdown
+  const { data: essays, error } = await supabase
+    .from("essays")
+    .select("slug, body_markdown")
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString());
+
+  if (error || !essays) {
+    res.status(500).json({ error: "Failed to fetch essays" });
+    return;
+  }
+
+  // Acknowledge immediately; run generation in background
+  res.json({ ok: true, total: essays.length, message: "Embedding generation started in background" });
+
+  for (const essay of essays as Array<{ slug: string; body_markdown: string | null }>) {
+    if (!essay.body_markdown) continue;
+
+    // Skip if embedding already exists
+    const { data: existing } = await supabase
+      .from("essay_embeddings")
+      .select("essay_slug")
+      .eq("essay_slug", essay.slug)
+      .maybeSingle();
+
+    if (existing) continue;
+
+    await upsertEssayEmbedding(essay.slug, essay.body_markdown);
+    console.log(`[seed-embeddings] Generated embedding for: ${essay.slug}`);
+
+    // Rate-limit friendly: 1s between calls
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+
+  console.log("[seed-embeddings] Done");
+});
+
 // ─── GET /api/admin/essays  ───────────────────────────────────────────────────
 
 /**
@@ -1650,6 +1892,13 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
 
   if (!data) {
     return res.status(404).json({ error: "Essay not found" });
+  }
+
+  // Regenerate embedding in background when body_markdown changed
+  if (body.body_markdown) {
+    upsertEssayEmbedding(slug, body.body_markdown).catch((err) =>
+      console.error("[admin/essays] embedding regen error:", err)
+    );
   }
 
   res.json({ essay: data });
@@ -1868,7 +2117,7 @@ app.get("/api/email/preferences", async (req: Request, res: Response) => {
   }
 
   const email = result.email;
-  const defaults = { weekly_digest: true, newsletter: true, course_updates: true };
+  const defaults = { weekly_digest: true, newsletter: true, course_updates: true, digest_channels: null as string[] | null };
 
   if (!supabase) {
     res.json({ email, preferences: defaults });
@@ -1877,7 +2126,7 @@ app.get("/api/email/preferences", async (req: Request, res: Response) => {
 
   const { data, error } = await supabase
     .from("subscriber_preferences")
-    .select("weekly_digest, newsletter, course_updates")
+    .select("weekly_digest, newsletter, course_updates, digest_channels")
     .eq("subscriber_id", email)
     .maybeSingle();
 
@@ -1893,18 +2142,20 @@ app.get("/api/email/preferences", async (req: Request, res: Response) => {
 /**
  * PATCH /api/email/preferences
  *
- * Body: { token, weekly_digest, newsletter, course_updates }
+ * Body: { token, weekly_digest, newsletter, course_updates, digest_channels }
  * Upserts preferences for the subscriber identified by the JWT.
+ * digest_channels: string[] of channel slugs to include in digest, or null for all.
  */
 app.patch("/api/email/preferences", async (req: Request, res: Response) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (!requirePreferencesSecret(res)) return;
 
-  const { token, weekly_digest, newsletter, course_updates } = req.body as {
+  const { token, weekly_digest, newsletter, course_updates, digest_channels } = req.body as {
     token?: string;
     weekly_digest?: boolean;
     newsletter?: boolean;
     course_updates?: boolean;
+    digest_channels?: string[] | null;
   };
 
   if (!token) {
@@ -1920,10 +2171,11 @@ app.patch("/api/email/preferences", async (req: Request, res: Response) => {
 
   const email = result.email;
 
-  const updates: Record<string, boolean> = {};
+  const updates: Record<string, boolean | string[] | null> = {};
   if (typeof weekly_digest === "boolean") updates.weekly_digest = weekly_digest;
   if (typeof newsletter === "boolean") updates.newsletter = newsletter;
   if (typeof course_updates === "boolean") updates.course_updates = course_updates;
+  if (digest_channels !== undefined) updates.digest_channels = digest_channels;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No preference fields provided" });
@@ -1949,6 +2201,229 @@ app.patch("/api/email/preferences", async (req: Request, res: Response) => {
   console.log(`[preferences] Updated for ${email}:`, updates);
   res.json({ ok: true, email, preferences: updates });
 });
+
+// ─── GET /api/channels ────────────────────────────────────────────────────────
+
+// Known channels (seed data from OLU-409) — used as fallback when Supabase is unavailable
+const KNOWN_CHANNELS = [
+  { slug: "general", name: "General" },
+  { slug: "meditation", name: "Meditation" },
+  { slug: "breathwork", name: "Breathwork" },
+  { slug: "philosophy", name: "Philosophy" },
+  { slug: "daily-practice", name: "Daily Practice" },
+  { slug: "resources", name: "Resources" },
+  { slug: "introductions", name: "Introductions" },
+];
+
+app.options("/api/channels", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+/**
+ * GET /api/channels
+ *
+ * Returns all community channels (slug, name). Used by the email preference
+ * center to populate the Digest Topics channel checkboxes.
+ * Falls back to KNOWN_CHANNELS if Supabase is unavailable.
+ */
+app.get("/api/channels", async (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    return res.json({ channels: KNOWN_CHANNELS });
+  }
+
+  const { data, error } = await supabase
+    .from("channels")
+    .select("slug, name")
+    .order("display_order", { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    return res.json({ channels: KNOWN_CHANNELS });
+  }
+
+  return res.json({ channels: data });
+});
+
+// ─── GET /api/email/preferences/digest-preview ───────────────────────────────
+
+app.options("/api/email/preferences/digest-preview", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+/**
+ * GET /api/email/preferences/digest-preview?token={jwt}&channels=slug1,slug2
+ *
+ * Returns a rendered HTML preview of what the subscriber's next weekly digest
+ * would look like based on the provided channel selection.
+ *
+ * channels: comma-separated channel slugs. If empty or omitted, shows all channels.
+ */
+app.get("/api/email/preferences/digest-preview", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!requirePreferencesSecret(res)) return;
+
+  const { token, channels: channelsParam } = req.query as { token?: string; channels?: string };
+  if (!token) {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+
+  const result = verifyPreferencesToken(token);
+  if (!result.ok) {
+    res.status(401).json({ error: "Invalid or expired token", expired: result.expired });
+    return;
+  }
+
+  const selectedSlugs = channelsParam
+    ? channelsParam.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const windowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  let posts: Array<{ title: string; slug: string; excerpt: string | null; reply_count: number }> = [];
+
+  if (supabase) {
+    try {
+      if (selectedSlugs.length === 0) {
+        // All channels — no channel filter
+        const { data } = await supabase
+          .from("community_posts")
+          .select("title, slug, excerpt, reply_count")
+          .gte("created_at", windowStart)
+          .eq("published", true)
+          .order("reply_count", { ascending: false })
+          .limit(3);
+        posts = data ?? [];
+      } else {
+        // Resolve channel slugs to IDs, then filter posts
+        const { data: channelRows } = await supabase
+          .from("channels")
+          .select("id, slug")
+          .in("slug", selectedSlugs);
+
+        const channelIds = (channelRows ?? []).map((c: { id: string }) => c.id);
+
+        if (channelIds.length > 0) {
+          const { data } = await supabase
+            .from("community_posts")
+            .select("title, slug, excerpt, reply_count")
+            .gte("created_at", windowStart)
+            .eq("published", true)
+            .in("channel_id", channelIds)
+            .order("reply_count", { ascending: false })
+            .limit(3);
+          posts = data ?? [];
+        }
+      }
+    } catch {
+      // Non-fatal — return empty preview
+    }
+  }
+
+  const weekLabel = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const html = buildDigestPreviewHtml({ posts, weekLabel, selectedSlugs });
+  return res.json({ html, postCount: posts.length });
+});
+
+function escapeHtmlStr(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildDigestPreviewHtml({
+  posts,
+  weekLabel,
+  selectedSlugs,
+}: {
+  posts: Array<{ title: string; slug: string; excerpt: string | null; reply_count: number }>;
+  weekLabel: string;
+  selectedSlugs: string[];
+}): string {
+  const SITE_URL = "https://paradoxofacceptance.xyz";
+
+  const channelNote =
+    selectedSlugs.length > 0
+      ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#7d8c6e;background:#f0ede6;padding:10px 14px;border-radius:4px;">
+          Preview filtered to: ${selectedSlugs.map(escapeHtmlStr).join(", ")}
+        </p>`
+      : "";
+
+  const postsHtml =
+    posts.length === 0
+      ? `<p style="font-family:system-ui,-apple-system,sans-serif;font-size:15px;color:#888;font-style:italic;">
+          No posts in the past 7 days for the selected channels.
+        </p>`
+      : posts
+          .map(
+            (post, i) => `
+          <div style="margin-bottom:28px;padding-bottom:24px;${i < posts.length - 1 ? "border-bottom:1px solid #e8e4dc;" : ""}">
+            <a href="${SITE_URL}/community/${escapeHtmlStr(post.slug)}"
+               style="font-family:system-ui,-apple-system,sans-serif;font-size:17px;font-weight:600;color:#2c2c2c;text-decoration:none;">
+              ${escapeHtmlStr(post.title)}
+            </a>
+            ${post.excerpt ? `<p style="margin:8px 0 0;font-size:16px;line-height:1.6;color:#555;">${escapeHtmlStr(post.excerpt)}</p>` : ""}
+            <p style="margin:8px 0 0;font-size:14px;color:#888;">
+              ${post.reply_count} ${post.reply_count === 1 ? "reply" : "replies"}
+            </p>
+          </div>`
+          )
+          .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digest Preview</title>
+</head>
+<body style="margin:0;padding:0;background-color:#faf8f4;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#faf8f4;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:600px;" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding-bottom:24px;border-bottom:2px solid #7d8c6e;">
+            <p style="margin:0 0 6px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7d8c6e;">
+              Paradox of Acceptance
+            </p>
+            <h1 style="margin:0 0 4px;font-family:Georgia,serif;font-size:22px;font-weight:normal;color:#2c2c2c;">
+              This Week in the Community
+            </h1>
+            <p style="margin:0;font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#888;">
+              ${escapeHtmlStr(weekLabel)}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top:28px;">
+            ${channelNote}
+            <h2 style="font-family:system-ui,-apple-system,sans-serif;font-size:16px;font-weight:600;color:#2c2c2c;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #7d8c6e;">
+              Top Discussions
+            </h2>
+            ${postsHtml}
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
 
 /**
  * POST /api/email/preferences/send-link
