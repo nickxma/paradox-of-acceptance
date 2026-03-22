@@ -750,7 +750,7 @@ async function runCsvImport(
  * Safe to call for existing subscribers — Resend deduplicates by email.
  */
 app.post("/api/subscribe", async (req: Request, res: Response) => {
-  const { email, firstName } = req.body as { email?: string; firstName?: string };
+  const { email, firstName, source } = req.body as { email?: string; firstName?: string; source?: string };
 
   if (!email || !email.includes("@")) {
     res.status(400).json({ error: "Valid email is required" });
@@ -773,7 +773,8 @@ app.post("/api/subscribe", async (req: Request, res: Response) => {
   }
 
   const token = generateUnsubscribeToken(email);
-  console.log(`[subscribe] ${email} added to audience`);
+  const safeSource = source ? ` [source: ${source}]` : "";
+  console.log(`[subscribe] ${email} added to audience${safeSource}`);
 
   // Send welcome email (non-blocking — don't delay the response)
   sendWelcomeEmail(resend, email.toLowerCase().trim(), firstName).catch((err) => {
@@ -4712,6 +4713,154 @@ app.get("/api/admin/email/import-csv/status/:jobId", requireAdminSecret, (req: R
   }
   res.json(job);
 });
+
+// ─── About Page API ───────────────────────────────────────────────────────────
+//
+// GET  /api/about            — public; returns about page content
+// PATCH /api/admin/about     — admin; update about page content (+ optional photo)
+
+const aboutPhotoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are accepted"));
+    }
+  },
+});
+
+// CORS pre-flight for public about endpoint (called from static page)
+app.options("/api/about", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+/**
+ * GET /api/about
+ *
+ * Public. Returns the current about page content from Supabase.
+ * Returns an empty object with default fields if no row exists yet.
+ */
+app.get("/api/about", async (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!supabase) {
+    return res.json({ about: null });
+  }
+  const { data, error } = await supabase
+    .from("about_page")
+    .select("photo_url, tagline, bio_markdown, twitter_url, linkedin_url, contact_email, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("[api/about] Supabase error:", error);
+    return res.status(500).json({ error: "Failed to load about page" });
+  }
+  res.json({ about: data ?? null });
+});
+
+/**
+ * PATCH /api/admin/about
+ *
+ * Admin. Updates the about page content. Accepts multipart/form-data so an
+ * optional photo can be included. Non-photo fields are plain text form fields.
+ *
+ * Form fields (all optional):
+ *   photo       — image file (JPEG/PNG/WebP)
+ *   tagline     — one-line tagline
+ *   bio_markdown — full bio in Markdown
+ *   twitter_url  — Twitter/X profile URL
+ *   linkedin_url — LinkedIn profile URL
+ *   contact_email — public contact email
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.options("/api/admin/about", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Secret");
+  res.sendStatus(204);
+});
+
+app.patch(
+  "/api/admin/about",
+  requireAdminSecret,
+  aboutPhotoUpload.single("photo"),
+  async (req: Request, res: Response) => {
+    if (!supabase) {
+      return res.status(503).json({ error: "Supabase not configured" });
+    }
+
+    const { tagline, bio_markdown, twitter_url, linkedin_url, contact_email } = req.body as {
+      tagline?: string;
+      bio_markdown?: string;
+      twitter_url?: string;
+      linkedin_url?: string;
+      contact_email?: string;
+    };
+
+    // Handle optional photo upload to Supabase Storage
+    let photo_url: string | undefined;
+    if (req.file) {
+      const ext = req.file.originalname.split(".").pop() ?? "jpg";
+      const filePath = `profile.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("about")
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true,
+        });
+      if (uploadError) {
+        console.error("[admin/about] Storage upload error:", uploadError);
+        return res.status(500).json({ error: "Photo upload failed" });
+      }
+      const { data: urlData } = supabase.storage.from("about").getPublicUrl(filePath);
+      photo_url = urlData.publicUrl;
+    }
+
+    // Fetch existing row to upsert correctly
+    const { data: existing } = await supabase
+      .from("about_page")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    const payload: Record<string, unknown> = {};
+    if (tagline !== undefined) payload.tagline = tagline;
+    if (bio_markdown !== undefined) payload.bio_markdown = bio_markdown;
+    if (twitter_url !== undefined) payload.twitter_url = twitter_url || null;
+    if (linkedin_url !== undefined) payload.linkedin_url = linkedin_url || null;
+    if (contact_email !== undefined) payload.contact_email = contact_email || null;
+    if (photo_url !== undefined) payload.photo_url = photo_url;
+
+    let result;
+    if (existing?.id) {
+      result = await supabase
+        .from("about_page")
+        .update(payload)
+        .eq("id", existing.id)
+        .select("photo_url, tagline, bio_markdown, twitter_url, linkedin_url, contact_email, updated_at")
+        .single();
+    } else {
+      result = await supabase
+        .from("about_page")
+        .insert(payload)
+        .select("photo_url, tagline, bio_markdown, twitter_url, linkedin_url, contact_email, updated_at")
+        .single();
+    }
+
+    if (result.error) {
+      console.error("[admin/about] Supabase error:", result.error);
+      return res.status(500).json({ error: "Failed to save about page" });
+    }
+
+    res.json({ about: result.data });
+  }
+);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
