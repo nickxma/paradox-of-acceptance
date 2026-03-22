@@ -1,12 +1,46 @@
 import React from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import * as Sentry from '@sentry/react';
 import { useMembershipStatus } from './hooks/useMembershipStatus.js';
 import MintFlow from './components/MintFlow.jsx';
 import MembersArea from './components/MembersArea.jsx';
 import Nav from './components/Nav.jsx';
 import Footer from './components/Footer.jsx';
 
+function AppErrorFallback({ error, resetError }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+      <h2 style={{ marginBottom: '12px', fontSize: '20px', fontWeight: 600 }}>Something went wrong</h2>
+      <p style={{ marginBottom: '24px', color: '#666', fontSize: '14px' }}>
+        This error has been reported. Please try again.
+      </p>
+      <button
+        onClick={resetError}
+        style={{
+          padding: '8px 20px',
+          background: '#111',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '14px',
+        }}
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
+const AppWithErrorBoundary = Sentry.withErrorBoundary(AppInner, {
+  fallback: AppErrorFallback,
+});
+
 export default function App() {
+  return <AppWithErrorBoundary />;
+}
+
+function AppInner() {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets } = useWallets();
   const walletAddress = wallets?.[0]?.address;
