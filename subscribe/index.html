@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe — Paradox of Acceptance</title>
+<meta name="description" content="Essays and contemplative practice prompts for meditators navigating what mindfulness actually does to a person. Join 26,000 readers.">
+<meta property="og:title" content="Subscribe — Paradox of Acceptance" />
+<meta property="og:description" content="Essays and contemplative practice prompts for meditators navigating what mindfulness actually does to a person. Join 26,000 readers." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://paradoxofacceptance.xyz/subscribe/" />
+<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="/shared/design-tokens.css">
+<link rel="stylesheet" href="/shared/theme-mono.css">
+    <!-- Sentry error monitoring -->
+    <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+    <script src="/shared/sentry-init.js"></script>
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Minimal header ──────────────────────────────────────────────────────── */
+.header {
+  padding: 24px 280px;
+  border-bottom: 1px solid #EEEEEE;
+}
+.header-logo {
+  font-family: 'Newsreader', serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: #111;
+  text-decoration: none;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.hero {
+  padding: 80px 280px 64px;
+  text-align: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.hero-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.hero-headline {
+  font-family: 'Newsreader', serif;
+  font-size: 52px;
+  font-weight: 400;
+  color: #111;
+  line-height: 1.15;
+  margin-bottom: 20px;
+}
+.hero-value-prop {
+  font-size: 18px;
+  color: #555;
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto 40px;
+}
+
+/* ── Email capture ───────────────────────────────────────────────────────── */
+.capture-wrap {
+  max-width: 520px;
+  margin: 0 auto;
+}
+.capture-form {
+  display: flex;
+  border: 1.5px solid #DDD;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.capture-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  padding: 14px 18px;
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  color: #111;
+}
+.capture-input::placeholder { color: #BBB; }
+.capture-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 14px 28px;
+  background: #111;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.capture-btn:hover { background: #333; }
+.capture-btn:disabled { background: #666; cursor: default; }
+.capture-msg {
+  font-size: 13px;
+  margin-top: 12px;
+  min-height: 20px;
+  text-align: center;
+}
+.capture-msg.success { color: #22C55E; }
+.capture-msg.error { color: #DC2626; }
+.capture-privacy {
+  font-size: 12px;
+  color: #BBB;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* ── Social proof strip ──────────────────────────────────────────────────── */
+.proof-strip {
+  padding: 32px 280px;
+  background: #FAFAFA;
+  border-top: 1px solid #EEEEEE;
+  border-bottom: 1px solid #EEEEEE;
+}
+.proof-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+.proof-stat {
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+.proof-stat strong {
+  font-weight: 600;
+  color: #111;
+}
+.proof-sep {
+  font-size: 13px;
+  color: #CCC;
+  margin: 0 16px;
+}
+.proof-essays {
+  padding: 20px 280px;
+  border-bottom: 1px solid #EEEEEE;
+}
+.proof-essays-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.proof-essays-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.proof-essay-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.proof-essay-item a {
+  font-family: 'Newsreader', serif;
+  font-size: 17px;
+  color: #333;
+  text-decoration: none;
+  transition: color 0.15s;
+  display: block;
+  padding: 10px 16px;
+  border: 1px solid #EEEEEE;
+  border-radius: 4px;
+}
+.proof-essay-item a:hover { color: #111; background: #FAFAFA; }
+
+/* ── About section ───────────────────────────────────────────────────────── */
+.about-section {
+  padding: 64px 280px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.about-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+.about-photo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #E8E4DC;
+  flex-shrink: 0;
+  display: block;
+}
+.about-photo-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #E8E4DC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Newsreader', serif;
+  font-size: 32px;
+  color: #C4BDB0;
+  flex-shrink: 0;
+}
+.about-text-wrap {}
+.about-name {
+  font-family: 'Newsreader', serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: #111;
+  margin-bottom: 10px;
+}
+.about-bio {
+  font-size: 15px;
+  color: #555;
+  line-height: 1.7;
+}
+
+/* ── What readers get ────────────────────────────────────────────────────── */
+.benefits-section {
+  padding: 0 280px 64px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.benefits-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.benefits-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  padding-top: 40px;
+  border-top: 1px solid #EEEEEE;
+}
+.benefits-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.benefits-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.benefits-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #111;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+.benefits-text {
+  font-size: 16px;
+  color: #444;
+  line-height: 1.6;
+}
+
+/* ── Bottom CTA ──────────────────────────────────────────────────────────── */
+.bottom-cta {
+  padding: 80px 280px;
+  background: #FAFAFA;
+  border-top: 1px solid #EEEEEE;
+  text-align: center;
+}
+.bottom-cta-headline {
+  font-family: 'Newsreader', serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 12px;
+}
+.bottom-cta-sub {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 32px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 280px;
+  border-top: 1px solid #EEEEEE;
+}
+.footer-logo {
+  font-family: 'Newsreader', serif;
+  font-size: 16px;
+  color: #111;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links a {
+  font-size: 13px;
+  color: #666;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: #111; }
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .header,
+  .hero,
+  .proof-strip,
+  .proof-essays,
+  .about-section,
+  .benefits-section,
+  .bottom-cta,
+  .footer {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .hero-headline { font-size: 36px; }
+  .hero-value-prop { font-size: 16px; }
+  .capture-form { flex-direction: column; }
+  .capture-input { border-bottom: 1px solid #EEE; }
+  .capture-btn { width: 100%; text-align: center; }
+  .about-inner { flex-direction: column; gap: 20px; }
+  .about-photo, .about-photo-placeholder { width: 72px; height: 72px; font-size: 28px; }
+  .proof-inner { flex-direction: column; gap: 6px; }
+  .proof-sep { display: none; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-links { gap: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Minimal header — no nav distractions -->
+<header class="header">
+  <a href="/" class="header-logo">Paradox of Acceptance</a>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-kicker">Newsletter</div>
+  <h1 class="hero-headline">Stay with the questions</h1>
+  <p class="hero-value-prop">Essays and contemplative prompts for meditators navigating what practice actually does to a person — the strange side effects, the structural tensions, the questions nobody warned you about.</p>
+
+  <div class="capture-wrap">
+    <form class="capture-form" id="hero-form" onsubmit="handleSubscribe(event,'hero')">
+      <input class="capture-input" type="email" id="hero-email" placeholder="you@email.com" required autocomplete="email">
+      <button class="capture-btn" type="submit" id="hero-btn">Subscribe free</button>
+    </form>
+    <div class="capture-msg" id="hero-msg"></div>
+    <p class="capture-privacy">No spam. Unsubscribe any time.</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Social proof strip -->
+<div class="proof-strip">
+  <div class="proof-inner">
+    <span class="proof-stat"><strong id="proof-subscribers">26,000</strong> subscribers</span>
+    <span class="proof-sep">·</span>
+    <span class="proof-stat"><strong id="proof-essays">5</strong> essays published</span>
+    <span class="proof-sep">·</span>
+    <span class="proof-stat">Free to read and subscribe</span>
+  </div>
+</div>
+
+<!-- Recent essays -->
+<div class="proof-essays">
+  <div class="proof-essays-inner">
+    <div class="proof-essays-label">Recent essays</div>
+    <ul class="proof-essay-list" id="essay-list">
+      <li class="proof-essay-item"><a href="/mindfulness-essays/when-to-quit/">When to Quit: The Exit Conditions Mindfulness Never Names</a></li>
+      <li class="proof-essay-item"><a href="/mindfulness-essays/the-avoidance-problem/">The Avoidance Problem: When Meditation Becomes Evasion</a></li>
+      <li class="proof-essay-item"><a href="/mindfulness-essays/the-cherry-picking-problem/">The Cherry-Picking Problem: What Non-Dual Practice Costs</a></li>
+    </ul>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- Who Nick is -->
+<section class="about-section">
+  <div class="about-inner">
+    <div id="about-photo-wrap">
+      <div class="about-photo-placeholder" id="about-placeholder">N</div>
+    </div>
+    <div class="about-text-wrap">
+      <div class="about-name">Nick</div>
+      <div class="about-bio" id="about-bio">
+        Nick writes about the questions that serious meditation practice raises — the strange structural tensions, the beliefs that quietly dissolve, and the things that get harder before they get easier.
+        He's been practicing for over a decade, and has spent much of that time trying to understand what the tradition doesn't say out loud.
+        Paradox of Acceptance is where that thinking lives: essays, tools, and guided practices for people who want to go deeper than the wellness framing usually allows.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- What readers get -->
+<section class="benefits-section">
+  <div class="benefits-inner">
+    <div class="benefits-label">What you'll receive</div>
+    <ul class="benefits-list">
+      <li class="benefits-item">
+        <div class="benefits-dot"></div>
+        <div class="benefits-text"><strong>Essay drops</strong> — long-form writing on what mindfulness actually does to a person. No wellness platitudes. The weird stuff, the hard stuff, the stuff that changes how you see.</div>
+      </li>
+      <li class="benefits-item">
+        <div class="benefits-dot"></div>
+        <div class="benefits-text"><strong>Contemplative practice prompts</strong> — short, pointed invitations to look for yourself. Not guided meditations. Questions that don't resolve neatly.</div>
+      </li>
+      <li class="benefits-item">
+        <div class="benefits-dot"></div>
+        <div class="benefits-text"><strong>Mindfulness-meets-technology lens</strong> — honest writing about what it means to practice in a world shaped by attention engineering, optimization culture, and systems designed to keep you reactive.</div>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Bottom CTA -->
+<section class="bottom-cta">
+  <h2 class="bottom-cta-headline">Join 26,000 readers</h2>
+  <p class="bottom-cta-sub">New essays and prompts, when they're ready. Free, always.</p>
+
+  <div class="capture-wrap">
+    <form class="capture-form" id="bottom-form" onsubmit="handleSubscribe(event,'bottom')">
+      <input class="capture-input" type="email" id="bottom-email" placeholder="you@email.com" required autocomplete="email">
+      <button class="capture-btn" type="submit" id="bottom-btn">Subscribe free</button>
+    </form>
+    <div class="capture-msg" id="bottom-msg"></div>
+    <p class="capture-privacy">No spam. Unsubscribe any time.</p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/newsletter/">Archive</a>
+    <a href="/about/">About</a>
+    <a href="/privacy/">Privacy</a>
+  </div>
+</footer>
+
+<script>
+/* ── Load live stats ─────────────────────────────────────────────────────── */
+fetch('/feed.json').then(function(r) { return r.json(); }).then(function(d) {
+  if (d && Array.isArray(d.items)) {
+    document.getElementById('proof-essays').textContent = d.items.length.toLocaleString('en-US');
+
+    var list = document.getElementById('essay-list');
+    if (list && d.items.length > 0) {
+      var recent = d.items.slice(0, 3);
+      list.innerHTML = recent.map(function(item) {
+        var path = item.url ? item.url.replace('https://paradoxofacceptance.xyz', '') : '#';
+        return '<li class="proof-essay-item"><a href="' + path + '">' + escapeHtml(item.title) + '</a></li>';
+      }).join('');
+    }
+  }
+}).catch(function() {});
+
+/* ── Load Nick's about content ───────────────────────────────────────────── */
+(function() {
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+
+  fetch(API_BASE + '/api/about').then(function(r) { return r.ok ? r.json() : null; }).then(function(about) {
+    if (!about) return;
+
+    // Photo
+    if (about.photo_url) {
+      var wrap = document.getElementById('about-photo-wrap');
+      var placeholder = document.getElementById('about-placeholder');
+      var img = document.createElement('img');
+      img.src = about.photo_url;
+      img.alt = 'Nick';
+      img.className = 'about-photo';
+      img.onerror = function() { img.style.display = 'none'; placeholder && (placeholder.style.display = 'flex'); };
+      if (placeholder) placeholder.style.display = 'none';
+      wrap.insertBefore(img, wrap.firstChild);
+    }
+
+    // Bio
+    if (about.bio_markdown) {
+      var bioEl = document.getElementById('about-bio');
+      if (bioEl) bioEl.textContent = about.bio_markdown.replace(/^#+\s*/gm, '').trim();
+    }
+  }).catch(function() {});
+})();
+
+/* ── Subscribe handler ───────────────────────────────────────────────────── */
+(function() {
+  if (typeof supabase === 'undefined') return;
+
+  var sb = supabase.createClient(
+    'https://jyxwnfgcqgiqxjdlypvr.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE'
+  );
+
+  // Check if already subscribed
+  var alreadySubscribed = localStorage.getItem('poa_subscribed') === 'true';
+
+  window.handleSubscribe = function(e, formId) {
+    e.preventDefault();
+    var emailId = formId + '-email';
+    var btnId   = formId + '-btn';
+    var msgId   = formId + '-msg';
+    var email = document.getElementById(emailId).value.trim();
+    var btn   = document.getElementById(btnId);
+    var msg   = document.getElementById(msgId);
+
+    if (!email) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    msg.textContent = '';
+    msg.className = 'capture-msg';
+
+    sb.rpc('subscribe', { p_email: email }).then(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe free';
+      if (res.error) {
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = 'capture-msg error';
+      } else if (res.data && res.data.already_subscribed) {
+        msg.textContent = "You're already subscribed.";
+        msg.className = 'capture-msg success';
+      } else {
+        window.plausible && window.plausible('Subscribe', { props: { source: 'subscribe-page-' + formId } });
+        localStorage.setItem('poa_subscribed', 'true');
+        msg.textContent = "You're in. Welcome.";
+        msg.className = 'capture-msg success';
+        document.getElementById(emailId).value = '';
+      }
+    });
+  };
+})();
+
+/* ── Escape helper ───────────────────────────────────────────────────────── */
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
