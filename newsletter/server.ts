@@ -1589,6 +1589,267 @@ app.get("/api/convergence/qa-stats", requireAdminSecret, async (_req: Request, r
   res.status(ok ? 200 : 502).json(data);
 });
 
+// ─── Courses API ──────────────────────────────────────────────────────────────
+//
+// GET  /api/courses                — public; returns courses with is_unlocked
+//                                   per user when Authorization header present
+// POST /api/courses/:slug/complete — marks a course complete for the authed user
+// GET  /api/admin/courses          — admin; full course list
+// PATCH /api/admin/courses/:id     — admin; update course prerequisites
+
+/**
+ * Verify a Supabase JWT and return the user_id, or null if invalid.
+ * Uses the Supabase service client to call auth.getUser() which validates
+ * the token against the project's JWK set.
+ */
+async function getUserIdFromJwt(authHeader: string | undefined): Promise<string | null> {
+  if (!supabase || !authHeader) return null;
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
+}
+
+// GET /api/courses
+// Returns course list. If the caller sends a valid Supabase JWT in
+// Authorization: Bearer <token>, each course includes is_unlocked computed
+// from the caller's course_completions. Without auth, is_unlocked = is_free
+// (free courses open, everything else locked).
+app.get("/api/courses", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const { data: courses, error } = await supabase
+    .from("courses")
+    .select("id, slug, title, description, sessions_total, is_free, prerequisites, sort_order")
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch courses" });
+    return;
+  }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+
+  // Build completed course ID set for this user
+  let completedCourseIds = new Set<string>();
+  if (userId) {
+    const { data: completions } = await supabase
+      .from("course_completions")
+      .select("course_id")
+      .eq("user_id", userId);
+    if (completions) {
+      for (const c of completions) completedCourseIds.add(c.course_id);
+    }
+  }
+
+  // Compute is_unlocked per course
+  const result = (courses ?? []).map((course) => {
+    const prereqs: string[] = Array.isArray(course.prerequisites) ? course.prerequisites : [];
+    let is_unlocked: boolean;
+    if (course.is_free || prereqs.length === 0) {
+      is_unlocked = true;
+    } else if (userId) {
+      is_unlocked = prereqs.every((pid: string) => completedCourseIds.has(pid));
+    } else {
+      // Unauthenticated: locked unless free
+      is_unlocked = false;
+    }
+    return { ...course, is_unlocked };
+  });
+
+  res.json({ courses: result });
+});
+
+// POST /api/courses/:slug/complete
+// Marks a course as complete for the authenticated user (idempotent).
+// Requires Authorization: Bearer <supabase-jwt>.
+app.post("/api/courses/:slug/complete", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { slug } = req.params;
+  const { data: course, error: courseErr } = await supabase
+    .from("courses")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+  if (courseErr || !course) {
+    res.status(404).json({ error: "Course not found" });
+    return;
+  }
+  const { error } = await supabase
+    .from("course_completions")
+    .upsert({ user_id: userId, course_id: course.id }, { onConflict: "user_id,course_id" });
+  if (error) {
+    res.status(500).json({ error: "Failed to record completion" });
+    return;
+  }
+  res.json({ status: "completed", courseId: course.id });
+});
+
+// GET /api/admin/courses
+// Returns full course list for the admin UI (same data, no auth filter).
+app.get("/api/admin/courses", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("courses")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch courses" });
+    return;
+  }
+  res.json({ courses: data ?? [] });
+});
+
+// PATCH /api/admin/courses/:id
+// Updates mutable course fields. Only prerequisites, sort_order, is_free, and
+// description are patchable to prevent accidental slug/title stomps.
+app.patch("/api/admin/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const { id } = req.params;
+  const { prerequisites, sort_order, is_free, description } = req.body as {
+    prerequisites?: string[];
+    sort_order?: number;
+    is_free?: boolean;
+    description?: string;
+  };
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (Array.isArray(prerequisites)) patch.prerequisites = prerequisites;
+  if (typeof sort_order === "number") patch.sort_order = sort_order;
+  if (typeof is_free === "boolean") patch.is_free = is_free;
+  if (typeof description === "string") patch.description = description;
+
+  const { data, error } = await supabase
+    .from("courses")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error || !data) {
+    res.status(error ? 500 : 404).json({ error: error?.message ?? "Course not found" });
+    return;
+  }
+  res.json({ course: data });
+});
+
+// ─── Session Notes API ────────────────────────────────────────────────────────
+//
+// GET  /api/sessions/notes       — returns session_ids with non-empty notes for the authed user
+// GET  /api/sessions/:id/notes   — returns {content} for the authed user
+// PUT  /api/sessions/:id/notes   — upserts {content} for the authed user (max 2000 chars)
+//
+// All three endpoints require Authorization: Bearer <supabase-jwt>.
+// session_id is a stable slug like "the-honest-meditator-1".
+
+const MAX_NOTE_CHARS = 2000;
+
+// GET /api/sessions/notes
+// Returns the set of session_ids where the user has saved non-empty notes.
+// Used by the course landing page to render pencil indicators.
+// Must be registered before /:id routes to avoid ":id = notes" ambiguity.
+app.get("/api/sessions/notes", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("session_notes")
+    .select("session_id")
+    .eq("user_id", userId)
+    .neq("content", "");
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch notes index" });
+    return;
+  }
+  res.json({ sessions: (data ?? []).map((r) => r.session_id) });
+});
+
+// GET /api/sessions/:id/notes
+app.get("/api/sessions/:id/notes", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from("session_notes")
+    .select("content, updated_at")
+    .eq("user_id", userId)
+    .eq("session_id", id)
+    .maybeSingle();
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch note" });
+    return;
+  }
+  res.json({ content: data?.content ?? "", updated_at: data?.updated_at ?? null });
+});
+
+// PUT /api/sessions/:id/notes
+app.put("/api/sessions/:id/notes", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { id } = req.params;
+  const { content } = req.body as { content?: unknown };
+  if (typeof content !== "string") {
+    res.status(400).json({ error: "content must be a string" });
+    return;
+  }
+  if (content.length > MAX_NOTE_CHARS) {
+    res.status(400).json({ error: `Note exceeds ${MAX_NOTE_CHARS} character limit` });
+    return;
+  }
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("session_notes")
+    .upsert(
+      { user_id: userId, session_id: id, content, updated_at: now },
+      { onConflict: "user_id,session_id" }
+    );
+  if (error) {
+    res.status(500).json({ error: "Failed to save note" });
+    return;
+  }
+  res.json({ status: "saved", updated_at: now });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 validateConfig();
