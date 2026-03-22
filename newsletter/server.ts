@@ -57,6 +57,11 @@ const CONVERGENCE_MVP_URL = (process.env.CONVERGENCE_MVP_URL ?? "").replace(/\/$
 const CONVERGENCE_ADMIN_WALLET = process.env.CONVERGENCE_ADMIN_WALLET ?? "";
 const PREFERENCES_JWT_SECRET = process.env.PREFERENCES_JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const TWITTER_API_KEY = process.env.TWITTER_API_KEY;
+const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
+const TWITTER_ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN;
+const TWITTER_ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET;
+const SITE_URL_SOCIAL = "https://paradoxofacceptance.xyz";
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
 
@@ -1362,6 +1367,145 @@ app.get("/api/newsletter/sends", requireAdminSecret, async (_req: Request, res: 
   res.json({ sends: data ?? [] });
 });
 
+// ─── Newsletter Drafts CRUD ───────────────────────────────────────────────────
+//
+// Supports /admin/newsletter/compose — auto-saved drafts stored in Supabase.
+// All endpoints require X-Admin-Secret header.
+
+/**
+ * POST /api/newsletter/drafts
+ * Creates a new newsletter draft. Returns the created draft.
+ */
+app.post("/api/newsletter/drafts", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  const { subject = "", previewText = "", htmlBody = "" } = req.body as {
+    subject?: string;
+    previewText?: string;
+    htmlBody?: string;
+  };
+  const { data, error } = await supabase
+    .from("newsletter_drafts")
+    .insert({ subject, preview_text: previewText, html_body: htmlBody })
+    .select("id, subject, preview_text, html_body, updated_at, created_at")
+    .single();
+  if (error) {
+    res.status(500).json({ error: "Failed to create draft", detail: error });
+    return;
+  }
+  res.status(201).json({ draft: data });
+});
+
+/**
+ * GET /api/newsletter/drafts
+ * Returns all drafts ordered by most recently updated, without html_body.
+ */
+app.get("/api/newsletter/drafts", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("newsletter_drafts")
+    .select("id, subject, preview_text, updated_at, created_at")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    res.status(500).json({ error: "Failed to fetch drafts", detail: error });
+    return;
+  }
+  res.json({ drafts: data ?? [] });
+});
+
+/**
+ * GET /api/newsletter/drafts/:id
+ * Returns a single draft including html_body.
+ */
+app.get("/api/newsletter/drafts/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid draft id" });
+    return;
+  }
+  const { data, error } = await supabase
+    .from("newsletter_drafts")
+    .select("id, subject, preview_text, html_body, updated_at, created_at")
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    res.status(404).json({ error: "Draft not found" });
+    return;
+  }
+  res.json({ draft: data });
+});
+
+/**
+ * PATCH /api/newsletter/drafts/:id
+ * Partial update — updates any combination of subject, previewText, htmlBody.
+ */
+app.patch("/api/newsletter/drafts/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid draft id" });
+    return;
+  }
+  const { subject, previewText, htmlBody } = req.body as {
+    subject?: string;
+    previewText?: string;
+    htmlBody?: string;
+  };
+  const updates: Record<string, string> = { updated_at: new Date().toISOString() };
+  if (subject !== undefined) updates.subject = subject;
+  if (previewText !== undefined) updates.preview_text = previewText;
+  if (htmlBody !== undefined) updates.html_body = htmlBody;
+  const { data, error } = await supabase
+    .from("newsletter_drafts")
+    .update(updates)
+    .eq("id", id)
+    .select("id, subject, preview_text, updated_at")
+    .single();
+  if (error || !data) {
+    res.status(404).json({ error: "Draft not found or update failed" });
+    return;
+  }
+  res.json({ draft: data });
+});
+
+/**
+ * DELETE /api/newsletter/drafts/:id
+ * Deletes a draft permanently.
+ */
+app.delete("/api/newsletter/drafts/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  const { id } = req.params;
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    res.status(400).json({ error: "Invalid draft id" });
+    return;
+  }
+  const { error } = await supabase
+    .from("newsletter_drafts")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    res.status(500).json({ error: "Failed to delete draft" });
+    return;
+  }
+  res.json({ ok: true });
+});
+
 // ─── GET /api/newsletter/archive ──────────────────────────────────────────────
 
 /**
@@ -2430,7 +2574,7 @@ app.get("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, res:
 
   const { data, error } = await supabase
     .from("essays")
-    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, path, body_markdown, published_at, deployed_at, created_at, updated_at")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, path, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id, created_at, updated_at")
     .eq("slug", slug)
     .single();
 
@@ -2476,6 +2620,7 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
     seo_description?: string | null;
     seo_keywords?: string[] | null;
     change_summary?: string | null;
+    post_to_twitter?: boolean;
   };
 
   if (!supabase) {
@@ -2491,6 +2636,7 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
 
   const contentFields = ["body_markdown", "title", "meta_description", "kicker", "description", "read_time"] as const;
   const seoFields = ["seo_title", "seo_description", "seo_keywords"] as const;
+  const socialFields = ["post_to_twitter"] as const;
   const isContentUpdate = contentFields.some((f) => body[f] !== undefined);
   const isSeoUpdate = seoFields.some((f) => body[f] !== undefined);
 
@@ -2538,12 +2684,15 @@ app.patch("/api/admin/essays/:slug", requireAdminSecret, async (req: Request, re
   for (const f of seoFields) {
     if (body[f] !== undefined) update[f] = body[f] ?? null;
   }
+  for (const f of socialFields) {
+    if (body[f] !== undefined) update[f] = body[f];
+  }
 
   const { data, error } = await supabase
     .from("essays")
     .update(update)
     .eq("slug", slug)
-    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, body_markdown, published_at, deployed_at")
+    .select("slug, title, kicker, description, meta_description, seo_title, seo_description, seo_keywords, read_time, body_markdown, published_at, deployed_at, post_to_twitter, tweet_id")
     .single();
 
   if (error) {
@@ -3959,6 +4108,9 @@ app.post("/api/essays/:slug/read-progress", async (req: Request, res: Response) 
   const readDuration = typeof req.body?.read_duration_seconds === "number"
     ? Math.min(Math.max(Math.round(req.body.read_duration_seconds), 30), 7200)
     : 30;
+  const scrollPct = typeof req.body?.scroll_percent === "number"
+    ? Math.min(Math.max(Math.round(req.body.scroll_percent), 0), 100)
+    : null;
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
@@ -3981,6 +4133,7 @@ app.post("/api/essays/:slug/read-progress", async (req: Request, res: Response) 
         essay_slug: slug,
         read_at: new Date().toISOString(),
         read_duration_seconds: readDuration,
+        ...(scrollPct !== null ? { scroll_percent: scrollPct } : {}),
       });
       insertError = error;
     }
@@ -4000,6 +4153,7 @@ app.post("/api/essays/:slug/read-progress", async (req: Request, res: Response) 
         essay_slug: slug,
         read_at: new Date().toISOString(),
         read_duration_seconds: readDuration,
+        ...(scrollPct !== null ? { scroll_percent: scrollPct } : {}),
       });
       insertError = error;
     }
@@ -4135,6 +4289,112 @@ app.get("/api/reading-streak/me", async (req: Request, res: Response) => {
     total_reads_90d: totalReads,
     total_essays_read: (totalEssays as unknown as number) ?? 0,
     read_dates_90d: Array.from(datesRead).sort(),
+  });
+});
+
+// ─── Reading History ──────────────────────────────────────────────────────────
+//
+// GET /api/reading-history/me
+// Returns per-essay reading history with metadata for the /account/history page.
+// Auth required.
+
+app.options("/api/reading-history/me", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(204);
+});
+
+app.get("/api/reading-history/me", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  // All reads for this user, newest first
+  const { data: reads, error: readsError } = await supabase
+    .from("essay_reads")
+    .select("essay_slug, read_at, read_duration_seconds, scroll_percent")
+    .eq("user_id", userId)
+    .order("read_at", { ascending: false });
+
+  if (readsError) {
+    res.status(500).json({ error: "Failed to fetch reading history" });
+    return;
+  }
+
+  // Essay metadata (service role bypasses RLS on essays table)
+  const { data: essays } = await supabase
+    .from("essays")
+    .select("slug, title, read_time, path")
+    .not("published_at", "is", null);
+
+  const essayMap = new Map<string, { title: string; read_time: string | null; path: string }>();
+  for (const e of (essays ?? []) as Array<{ slug: string; title: string; read_time: string | null; path: string }>) {
+    essayMap.set(e.slug, e);
+  }
+
+  // Deduplicate to one row per essay (latest read wins)
+  const seen = new Set<string>();
+  type HistoryRow = {
+    slug: string;
+    title: string;
+    path: string;
+    estimated_read_time: string | null;
+    last_read_at: string;
+    read_duration_seconds: number;
+    scroll_percent: number | null;
+  };
+  const history: HistoryRow[] = [];
+
+  for (const row of (reads ?? []) as Array<{ essay_slug: string; read_at: string; read_duration_seconds: number; scroll_percent: number | null }>) {
+    if (seen.has(row.essay_slug)) continue;
+    seen.add(row.essay_slug);
+    const meta = essayMap.get(row.essay_slug);
+    history.push({
+      slug: row.essay_slug,
+      title: meta?.title ?? row.essay_slug,
+      path: meta?.path ?? `/mindfulness-essays/${row.essay_slug}/`,
+      estimated_read_time: meta?.read_time ?? null,
+      last_read_at: row.read_at,
+      read_duration_seconds: row.read_duration_seconds,
+      scroll_percent: row.scroll_percent,
+    });
+  }
+
+  // Streak
+  const { data: streakRow } = await supabase
+    .from("reading_streaks")
+    .select("current_streak, longest_streak, last_read_date")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Total reading time this month (all reads, not just deduplicated)
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const { data: monthReads } = await supabase
+    .from("essay_reads")
+    .select("read_duration_seconds")
+    .eq("user_id", userId)
+    .gte("read_at", monthStart);
+
+  const totalSecondsThisMonth = ((monthReads ?? []) as Array<{ read_duration_seconds: number }>)
+    .reduce((sum, r) => sum + r.read_duration_seconds, 0);
+
+  res.json({
+    history,
+    stats: {
+      total_essays_read: history.length,
+      total_seconds_this_month: totalSecondsThisMonth,
+      current_streak: (streakRow as { current_streak: number } | null)?.current_streak ?? 0,
+    },
   });
 });
 
@@ -5364,6 +5624,146 @@ app.patch(
     res.json({ about: result.data });
   }
 );
+
+// ─── POST /api/social/tweet ───────────────────────────────────────────────────
+
+/**
+ * POST /api/social/tweet
+ *
+ * Manually post (or re-post) a tweet for an essay.
+ * Useful for retrying after a failed auto-post or for one-off shares.
+ *
+ * Body: { slug: string }
+ *
+ * On success: stores tweet_id on the essay record and returns { tweetId, text }.
+ * On failure: logs to social_post_errors and returns 500.
+ *
+ * Requires Twitter API credentials in env (TWITTER_API_KEY etc.).
+ * Auth: X-Admin-Secret header.
+ */
+
+/** Build tweet text from an essay. Max 280 chars. */
+function buildTweetText(essay: {
+  title: string;
+  description: string | null;
+  path: string;
+  seo_keywords: string[] | null;
+}): string {
+  const url = `${SITE_URL_SOCIAL}${essay.path}`;
+  const desc = (essay.description ?? "").trim();
+  const sentenceEnd = desc.search(/[.!?](\s|$)/);
+  const firstSentence = sentenceEnd >= 0 ? desc.slice(0, sentenceEnd + 1).trim() : desc;
+  const hashtags = (essay.seo_keywords ?? [])
+    .slice(0, 3)
+    .map((kw) => "#" + kw.replace(/\s+/g, "").replace(/[^a-zA-Z0-9_]/g, ""))
+    .filter((h) => h.length > 1)
+    .join(" ");
+  const suffix = "\n\n" + url + (hashtags ? "\n\n" + hashtags : "");
+  let tweet = essay.title + (firstSentence ? "\n\n" + firstSentence : "") + suffix;
+  if (tweet.length <= 280) return tweet;
+  const base = essay.title + "\n\n";
+  const maxExcerpt = 280 - base.length - suffix.length - 1;
+  if (firstSentence && maxExcerpt > 0) {
+    const candidate = base + firstSentence.slice(0, maxExcerpt) + "…" + suffix;
+    if (candidate.length <= 280) return candidate;
+  }
+  tweet = essay.title + suffix;
+  if (tweet.length <= 280) return tweet;
+  return essay.title.slice(0, 280 - url.length - 2) + "\n\n" + url;
+}
+
+/** Post a tweet via Twitter API v2 (OAuth 1.0a user context). */
+async function postTweetV2(text: string): Promise<{ id: string; text: string }> {
+  if (!TWITTER_API_KEY || !TWITTER_API_SECRET || !TWITTER_ACCESS_TOKEN || !TWITTER_ACCESS_SECRET) {
+    throw new Error("Twitter API credentials not configured");
+  }
+  const tweetUrl = "https://api.twitter.com/2/tweets";
+  const method = "POST";
+  const { randomBytes: rb } = await import("crypto");
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: TWITTER_API_KEY,
+    oauth_nonce: rb(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: TWITTER_ACCESS_TOKEN,
+    oauth_version: "1.0",
+  };
+  const paramStr = Object.entries(oauthParams)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  const sigBase = [method, encodeURIComponent(tweetUrl), encodeURIComponent(paramStr)].join("&");
+  const sigKey = `${encodeURIComponent(TWITTER_API_SECRET)}&${encodeURIComponent(TWITTER_ACCESS_SECRET)}`;
+  const { createHmac: ch } = await import("crypto");
+  const signature = ch("sha1", sigKey).update(sigBase).digest("base64");
+  const authHeader =
+    "OAuth " +
+    [
+      ...Object.entries(oauthParams).map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`),
+      `oauth_signature="${encodeURIComponent(signature)}"`,
+    ].join(", ");
+  const res = await fetch(tweetUrl, {
+    method,
+    headers: { Authorization: authHeader, "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Twitter API ${res.status}: ${body}`);
+  }
+  const data = (await res.json()) as { data: { id: string; text: string } };
+  return data.data;
+}
+
+app.post("/api/social/tweet", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { slug } = req.body as { slug?: string };
+  if (!slug) {
+    return res.status(400).json({ error: "slug is required" });
+  }
+
+  const { data: essay, error: fetchErr } = await supabase
+    .from("essays")
+    .select("slug, title, description, path, seo_keywords, tweet_id")
+    .eq("slug", slug)
+    .single();
+
+  if (fetchErr || !essay) {
+    return res.status(404).json({ error: "Essay not found" });
+  }
+
+  try {
+    const tweetText = buildTweetText(essay);
+    const { id: tweetId, text: tweetText2 } = await postTweetV2(tweetText);
+
+    const { error: updateErr } = await supabase
+      .from("essays")
+      .update({ tweet_id: tweetId })
+      .eq("slug", slug);
+
+    if (updateErr) {
+      console.error("[social/tweet] Failed to store tweet_id:", updateErr);
+    }
+
+    return res.json({ tweetId, text: tweetText2 });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[social/tweet] Error:", errMsg);
+
+    if (supabase) {
+      await supabase.from("social_post_errors").insert({
+        essay_slug: slug,
+        platform: "twitter",
+        error_msg: errMsg,
+      });
+    }
+
+    return res.status(500).json({ error: errMsg });
+  }
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 

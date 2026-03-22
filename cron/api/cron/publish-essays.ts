@@ -11,6 +11,7 @@
  *   - feed.xml                       — adds an <item> entry
  *
  * Commits all three changes in one GitHub commit, then sets deployed_at in Supabase.
+ * After deployment, if post_to_twitter is true and tweet_id is null, auto-posts to Twitter/X.
  *
  * Schedule: 0 * * * * (every hour, see vercel.json)
  *
@@ -21,10 +22,18 @@
  *   GITHUB_TOKEN              — Fine-grained PAT with Contents: read+write on nickxma/paradox-of-acceptance
  *   GITHUB_REPO               — defaults to "nickxma/paradox-of-acceptance"
  *   GITHUB_BRANCH             — defaults to "main"
+ *
+ * Optional (Twitter auto-post):
+ *   TWITTER_API_KEY           — OAuth 1.0a consumer key
+ *   TWITTER_API_SECRET        — OAuth 1.0a consumer secret
+ *   TWITTER_ACCESS_TOKEN      — OAuth 1.0a access token (@quiet_drift)
+ *   TWITTER_ACCESS_SECRET     — OAuth 1.0a access token secret
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { createHmac, randomBytes } from "crypto";
+import { dispatchPush } from "../_lib/push";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +44,11 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO ?? "nickxma/paradox-of-acceptance";
 const GITHUB_BRANCH = process.env.GITHUB_BRANCH ?? "main";
 const SITE_URL = "https://paradoxofacceptance.xyz";
+
+const TWITTER_API_KEY = process.env.TWITTER_API_KEY;
+const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
+const TWITTER_ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN;
+const TWITTER_ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +61,9 @@ interface Essay {
   read_time: string | null;
   path: string;
   published_at: string;
+  post_to_twitter: boolean;
+  tweet_id: string | null;
+  seo_keywords: string[] | null;
 }
 
 interface GithubFile {
@@ -79,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const now = new Date().toISOString();
   const { data: essays, error } = await supabase
     .from("essays")
-    .select("id, slug, title, kicker, description, read_time, path, published_at")
+    .select("id, slug, title, kicker, description, read_time, path, published_at, post_to_twitter, tweet_id, seo_keywords")
     .not("published_at", "is", null)
     .lte("published_at", now)
     .is("deployed_at", null)
@@ -165,7 +182,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   console.log(`[publish-essays] Deployed: ${deployed.join(", ")}`);
-  return res.status(200).json({ ok: true, published: deployed.length, essays: deployed });
+
+  // Dispatch web push notifications for each newly published essay
+  const pushResults: Record<string, { sent: number; failed: number; expired: number }> = {};
+  for (const essay of essays as Essay[]) {
+    if (!deployed.includes(essay.slug)) continue;
+    const excerpt = (essay.description ?? "").slice(0, 100);
+    const result = await dispatchPush(
+      supabase,
+      "essay_published",
+      essay.slug,
+      {
+        title: essay.title,
+        body: excerpt,
+        url: `${SITE_URL}/essays/${essay.slug}`,
+      },
+    );
+    pushResults[essay.slug] = result;
+  }
+
+  // Post to Twitter/X for essays that opted in and haven't been tweeted yet
+  const twitterResults: Record<string, { tweetId?: string; skipped?: string; error?: string }> = {};
+  const twitterConfigured = TWITTER_API_KEY && TWITTER_API_SECRET && TWITTER_ACCESS_TOKEN && TWITTER_ACCESS_SECRET;
+
+  for (const essay of essays as Essay[]) {
+    if (!deployed.includes(essay.slug)) continue;
+    if (!essay.post_to_twitter) {
+      twitterResults[essay.slug] = { skipped: "post_to_twitter_false" };
+      continue;
+    }
+    if (essay.tweet_id) {
+      twitterResults[essay.slug] = { skipped: "already_tweeted" };
+      continue;
+    }
+    if (!twitterConfigured) {
+      twitterResults[essay.slug] = { skipped: "twitter_not_configured" };
+      continue;
+    }
+
+    try {
+      const tweetText = buildTweetText(essay);
+      const { id: tweetId } = await postTweet(tweetText);
+
+      // Store tweet_id on essay
+      await supabase.from("essays").update({ tweet_id: tweetId }).eq("slug", essay.slug);
+      twitterResults[essay.slug] = { tweetId };
+      console.log(`[publish-essays] Tweeted ${essay.slug}: ${tweetId}`);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[publish-essays] Tweet failed for ${essay.slug}:`, errMsg);
+      // Log to social_post_errors — non-fatal
+      await supabase.from("social_post_errors").insert({
+        essay_slug: essay.slug,
+        platform: "twitter",
+        error_msg: errMsg,
+      }).then(({ error: logErr }) => {
+        if (logErr) console.error("[publish-essays] Failed to log social_post_error:", logErr);
+      });
+      twitterResults[essay.slug] = { error: errMsg };
+    }
+  }
+
+  return res.status(200).json({ ok: true, published: deployed.length, essays: deployed, push: pushResults, twitter: twitterResults });
 }
 
 // ─── Content insertion helpers ────────────────────────────────────────────────
@@ -312,4 +390,103 @@ function escXml(str: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+// ─── Twitter / X helpers ──────────────────────────────────────────────────────
+
+/**
+ * Build tweet text for an essay.
+ * Format: title + first sentence of excerpt + URL + up to 3 hashtags.
+ * Keeps total under 280 chars; truncates excerpt if needed.
+ */
+function buildTweetText(essay: Pick<Essay, "title" | "description" | "path" | "seo_keywords">): string {
+  const url = `${SITE_URL}${essay.path}`;
+
+  // First sentence of description/excerpt
+  const desc = (essay.description ?? "").trim();
+  const sentenceEnd = desc.search(/[.!?](\s|$)/);
+  const firstSentence = sentenceEnd >= 0 ? desc.slice(0, sentenceEnd + 1).trim() : desc;
+
+  // Up to 3 hashtags derived from seo_keywords
+  const hashtags = (essay.seo_keywords ?? [])
+    .slice(0, 3)
+    .map((kw) => "#" + kw.replace(/\s+/g, "").replace(/[^a-zA-Z0-9_]/g, ""))
+    .filter((h) => h.length > 1)
+    .join(" ");
+
+  const suffix = "\n\n" + url + (hashtags ? "\n\n" + hashtags : "");
+
+  let tweet = essay.title + (firstSentence ? "\n\n" + firstSentence : "") + suffix;
+
+  if (tweet.length <= 280) return tweet;
+
+  // Truncate excerpt to fit
+  const base = essay.title + "\n\n";
+  const maxExcerpt = 280 - base.length - suffix.length - 1; // 1 for "…"
+  if (firstSentence && maxExcerpt > 0) {
+    tweet = base + firstSentence.slice(0, maxExcerpt) + "…" + suffix;
+    if (tweet.length <= 280) return tweet;
+  }
+
+  // Skip excerpt entirely
+  tweet = essay.title + suffix;
+  if (tweet.length <= 280) return tweet;
+
+  // Last resort: title + URL only
+  return essay.title.slice(0, 280 - url.length - 2) + "\n\n" + url;
+}
+
+/**
+ * Post a tweet via Twitter API v2 using OAuth 1.0a (user context).
+ * Returns the created tweet's id and text.
+ */
+async function postTweet(text: string): Promise<{ id: string; text: string }> {
+  const url = "https://api.twitter.com/2/tweets";
+  const method = "POST";
+
+  const oauthTimestamp = Math.floor(Date.now() / 1000).toString();
+  const oauthNonce = randomBytes(16).toString("hex");
+
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: TWITTER_API_KEY!,
+    oauth_nonce: oauthNonce,
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: oauthTimestamp,
+    oauth_token: TWITTER_ACCESS_TOKEN!,
+    oauth_version: "1.0",
+  };
+
+  // Signature base string (no request body params for JSON body)
+  const paramStr = Object.entries(oauthParams)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+
+  const sigBase = [method, encodeURIComponent(url), encodeURIComponent(paramStr)].join("&");
+  const sigKey = `${encodeURIComponent(TWITTER_API_SECRET!)}&${encodeURIComponent(TWITTER_ACCESS_SECRET!)}`;
+  const signature = createHmac("sha1", sigKey).update(sigBase).digest("base64");
+
+  const authHeader =
+    "OAuth " +
+    [
+      ...Object.entries(oauthParams).map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`),
+      `oauth_signature="${encodeURIComponent(signature)}"`,
+    ].join(", ");
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Twitter API ${res.status}: ${body}`);
+  }
+
+  const data = (await res.json()) as { data: { id: string; text: string } };
+  return data.data;
 }
