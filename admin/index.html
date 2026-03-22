@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Overview — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ─── Overview grid ─────────────────────────────────────────── */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+@media (max-width: 768px) {
+  .overview-grid { grid-template-columns: 1fr; }
+  .content { padding: 20px 16px; }
+  header { padding: 0 16px; }
+}
+
+/* ─── Product columns ───────────────────────────────────────── */
+.product-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.col-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: #aaa;
+  margin-bottom: 2px;
+}
+.col-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #111;
+}
+
+/* ─── Stat cards ────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #999;
+  margin-bottom: 7px;
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #111;
+  line-height: 1;
+}
+.stat-value.loading { color: #ccc; font-size: 18px; font-weight: 400; }
+.stat-value.error { color: #dc2626; font-size: 16px; font-weight: 400; }
+.stat-sub {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+/* ─── Panels ────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #999;
+}
+
+/* ─── Quick links ───────────────────────────────────────────── */
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 18px;
+}
+.link-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #333;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background 0.1s, border-color 0.1s;
+  cursor: pointer;
+}
+.link-btn:hover { background: #e8e8e8; border-color: #ccc; }
+
+/* ─── System health bar ─────────────────────────────────────── */
+.health-bar {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.health-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.health-bar-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #999;
+}
+.health-bar-meta {
+  font-size: 11px;
+  color: #bbb;
+}
+.health-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 14px 20px;
+  align-items: center;
+}
+.health-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 20px 0 0;
+  margin-right: 20px;
+  border-right: 1px solid #f0f0f0;
+}
+.health-check:last-of-type { border-right: none; }
+.health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.health-dot.ok { background: #22c55e; }
+.health-dot.degraded { background: #f59e0b; }
+.health-dot.down { background: #ef4444; }
+.health-dot.loading { background: #ddd; }
+.health-name { font-size: 13px; color: #555; }
+.health-latency { font-size: 11px; color: #bbb; }
+.health-meta-right {
+  margin-left: auto;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.health-meta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.health-meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #bbb;
+}
+.health-meta-val {
+  font-size: 12px;
+  color: #555;
+  font-family: 'SF Mono', 'Fira Mono', monospace;
+}
+@media (max-width: 600px) {
+  .health-checks { gap: 12px; }
+  .health-check { padding: 0; margin: 0; border: none; }
+  .health-meta-right { margin-left: 0; flex-wrap: wrap; gap: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin Overview</h1>
+    <p>Paradox of Acceptance</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/" class="active">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+    </nav>
+  </header>
+
+  <div class="content">
+
+    <!-- Two-column overview -->
+    <div class="overview-grid">
+
+      <!-- ─── Left: paradoxofacceptance.xyz ─────────────────── -->
+      <div class="product-col">
+        <div>
+          <div class="col-label">Product</div>
+          <div class="col-title">paradoxofacceptance.xyz</div>
+        </div>
+
+        <!-- Newsletter stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Subscribers</div>
+            <div class="stat-value loading" id="poa-total">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">New (7 days)</div>
+            <div class="stat-value loading" id="poa-7d">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Essays</div>
+            <div class="stat-value loading" id="poa-essays">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pass Holders</div>
+            <div class="stat-value loading" id="poa-pass">—</div>
+            <div class="stat-sub">The Honest Meditator</div>
+          </div>
+        </div>
+
+        <!-- Quick links -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Quick Links</span>
+          </div>
+          <div class="quick-links">
+            <a class="link-btn" href="/admin/newsletter/">Send Newsletter</a>
+            <a class="link-btn" href="/admin/stats/">View Stats</a>
+            <a class="link-btn" href="/mindfulness-essays/" target="_blank" rel="noopener">Add Essay</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Right: Convergence MVP ────────────────────────── -->
+      <div class="product-col">
+        <div>
+          <div class="col-label">Product</div>
+          <div class="col-title">Convergence MVP</div>
+        </div>
+
+        <!-- Q&A + community stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Questions (7d)</div>
+            <div class="stat-value loading" id="conv-questions">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active Users (7d)</div>
+            <div class="stat-value loading" id="conv-active">—</div>
+            <div class="stat-sub">unique wallets</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Cache Hit Rate</div>
+            <div class="stat-value loading" id="conv-cache">—</div>
+            <div class="stat-sub">last hour</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Community Posts</div>
+            <div class="stat-value loading" id="conv-posts">—</div>
+            <div class="stat-sub" id="conv-top-tag">all time</div>
+          </div>
+        </div>
+
+        <!-- Quick links -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Quick Links</span>
+          </div>
+          <div class="quick-links">
+            <a class="link-btn" href="/admin/stats/#qa" onclick="return false;">View Q&amp;A Analytics</a>
+            <a class="link-btn" href="/community/flagged" target="_blank" rel="noopener">Flagged Posts</a>
+            <a class="link-btn" href="/leaderboard" target="_blank" rel="noopener">Leaderboard</a>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end overview-grid -->
+
+    <!-- ─── System health bar ─────────────────────────────────── -->
+    <div class="health-bar">
+      <div class="health-bar-header">
+        <span class="health-bar-title">System Health — Convergence MVP</span>
+        <span class="health-bar-meta" id="health-checked-at"></span>
+      </div>
+      <div class="health-checks" id="health-checks">
+        <div class="health-check"><div class="health-dot loading"></div><span class="health-name">Loading…</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+// ─── Auth ─────────────────────────────────────────────────────
+
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadAll();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Load all data ─────────────────────────────────────────────
+
+function loadAll() {
+  loadPoaStats();
+  loadPoaEssays();
+  loadPassCount();
+  loadConvergenceQa();
+  loadConvergenceCommunity();
+  loadConvergenceHealth();
+}
+
+// ─── PoA: newsletter stats ─────────────────────────────────────
+
+async function loadPoaStats() {
+  const { ok, data } = await apiRequest('/api/newsletter/stats');
+  const totalEl = document.getElementById('poa-total');
+  const d7El = document.getElementById('poa-7d');
+  if (ok) {
+    totalEl.textContent = fmtNum(data.subscriberCount);
+    totalEl.classList.remove('loading');
+    d7El.textContent = fmtNum(data.newLast7Days ?? 0);
+    d7El.classList.remove('loading');
+  } else {
+    setErr(totalEl, 'Error');
+    setErr(d7El, 'Error');
+  }
+}
+
+// ─── PoA: essay count ──────────────────────────────────────────
+
+async function loadPoaEssays() {
+  const el = document.getElementById('poa-essays');
+  const { ok, data } = await apiRequest('/api/essays/stats');
+  if (ok && Array.isArray(data.essays)) {
+    el.textContent = data.essays.length;
+    el.classList.remove('loading');
+  } else {
+    setErr(el, 'Error');
+  }
+}
+
+// ─── PoA: pass holders ─────────────────────────────────────────
+
+async function loadPassCount() {
+  const el = document.getElementById('poa-pass');
+  const { ok, data } = await apiRequest('/api/convergence/pass-count');
+  if (ok && data.totalPassHolders != null) {
+    el.textContent = fmtNum(data.totalPassHolders);
+    el.classList.remove('loading');
+  } else {
+    el.textContent = '—';
+    el.classList.remove('loading');
+  }
+}
+
+// ─── Convergence: Q&A stats ────────────────────────────────────
+
+async function loadConvergenceQa() {
+  const questEl = document.getElementById('conv-questions');
+  const { ok, data } = await apiRequest('/api/convergence/qa-stats');
+  if (ok) {
+    questEl.textContent = fmtNum(data.queryCounts?.week ?? 0);
+    questEl.classList.remove('loading');
+  } else {
+    setErr(questEl, '—');
+  }
+  // cache hit rate is populated by loadConvergenceHealth()
+}
+
+// ─── Convergence: community metrics ────────────────────────────
+
+async function loadConvergenceCommunity() {
+  const activeEl = document.getElementById('conv-active');
+  const postsEl = document.getElementById('conv-posts');
+  const { ok, data } = await apiRequest('/api/convergence/community');
+  if (ok) {
+    activeEl.textContent = fmtNum(data.period?.activeContributors ?? 0);
+    activeEl.classList.remove('loading');
+    postsEl.textContent = fmtNum(data.allTime?.totalPosts ?? 0);
+    postsEl.classList.remove('loading');
+  } else {
+    setErr(activeEl, '—');
+    setErr(postsEl, '—');
+  }
+}
+
+// ─── Convergence: health ───────────────────────────────────────
+
+async function loadConvergenceHealth() {
+  const checksEl = document.getElementById('health-checks');
+  const checkedAtEl = document.getElementById('health-checked-at');
+  const cacheEl = document.getElementById('conv-cache');
+
+  const { ok, data } = await apiRequest('/api/convergence/health');
+  if (!ok || !data.checks) {
+    checksEl.innerHTML = '<div class="health-check"><div class="health-dot down"></div><span class="health-name">Unavailable</span></div>';
+    setErr(cacheEl, '—');
+    return;
+  }
+
+  // Populate cache hit rate stat
+  const hitRate = data.checks.cache?.hitRate;
+  if (hitRate != null) {
+    cacheEl.textContent = Math.round(hitRate * 100) + '%';
+  } else {
+    cacheEl.textContent = '—';
+  }
+  cacheEl.classList.remove('loading');
+
+  // Populate health checks
+  const CHECK_LABELS = { supabase: 'Supabase', pinecone: 'Pinecone', openai: 'OpenAI', cache: 'Cache' };
+  let html = '';
+  for (const [key, check] of Object.entries(data.checks)) {
+    const label = CHECK_LABELS[key] ?? key;
+    const st = check.status ?? 'down';
+    const latency = check.latencyMs ? `<span class="health-latency">${check.latencyMs}ms</span>` : '';
+    html += `<div class="health-check">
+      <div class="health-dot ${st}"></div>
+      <span class="health-name">${escHtml(label)}</span>
+      ${latency}
+    </div>`;
+  }
+
+  // Right-side meta: version + checked-at
+  const version = data.version ? escHtml(data.version) : 'dev';
+  const checkedAt = data.checkedAt ? new Date(data.checkedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+  html += `<div class="health-meta-right">
+    <div class="health-meta-item">
+      <span class="health-meta-label">Deploy</span>
+      <span class="health-meta-val">${version}</span>
+    </div>
+    ${checkedAt ? `<div class="health-meta-item">
+      <span class="health-meta-label">Checked</span>
+      <span class="health-meta-val">${checkedAt}</span>
+    </div>` : ''}
+  </div>`;
+
+  checksEl.innerHTML = html;
+  if (checkedAt) checkedAtEl.textContent = `as of ${checkedAt}`;
+}
+
+// ─── Util ─────────────────────────────────────────────────────
+
+function fmtNum(n) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString();
+}
+
+function setErr(el, text) {
+  el.textContent = text;
+  el.classList.remove('loading');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>

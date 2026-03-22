@@ -46,6 +46,8 @@ const SERVER_URL = (process.env.SERVER_URL ?? "https://paradoxofacceptance.xyz")
 const ALLOW_FULL_LIST_SEND = process.env.ALLOW_FULL_LIST_SEND === "true";
 const PORT = parseInt(process.env.PORT || "3200", 10);
 const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
+const CONVERGENCE_MVP_URL = (process.env.CONVERGENCE_MVP_URL ?? "").replace(/\/$/, "");
+const CONVERGENCE_ADMIN_WALLET = process.env.CONVERGENCE_ADMIN_WALLET ?? "";
 
 // ─── Supabase (optional — for send log) ──────────────────────────────────────
 
@@ -1253,6 +1255,57 @@ app.get("/api/newsletter/analytics/summary", requireAdminSecret, async (_req: Re
     avgOpenRate: totalSent > 0 ? parseFloat(((totalOpened / totalSent) * 100).toFixed(1)) : null,
     avgClickRate: totalSent > 0 ? parseFloat(((totalClicked / totalSent) * 100).toFixed(1)) : null,
   });
+});
+
+// ─── Convergence MVP proxy routes ─────────────────────────────────────────────
+//
+// These endpoints proxy data from the Convergence MVP for the admin overview
+// page. They are auth-gated by X-Admin-Secret (same as all admin routes).
+// Requires env vars: CONVERGENCE_MVP_URL, CONVERGENCE_ADMIN_WALLET
+//
+// GET /api/convergence/health     → /api/health        (public on MVP)
+// GET /api/convergence/community  → /api/community/metrics?period=7d (public)
+// GET /api/convergence/pass-count → /api/community/pass-count (public)
+// GET /api/convergence/qa-stats   → /api/admin/qa-analytics (admin-wallet auth)
+
+async function proxyConvergence(
+  mvpPath: string,
+  extraHeaders: Record<string, string> = {}
+): Promise<{ ok: boolean; data: unknown }> {
+  if (!CONVERGENCE_MVP_URL) return { ok: false, data: { error: "CONVERGENCE_MVP_URL not configured" } };
+  const url = `${CONVERGENCE_MVP_URL}${mvpPath}`;
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...extraHeaders },
+    signal: AbortSignal.timeout(8000),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, data };
+}
+
+app.get("/api/convergence/health", requireAdminSecret, async (_req: Request, res: Response) => {
+  const { ok, data } = await proxyConvergence("/api/health");
+  res.status(ok ? 200 : 502).json(data);
+});
+
+app.get("/api/convergence/community", requireAdminSecret, async (_req: Request, res: Response) => {
+  const { ok, data } = await proxyConvergence("/api/community/metrics?period=7d");
+  res.status(ok ? 200 : 502).json(data);
+});
+
+app.get("/api/convergence/pass-count", requireAdminSecret, async (_req: Request, res: Response) => {
+  const { ok, data } = await proxyConvergence("/api/community/pass-count");
+  res.status(ok ? 200 : 502).json(data);
+});
+
+app.get("/api/convergence/qa-stats", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!CONVERGENCE_ADMIN_WALLET) {
+    res.status(503).json({ error: "CONVERGENCE_ADMIN_WALLET not configured" });
+    return;
+  }
+  const { ok, data } = await proxyConvergence("/api/admin/qa-analytics", {
+    Authorization: `Bearer ${CONVERGENCE_ADMIN_WALLET}`,
+  });
+  res.status(ok ? 200 : 502).json(data);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
