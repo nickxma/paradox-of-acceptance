@@ -10,12 +10,9 @@
   <meta property="og:type" content="article" />
   <meta property="og:url" content="https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-1/" />
   <script>
-    // FEATURE_FLAG_GATE: Set to true to require email/token verification before viewing session content.
-    // When enabled, users without a valid access token in localStorage will be redirected to the landing page gate.
-    const FEATURE_FLAG_GATE = false;
-    if (FEATURE_FLAG_GATE) {
-      const token = localStorage.getItem('honest-meditator-access');
-      if (!token) { window.location.href = '/courses/the-honest-meditator/#email-gate'; }
+    // Course gate: runs before page paints to avoid flash of gated content
+    if (sessionStorage.getItem('poa_admin') !== 'true' && localStorage.getItem('poa_subscribed') !== 'true') {
+      document.documentElement.classList.add('poa-gated');
     }
   </script>
   <style>
@@ -242,12 +239,121 @@
       h1 { font-size: 18pt; }
       .session-summary { break-before: page; }
     }
+
+    /* Course gate overlay */
+    #poa-course-gate {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: var(--cream);
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+    .poa-gated #poa-course-gate { display: flex; }
+    .poa-gate-inner {
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .poa-gate-kicker {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 20px;
+    }
+    .poa-gate-headline {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: clamp(22px, 4vw, 32px);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 16px;
+    }
+    .poa-gate-sub {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--ink-light);
+      margin-bottom: 32px;
+    }
+    .poa-gate-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    .poa-gate-email {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      padding: 12px 16px;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      width: 100%;
+      max-width: 340px;
+      outline: none;
+    }
+    .poa-gate-email:focus { border-color: var(--sage); }
+    .poa-gate-btn {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 13px 32px;
+      background: var(--sage);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.18s ease;
+      width: 100%;
+      max-width: 340px;
+    }
+    .poa-gate-btn:hover { background: var(--sage-dark); }
+    .poa-gate-btn:disabled { background: var(--ink-light); cursor: default; }
+    .poa-gate-msg {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+      margin-top: 12px;
+      min-height: 18px;
+    }
+    .poa-gate-msg--error { color: #c0392b; }
+    .poa-gate-note {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      color: var(--ink-light);
+      margin-top: 20px;
+    }
+    @media (max-width: 480px) {
+      #poa-course-gate { padding: 32px 20px; }
+    }
   </style>
     <!-- Sentry error monitoring (https://sentry.io) -->
     <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
     <script src="/shared/sentry-init.js"></script>
 </head>
 <body>
+  <div id="poa-course-gate" role="dialog" aria-modal="true" aria-label="Course access">
+    <div class="poa-gate-inner">
+      <p class="poa-gate-kicker">The Honest Meditator</p>
+      <h2 class="poa-gate-headline">This course is free — enter your email to start</h2>
+      <p class="poa-gate-sub">Six sessions on what meditation actually does. No spam, unsubscribe any time.</p>
+      <form id="poa-gate-form" class="poa-gate-form">
+        <input id="poa-gate-email" class="poa-gate-email" type="email" placeholder="you@email.com" required autocomplete="email" />
+        <button id="poa-gate-btn" class="poa-gate-btn" type="submit">Unlock course</button>
+      </form>
+      <p id="poa-gate-msg" class="poa-gate-msg"></p>
+      <p class="poa-gate-note">Already subscribed? Your access is stored in this browser.</p>
+    </div>
+  </div>
   <div class="container">
     <nav class="back-nav">
       <a href="/courses/the-honest-meditator/">← The Honest Meditator</a>
@@ -319,5 +425,6 @@
       </p>
     </footer>
   </div>
+  <script src="/shared/course-gate.js"></script>
 </body>
 </html>
