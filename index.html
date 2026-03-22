@@ -101,6 +101,12 @@ a { color: inherit; text-decoration: none; }
 .subscribe-msg.success { color: #22C55E; }
 .subscribe-msg.error { color: #DC2626; }
 
+/* Stats Strip */
+.stats-strip { padding: 20px 280px; display: flex; align-items: center; justify-content: center; gap: 0; }
+.stat-item { font-size: 13px; color: #999; white-space: nowrap; }
+.stat-num { font-variant-numeric: tabular-nums; }
+.stat-sep { font-size: 13px; color: #CCC; margin: 0 14px; }
+
 /* Footer */
 .footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
 .footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
@@ -110,7 +116,8 @@ a { color: inherit; text-decoration: none; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .nav, .hero, .section, .subscribe-section, .footer { padding-left: 24px; padding-right: 24px; }
+  .nav, .hero, .section, .subscribe-section, .footer, .stats-strip { padding-left: 24px; padding-right: 24px; }
+  .stats-strip { flex-wrap: wrap; gap: 4px; }
   .hero-headline { font-size: 32px; }
   .subscribe-form { flex-direction: column; width: 100%; }
   .subscribe-input { width: 100%; }
@@ -170,6 +177,17 @@ a { color: inherit; text-decoration: none; }
     <div class="hero-card-label">ABOUT THIS PROJECT</div>
     <p class="hero-card-text">A collection of interactive tools, essays, and guided practices for meditators navigating what mindfulness actually does to a person.</p>
   </div>
+</section>
+
+<hr class="divider">
+
+<!-- Stats Strip -->
+<section class="stats-strip" id="stats-strip" aria-label="Site statistics">
+  <span class="stat-item"><span class="stat-num" id="stat-essays">5</span> essays</span>
+  <span class="stat-sep">·</span>
+  <span class="stat-item"><span class="stat-num" id="stat-questions">4,200</span> questions answered</span>
+  <span class="stat-sep">·</span>
+  <span class="stat-item"><span class="stat-num" id="stat-subscribers">26,000</span> subscribers</span>
 </section>
 
 <hr class="divider">
@@ -327,6 +345,66 @@ a { color: inherit; text-decoration: none; }
 </footer>
 
 <script>
+/* Stats strip count-up animation */
+(function() {
+  var STATS = {
+    essays:      { el: document.getElementById('stat-essays'),      target: 5,     decimals: 0 },
+    questions:   { el: document.getElementById('stat-questions'),   target: 4200,  decimals: 0 },
+    subscribers: { el: document.getElementById('stat-subscribers'), target: 26000, decimals: 0 }
+  };
+
+  function fmt(n) {
+    return n.toLocaleString('en-US');
+  }
+
+  function animateCount(el, target, duration) {
+    var startTime = null;
+    function step(ts) {
+      if (!startTime) startTime = ts;
+      var pct = Math.min((ts - startTime) / duration, 1);
+      // ease-out cubic
+      var eased = 1 - Math.pow(1 - pct, 3);
+      el.textContent = fmt(Math.round(eased * target));
+      if (pct < 1) requestAnimationFrame(step);
+      else el.textContent = fmt(target);
+    }
+    requestAnimationFrame(step);
+  }
+
+  var animated = false;
+  var strip = document.getElementById('stats-strip');
+
+  // Try to get live essay count from feed.json
+  fetch('/feed.json').then(function(r) { return r.json(); }).then(function(d) {
+    if (d && Array.isArray(d.items)) {
+      STATS.essays.target = d.items.length;
+      if (!animated) STATS.essays.el.textContent = fmt(d.items.length);
+    }
+  }).catch(function() {});
+
+  // Try to get live questions count from /api/ask/stats
+  fetch('/api/ask/stats').then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
+    if (d && typeof d.total === 'number') {
+      STATS.questions.target = d.total;
+      if (!animated) STATS.questions.el.textContent = fmt(d.total);
+    }
+  }).catch(function() {});
+
+  if (!strip || !('IntersectionObserver' in window)) return;
+
+  var observer = new IntersectionObserver(function(entries) {
+    if (entries[0].isIntersecting && !animated) {
+      animated = true;
+      Object.values(STATS).forEach(function(s) {
+        animateCount(s.el, s.target, 1200);
+      });
+      observer.disconnect();
+    }
+  }, { threshold: 0.5 });
+
+  observer.observe(strip);
+})();
+
 /* Click-outside to close auth form */
 document.addEventListener('click', function(e) {
   var form = document.getElementById('auth-form');
