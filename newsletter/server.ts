@@ -64,6 +64,7 @@ const TWITTER_ACCESS_SECRET = process.env.TWITTER_ACCESS_SECRET;
 const SITE_URL_SOCIAL = "https://paradoxofacceptance.xyz";
 const GOOGLE_SEARCH_CONSOLE_SITE_TOKEN = process.env.GOOGLE_SEARCH_CONSOLE_SITE_TOKEN;
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL;
+const PREVIEW_SECRET = process.env.PREVIEW_SECRET;
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
 
@@ -151,6 +152,9 @@ function validateConfig() {
   if (!OPENAI_API_KEY) {
     console.warn("⚠️  OPENAI_API_KEY not set — essay embeddings and related essays will use tag-based fallback only");
   }
+  if (!PREVIEW_SECRET) {
+    console.warn("⚠️  PREVIEW_SECRET not set — /api/admin/essays/:slug/preview-token endpoints will return 503");
+  }
 }
 
 // ─── Unsubscribe token helpers ────────────────────────────────────────────────
@@ -226,6 +230,55 @@ function verifyPreferencesToken(token: string): PreferencesTokenResult {
     if (typeof data.sub !== "string") return { ok: false, expired: false };
     if (data.exp < Math.floor(Date.now() / 1000)) return { ok: false, expired: true };
     return { ok: true, email: data.sub, expired: false };
+  } catch {
+    return { ok: false, expired: false };
+  }
+}
+
+// ─── Preview token helpers ────────────────────────────────────────────────────
+
+const PREVIEW_TOKEN_TTL_SECS = 7 * 24 * 60 * 60; // 7 days
+
+/**
+ * Sign a preview JWT (HS256) for an essay draft.
+ * Payload: { essay_id, viewer_hint, iat, exp }
+ */
+function signPreviewToken(essaySlug: string, viewerHint: string): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({ essay_id: essaySlug, viewer_hint: viewerHint, iat: now, exp: now + PREVIEW_TOKEN_TTL_SECS })
+  ).toString("base64url");
+  const sig = createHmac("sha256", PREVIEW_SECRET!)
+    .update(`${header}.${payload}`)
+    .digest("base64url");
+  return `${header}.${payload}.${sig}`;
+}
+
+type PreviewTokenResult =
+  | { ok: true; essay_id: string; viewer_hint: string; expired: false }
+  | { ok: false; essay_id?: never; viewer_hint?: never; expired: boolean };
+
+/**
+ * Verify a preview JWT. Returns essay_id + viewer_hint or an error state.
+ */
+function verifyPreviewToken(token: string): PreviewTokenResult {
+  if (!PREVIEW_SECRET) return { ok: false, expired: false };
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return { ok: false, expired: false };
+    const [header, payload, sig] = parts;
+    const expected = createHmac("sha256", PREVIEW_SECRET)
+      .update(`${header}.${payload}`)
+      .digest("base64url");
+    const sigBuf = Buffer.from(sig, "base64url");
+    const expBuf = Buffer.from(expected, "base64url");
+    if (sigBuf.length !== expBuf.length) return { ok: false, expired: false };
+    if (!timingSafeEqual(sigBuf, expBuf)) return { ok: false, expired: false };
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof data.essay_id !== "string") return { ok: false, expired: false };
+    if (data.exp < Math.floor(Date.now() / 1000)) return { ok: false, expired: true };
+    return { ok: true, essay_id: data.essay_id, viewer_hint: data.viewer_hint ?? "", expired: false };
   } catch {
     return { ok: false, expired: false };
   }
@@ -2988,6 +3041,521 @@ app.post(
     res.json({ ok: true, pings: results });
   },
 );
+
+// ─── Essay preview token — admin routes ──────────────────────────────────────
+
+/**
+ * POST /api/admin/essays/:slug/preview-token
+ *
+ * Create or rotate a 7-day preview link for an unpublished essay draft.
+ * Body: { viewer_hint?: string }
+ *
+ * Upserts a single token row per essay (UNIQUE on essay_slug).
+ * Returns the full preview URL, token, viewer_hint, and expires_at.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.post("/api/admin/essays/:slug/preview-token", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!PREVIEW_SECRET) {
+    res.status(503).json({ error: "PREVIEW_SECRET not configured" });
+    return;
+  }
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+  const { viewer_hint } = (req.body ?? {}) as { viewer_hint?: string };
+  const hint = (viewer_hint ?? "").trim().substring(0, 80);
+
+  const token = signPreviewToken(slug, hint);
+  const expiresAt = new Date(Date.now() + PREVIEW_TOKEN_TTL_SECS * 1000).toISOString();
+
+  // Upsert: one token per essay, replace on conflict
+  const { error } = await supabase
+    .from("essay_preview_tokens")
+    .upsert({ essay_slug: slug, token, viewer_hint: hint || null, expires_at: expiresAt }, { onConflict: "essay_slug" });
+
+  if (error) {
+    console.error("[preview-token] upsert error:", error);
+    res.status(500).json({ error: "Failed to save preview token" });
+    return;
+  }
+
+  const previewUrl = `${SERVER_URL}/essays/preview/${token}`;
+  console.log(`[preview-token] generated for slug="${slug}" hint="${hint}"`);
+  res.status(201).json({ token, preview_url: previewUrl, viewer_hint: hint || null, expires_at: expiresAt });
+});
+
+/**
+ * GET /api/admin/essays/:slug/preview-token
+ *
+ * Return the current preview token status for an essay.
+ * Does NOT return the token value — only metadata + feedback count.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/essays/:slug/preview-token", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+
+  const [tokenRes, feedbackRes] = await Promise.all([
+    supabase
+      .from("essay_preview_tokens")
+      .select("token, viewer_hint, expires_at, created_at")
+      .eq("essay_slug", slug)
+      .maybeSingle(),
+    supabase
+      .from("draft_feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("essay_slug", slug),
+  ]);
+
+  if (tokenRes.error) {
+    console.error("[preview-token] fetch error:", tokenRes.error);
+    res.status(500).json({ error: "Failed to fetch preview token" });
+    return;
+  }
+
+  if (!tokenRes.data) {
+    res.json({ active: false, feedback_count: feedbackRes.count ?? 0 });
+    return;
+  }
+
+  const row = tokenRes.data;
+  const isExpired = new Date(row.expires_at) < new Date();
+  const previewUrl = `${SERVER_URL}/essays/preview/${row.token}`;
+
+  res.json({
+    active: !isExpired,
+    preview_url: previewUrl,
+    viewer_hint: row.viewer_hint ?? null,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+    feedback_count: feedbackRes.count ?? 0,
+  });
+});
+
+/**
+ * DELETE /api/admin/essays/:slug/preview-token
+ *
+ * Revoke the active preview token for an essay.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.delete("/api/admin/essays/:slug/preview-token", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+
+  const { error } = await supabase
+    .from("essay_preview_tokens")
+    .delete()
+    .eq("essay_slug", slug);
+
+  if (error) {
+    console.error("[preview-token] delete error:", error);
+    res.status(500).json({ error: "Failed to revoke preview token" });
+    return;
+  }
+
+  console.log(`[preview-token] revoked for slug="${slug}"`);
+  res.json({ ok: true });
+});
+
+/**
+ * GET /api/admin/essays/:slug/feedback
+ *
+ * List all draft feedback comments for an essay.
+ *
+ * Auth: X-Admin-Secret header.
+ */
+app.get("/api/admin/essays/:slug/feedback", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+
+  const { data, error } = await supabase
+    .from("draft_feedback")
+    .select("id, viewer_hint, comment, submitted_at")
+    .eq("essay_slug", slug)
+    .order("submitted_at", { ascending: false });
+
+  if (error) {
+    console.error("[feedback] list error:", error);
+    res.status(500).json({ error: "Failed to fetch feedback" });
+    return;
+  }
+
+  res.json({ feedback: data ?? [] });
+});
+
+// ─── Essay preview — public routes ───────────────────────────────────────────
+
+/**
+ * POST /api/essays/preview/:token/feedback
+ *
+ * Submit a feedback comment for a draft essay preview.
+ * Validates the token (cryptographic + DB revocation check).
+ * Body: { comment: string }
+ * No auth — public, gated by the preview token.
+ */
+app.post("/api/essays/preview/:token/feedback", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { token } = req.params;
+  const result = verifyPreviewToken(token);
+
+  if (!result.ok) {
+    res.status(401).json({ error: result.expired ? "Preview link has expired" : "Invalid preview link" });
+    return;
+  }
+
+  // Check token still exists in DB (not revoked)
+  const { data: row, error: dbErr } = await supabase
+    .from("essay_preview_tokens")
+    .select("essay_slug, viewer_hint")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (dbErr) {
+    console.error("[feedback/submit] DB lookup error:", dbErr);
+    res.status(500).json({ error: "Server error" });
+    return;
+  }
+
+  if (!row) {
+    res.status(401).json({ error: "Preview link has been revoked" });
+    return;
+  }
+
+  const { comment } = (req.body ?? {}) as { comment?: string };
+  if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
+    res.status(400).json({ error: "comment is required" });
+    return;
+  }
+  const trimmed = comment.trim().substring(0, 5000);
+
+  const { error: insertErr } = await supabase.from("draft_feedback").insert({
+    essay_slug: row.essay_slug,
+    viewer_hint: row.viewer_hint ?? null,
+    comment: trimmed,
+  });
+
+  if (insertErr) {
+    console.error("[feedback/submit] insert error:", insertErr);
+    res.status(500).json({ error: "Failed to save feedback" });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+/**
+ * GET /essays/preview/:token
+ *
+ * Server-rendered preview page for an unpublished essay draft.
+ * Validates the token and renders the current draft state.
+ * No auth — the token is the credential. Requires nginx routing.
+ */
+app.get("/essays/preview/:token", async (req: Request, res: Response) => {
+  const { token } = req.params;
+  const result = verifyPreviewToken(token);
+
+  if (!result.ok) {
+    const msg = result.expired ? "This preview link has expired." : "This preview link is invalid.";
+    res.status(401).send(renderPreviewError(msg));
+    return;
+  }
+
+  if (!supabase) {
+    res.status(503).send(renderPreviewError("Preview unavailable — server not configured."));
+    return;
+  }
+
+  // Check token exists in DB (not revoked)
+  const { data: tokenRow } = await supabase
+    .from("essay_preview_tokens")
+    .select("essay_slug, viewer_hint")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!tokenRow) {
+    res.status(401).send(renderPreviewError("This preview link has been revoked."));
+    return;
+  }
+
+  // Fetch the essay draft (published or not)
+  const { data: essay, error: essayErr } = await supabase
+    .from("essays")
+    .select("slug, title, kicker, description, body_markdown, read_time, published_at")
+    .eq("slug", tokenRow.essay_slug)
+    .maybeSingle();
+
+  if (essayErr || !essay) {
+    res.status(404).send(renderPreviewError("Essay not found."));
+    return;
+  }
+
+  const bodyHtml = essay.body_markdown
+    ? String(await marked(essay.body_markdown, { gfm: true }))
+    : "";
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  res.send(renderPreviewPage(essay, bodyHtml, result.viewer_hint, token));
+});
+
+/** Render a simple error page for invalid/expired preview tokens. */
+function renderPreviewError(message: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview Unavailable — Paradox of Acceptance</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 40px 48px; max-width: 400px; text-align: center; }
+h1 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+p { font-size: 14px; color: #666; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Preview Unavailable</h1>
+  <p>${escHtml(message)}</p>
+</div>
+</body>
+</html>`;
+}
+
+/** Render the full preview page for a draft essay. */
+function renderPreviewPage(
+  essay: { slug: string; title: string; kicker?: string | null; description?: string | null; read_time?: string | null; published_at?: string | null },
+  bodyHtml: string,
+  viewerHint: string,
+  token: string,
+): string {
+  const title = escHtml(essay.title || essay.slug);
+  const kicker = essay.kicker ? escHtml(essay.kicker) : "";
+  const readTime = essay.read_time ? escHtml(essay.read_time) : "";
+  const hintLine = viewerHint ? ` · Shared with ${escHtml(viewerHint)}` : "";
+  // Strip script tags as a basic precaution
+  const safeBody = bodyHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} (Draft Preview) — Paradox of Acceptance</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body { font-family: Georgia, 'Times New Roman', serif; background: #fff; color: #111; line-height: 1.7; font-size: 18px; }
+a { color: #111; }
+
+/* ── Banner ── */
+.preview-banner {
+  background: #fef3c7;
+  border-bottom: 1px solid #fcd34d;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #92400e;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.preview-banner svg { flex-shrink: 0; }
+
+/* ── Layout ── */
+.page { max-width: 680px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* ── Header ── */
+.essay-kicker { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #888; margin-bottom: 16px; }
+.essay-title { font-size: 2.2rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.essay-meta { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #888; margin-bottom: 40px; }
+.divider { border: none; border-top: 1px solid #e8e8e8; margin-bottom: 36px; }
+
+/* ── Body ── */
+.essay-body h1, .essay-body h2, .essay-body h3 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin-top: 2em; margin-bottom: 0.6em; line-height: 1.3; font-weight: 600;
+}
+.essay-body h2 { font-size: 1.3rem; }
+.essay-body h3 { font-size: 1.1rem; color: #333; }
+.essay-body p { margin-bottom: 1.2em; }
+.essay-body ul, .essay-body ol { margin: 0 0 1.2em 1.5em; }
+.essay-body li { margin-bottom: 0.3em; }
+.essay-body blockquote {
+  border-left: 3px solid #ddd;
+  margin: 1.5em 0;
+  padding: 0.5em 1em;
+  color: #555;
+  font-style: italic;
+}
+.essay-body code {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.85em;
+  background: #f5f5f5;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.essay-body pre { background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto; margin-bottom: 1.2em; }
+.essay-body pre code { background: none; padding: 0; }
+.essay-body a { text-decoration: underline; text-underline-offset: 2px; }
+.essay-body hr { border: none; border-top: 1px solid #e8e8e8; margin: 2.5em 0; }
+
+/* ── Feedback ── */
+.feedback-section {
+  margin-top: 60px;
+  border-top: 1px solid #e8e8e8;
+  padding-top: 36px;
+}
+.feedback-heading {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 4px;
+}
+.feedback-subtext {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 16px;
+}
+.feedback-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: border-color 0.15s;
+  color: #111;
+}
+.feedback-textarea:focus { border-color: #111; }
+.feedback-submit {
+  margin-top: 10px;
+  padding: 9px 20px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.feedback-submit:hover { background: #333; }
+.feedback-submit:disabled { background: #aaa; cursor: not-allowed; }
+.feedback-status {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 18px;
+}
+.feedback-status.ok { color: #16a34a; }
+.feedback-status.err { color: #dc2626; }
+</style>
+</head>
+<body>
+<div class="preview-banner">
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2zm-.5 5a.5.5 0 0 1 1 0v3a.5.5 0 0 1-1 0V7zm.5-2a.75.75 0 1 1 0-1.5A.75.75 0 0 1 8 5z"/>
+  </svg>
+  This is an unpublished draft — Do not share publicly${hintLine}
+</div>
+
+<div class="page">
+  ${kicker ? `<div class="essay-kicker">${kicker}</div>` : ""}
+  <h1 class="essay-title">${title}</h1>
+  <div class="essay-meta">${readTime ? `${readTime} · ` : ""}Draft preview</div>
+  <hr class="divider">
+  <div class="essay-body" id="essay-body">
+    ${safeBody}
+  </div>
+
+  <div class="feedback-section">
+    <div class="feedback-heading">Leave feedback</div>
+    <div class="feedback-subtext">Your thoughts go directly to Nick. No account needed.</div>
+    <textarea class="feedback-textarea" id="feedback-text" placeholder="What did you think? Any questions, typos, or reactions?"></textarea>
+    <br>
+    <button class="feedback-submit" id="feedback-btn" onclick="submitFeedback()">Send feedback</button>
+    <div class="feedback-status" id="feedback-status"></div>
+  </div>
+</div>
+
+<script>
+async function submitFeedback() {
+  const textarea = document.getElementById('feedback-text');
+  const btn = document.getElementById('feedback-btn');
+  const status = document.getElementById('feedback-status');
+  const comment = textarea.value.trim();
+  if (!comment) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending\u2026';
+  status.textContent = '';
+  status.className = 'feedback-status';
+  try {
+    const res = await fetch('/api/essays/preview/${token}/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comment }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      textarea.value = '';
+      btn.textContent = 'Send feedback';
+      btn.disabled = false;
+      status.textContent = 'Feedback sent \u2014 thanks!';
+      status.className = 'feedback-status ok';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Send feedback';
+      status.textContent = json.error || 'Failed to send \u2014 please try again.';
+      status.className = 'feedback-status err';
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Send feedback';
+    status.textContent = 'Network error \u2014 please try again.';
+    status.className = 'feedback-status err';
+  }
+}
+</script>
+</body>
+</html>`;
+}
 
 // ─── Email preference center ──────────────────────────────────────────────────
 
@@ -6203,6 +6771,65 @@ app.post("/api/admin/submissions/:id/promote", requireAdminSecret, async (req: R
   console.log(`[admin/submissions/promote] Submission ${id} promoted to essay slug="${slug}"`);
 
   res.status(201).json({ essay, submissionId: id });
+});
+
+// ─── Referral Resolve ─────────────────────────────────────────────────────────
+//
+// GET /api/referrals/resolve?code={code}
+//
+// Public endpoint. Resolves an 8-char referral code to the referrer's display
+// name. Used by the /join landing page to personalise the headline.
+//
+// Returns:
+//   200 { display_name: string | null }  — code found; display_name null if no profile
+//   400 { error: "invalid_code" }        — code is malformed
+//   404 { error: "not_found" }           — code does not exist
+//   500 { error: "server_error" }        — database unavailable
+
+app.get("/api/referrals/resolve", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  const { code } = req.query;
+
+  if (!code || typeof code !== "string" || !/^[A-Z0-9]{8}$/i.test(code)) {
+    res.status(400).json({ error: "invalid_code" });
+    return;
+  }
+
+  if (!supabase) {
+    res.status(500).json({ error: "server_error" });
+    return;
+  }
+
+  const codeUpper = code.toUpperCase();
+
+  const { data: codeRow, error: codeErr } = await supabase
+    .from("referral_codes")
+    .select("user_id")
+    .eq("code", codeUpper)
+    .maybeSingle();
+
+  if (codeErr) {
+    console.error("[referrals/resolve] db error:", codeErr.message);
+    res.status(500).json({ error: "server_error" });
+    return;
+  }
+
+  if (!codeRow) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+
+  // Best-effort display name lookup from user_profiles
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("display_name")
+    .eq("wallet_address", codeRow.user_id)
+    .maybeSingle();
+
+  res.json({ display_name: profile?.display_name ?? null });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
