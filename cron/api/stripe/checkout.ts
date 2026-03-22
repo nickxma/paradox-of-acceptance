@@ -38,7 +38,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: "Stripe not configured" });
   }
 
-  const { walletAddress } = req.body as { walletAddress?: string };
+  const { walletAddress, promoCode, refCode } = req.body as {
+    walletAddress?: string;
+    promoCode?: string;
+    refCode?: string;
+  };
   if (!walletAddress || !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
     return res.status(400).json({ error: "Valid walletAddress required" });
   }
@@ -46,14 +50,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const stripe = new Stripe(STRIPE_SECRET_KEY);
 
-    const session = await stripe.checkout.sessions.create({
+    // Validate promo code if provided
+    let promotionCodeId: string | null = null;
+    if (promoCode && promoCode.trim().length > 0) {
+      const result = await stripe.promotionCodes.list({
+        code: promoCode.trim(),
+        active: true,
+        limit: 1,
+      });
+      const matched = result.data[0];
+      if (!matched) {
+        return res.status(400).json({ error: "invalid_promo_code" });
+      }
+      promotionCodeId = matched.id;
+    }
+
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
-      metadata: { walletAddress: walletAddress.toLowerCase() },
+      metadata: {
+        walletAddress: walletAddress.toLowerCase(),
+        ...(refCode && /^[A-Z0-9]{8}$/.test(refCode.trim().toUpperCase())
+          ? { refCode: refCode.trim().toUpperCase() }
+          : {}),
+      },
+      subscription_data: { trial_period_days: 14 },
       success_url: `${SITE_URL}/access/success/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/pass/`,
-      allow_promotion_codes: true,
-    });
+    };
+
+    if (promotionCodeId) {
+      // Explicit promo code: apply discount directly
+      sessionParams.discounts = [{ promotion_code: promotionCodeId }];
+    } else {
+      // No promo code: let Stripe show their built-in promo input
+      sessionParams.allow_promotion_codes = true;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return res.status(200).json({ url: session.url });
   } catch (err: unknown) {

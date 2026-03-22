@@ -10,7 +10,8 @@
  *   invoice.payment_failed          — set status = 'past_due', open 7-day grace period,
  *                                     schedule dunning emails (day 0/3/7), send day-0 email
  *   invoice.payment_succeeded       — set status = 'active', clear grace period,
- *                                     cancel any pending dunning emails
+ *                                     cancel any pending dunning emails,
+ *                                     apply 1-month Stripe credit to referrer (first payment only)
  *
  * Dunning grace period:
  *   When payment fails the user keeps Pro access for 7 days (grace_period_end = now+7d).
@@ -30,6 +31,7 @@
  *   RESEND_API_KEY            — Resend API key (optional — gates email sends)
  *   EMAIL_FROM                — verified sender address
  *   SITE_URL                  — base URL for links in notification emails (optional)
+ *   REFERRAL_CREDIT_CENTS     — credit amount in cents for referral reward (e.g. 999 for $9.99)
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -44,6 +46,10 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "hello@paradoxofacceptance.xyz";
 const SITE_URL = process.env.SITE_URL ?? "https://paradoxofacceptance.xyz";
+
+const REFERRAL_CREDIT_CENTS = process.env.REFERRAL_CREDIT_CENTS
+  ? parseInt(process.env.REFERRAL_CREDIT_CENTS, 10)
+  : null;
 
 const GRACE_PERIOD_DAYS = 7;
 
@@ -109,10 +115,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const currentPeriodEnd = periodEndTs
           ? new Date(periodEndTs * 1000).toISOString()
           : null;
+        const trialEndCreated = sub.trial_end
+          ? new Date(sub.trial_end * 1000).toISOString()
+          : null;
 
         const { error } = await supabase
           .from("subscriptions")
-          .update({ stripe_customer_id: stripeCustomerId, status, current_period_end: currentPeriodEnd })
+          .update({ stripe_customer_id: stripeCustomerId, status, current_period_end: currentPeriodEnd, trial_end: trialEndCreated })
           .eq("stripe_subscription_id", sub.id);
 
         if (error) {
@@ -131,10 +140,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const currentPeriodEnd = updatedPeriodEndTs
           ? new Date(updatedPeriodEndTs * 1000).toISOString()
           : null;
+        // trial_end is cleared (null) once the trial has ended and billing begins
+        const trialEndUpdated = sub.trial_end
+          ? new Date(sub.trial_end * 1000).toISOString()
+          : null;
 
         const { error } = await supabase
           .from("subscriptions")
-          .update({ status, current_period_end: currentPeriodEnd })
+          .update({ status, current_period_end: currentPeriodEnd, trial_end: trialEndUpdated })
           .eq("stripe_subscription_id", sub.id);
 
         if (error) {
@@ -303,6 +316,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Cancel any pending dunning emails — user has paid
         await cancelPendingDunningEmails(supabase, stripeSubscriptionId);
 
+        // ── Referral credit ───────────────────────────────────────────────────
+        // Apply a 1-month Stripe credit to the referrer on first paid conversion.
+        // Only fires when REFERRAL_CREDIT_CENTS is set and a pending conversion exists.
+        await applyReferralCreditIfEligible(supabase, stripe, stripeSubscriptionId);
+
         console.log(`stripe-webhook: invoice.payment_succeeded sub=${stripeSubscriptionId} confirmed active`);
         break;
       }
@@ -322,20 +340,121 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 /**
  * Maps Stripe subscription status to our DB status enum.
- * DB allows: 'active' | 'cancelled' | 'past_due'
+ * DB allows: 'active' | 'trialing' | 'cancelled' | 'past_due'
  */
 function mapStripeStatus(
   stripeStatus: Stripe.Subscription.Status
-): "active" | "cancelled" | "past_due" {
+): "active" | "trialing" | "cancelled" | "past_due" {
   switch (stripeStatus) {
     case "active":
-    case "trialing":
       return "active";
+    case "trialing":
+      return "trialing";
     case "past_due":
     case "unpaid":
       return "past_due";
     default:
       return "cancelled";
+  }
+}
+
+/**
+ * Applies a Stripe customer balance credit to the referrer when a referee completes
+ * their trial and makes their first real payment. Idempotent — only fires once per
+ * conversion (gated on converted_at IS NULL). Non-fatal.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function applyReferralCreditIfEligible(
+  supabase: any,
+  stripe: Stripe,
+  stripeSubscriptionId: string
+): Promise<void> {
+  if (!REFERRAL_CREDIT_CENTS) {
+    // Env var not configured — skip silently
+    return;
+  }
+
+  // Find the wallet_address for this subscription
+  const { data: subRow } = await supabase
+    .from("subscriptions")
+    .select("wallet_address")
+    .eq("stripe_subscription_id", stripeSubscriptionId)
+    .single();
+
+  if (!subRow?.wallet_address) return;
+
+  // Check for a pending referral conversion for this referee
+  const { data: conversion } = await supabase
+    .from("referral_conversions")
+    .select("id, code")
+    .eq("referee_user_id", subRow.wallet_address)
+    .is("converted_at", null)
+    .single();
+
+  if (!conversion) return; // no pending conversion
+
+  const now = new Date().toISOString();
+
+  // Find the referrer's wallet and their Stripe customer_id
+  const { data: referrerCodeRow } = await supabase
+    .from("referral_codes")
+    .select("user_id")
+    .eq("code", conversion.code)
+    .single();
+
+  if (!referrerCodeRow?.user_id) {
+    // Mark converted without credit (orphaned code)
+    await supabase
+      .from("referral_conversions")
+      .update({ converted_at: now })
+      .eq("id", conversion.id);
+    console.warn(`stripe-webhook: referral code ${conversion.code} has no owner — marked converted, no credit`);
+    return;
+  }
+
+  const { data: referrerSub } = await supabase
+    .from("subscriptions")
+    .select("stripe_customer_id")
+    .eq("wallet_address", referrerCodeRow.user_id)
+    .single();
+
+  if (!referrerSub?.stripe_customer_id) {
+    // Referrer doesn't have a Stripe customer (e.g. on-chain member) — mark converted, skip credit
+    await supabase
+      .from("referral_conversions")
+      .update({ converted_at: now })
+      .eq("id", conversion.id);
+    console.warn(
+      `stripe-webhook: referrer ${referrerCodeRow.user_id} has no Stripe customer — marked converted, no credit`
+    );
+    return;
+  }
+
+  // Apply the credit as a negative customer balance transaction
+  try {
+    await stripe.customers.createBalanceTransaction(referrerSub.stripe_customer_id, {
+      amount: -Math.abs(REFERRAL_CREDIT_CENTS),
+      currency: "usd",
+      description: `Referral reward — referee ${subRow.wallet_address} completed trial`,
+    });
+
+    await supabase
+      .from("referral_conversions")
+      .update({ converted_at: now, credited_at: now })
+      .eq("id", conversion.id);
+
+    console.log(
+      `stripe-webhook: referral credit ${REFERRAL_CREDIT_CENTS}¢ applied to customer=${referrerSub.stripe_customer_id} ` +
+      `referrer=${referrerCodeRow.user_id} referee=${subRow.wallet_address}`
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("stripe-webhook: failed to apply referral credit:", message);
+    // Still mark converted so we don't re-attempt on the next invoice cycle
+    await supabase
+      .from("referral_conversions")
+      .update({ converted_at: now })
+      .eq("id", conversion.id);
   }
 }
 
