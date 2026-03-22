@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+  <title>Reading Streak — Paradox of Acceptance</title>
+  <meta name="description" content="Your daily mindfulness reading streak, history, and goal progress." />
+  <meta name="robots" content="noindex" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #faf8f4;
+      --sage: #7d8c6e;
+      --sage-light: #a4b594;
+      --sage-dark: #5a6b4e;
+      --ink: #2c2c2c;
+      --ink-light: #555;
+      --rule: #e2ddd6;
+      --bg-muted: #f0ede7;
+    }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ─── Nav ─── */
+    .site-nav {
+      padding: 20px 0 18px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .site-nav a {
+      font-size: 13px;
+      color: var(--sage);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+
+    .site-nav a:hover { text-decoration: underline; }
+
+    .site-nav .brand {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+
+    /* ─── Page heading ─── */
+    .page-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .page-subtitle {
+      font-size: 15px;
+      color: var(--ink-light);
+      margin-bottom: 40px;
+    }
+
+    /* ─── Auth gate ─── */
+    #auth-gate {
+      text-align: center;
+      padding: 64px 0;
+    }
+
+    #auth-gate p {
+      font-size: 15px;
+      color: var(--ink-light);
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      display: inline-block;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 12px 28px;
+      background: var(--sage);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.18s ease;
+    }
+
+    .btn:hover { background: var(--sage-dark); }
+
+    /* ─── Loading ─── */
+    #loading {
+      text-align: center;
+      padding: 64px 0;
+      color: var(--ink-light);
+      font-size: 14px;
+    }
+
+    /* ─── Stats grid ─── */
+    #reading-content { display: none; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .stat-card {
+      background: var(--bg-muted);
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--sage-dark);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+    }
+
+    /* ─── Goal widget ─── */
+    .section-heading {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-light);
+      margin-bottom: 14px;
+    }
+
+    .goal-widget {
+      background: var(--bg-muted);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .goal-ring {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+    }
+
+    .goal-ring svg { display: block; }
+
+    .goal-info { flex: 1; }
+
+    .goal-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .goal-detail {
+      font-size: 13px;
+      color: var(--ink-light);
+    }
+
+    /* ─── Heatmap ─── */
+    .heatmap-section { margin-bottom: 48px; }
+
+    .heatmap-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+
+    .heatmap-grid {
+      display: inline-flex;
+      gap: 3px;
+      align-items: flex-start;
+    }
+
+    .heatmap-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .heatmap-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: var(--rule);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .heatmap-cell.active { background: var(--sage); }
+    .heatmap-cell.today { box-shadow: 0 0 0 1.5px var(--sage-dark); }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--ink-light);
+    }
+
+    .heatmap-legend .cell-sample {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    /* ─── Essays list ─── */
+    .essays-section { margin-bottom: 64px; }
+
+    .essays-list {
+      list-style: none;
+    }
+
+    .essays-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--rule);
+      gap: 12px;
+    }
+
+    .essays-list li:last-child { border-bottom: none; }
+
+    .essay-link {
+      font-size: 15px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .essay-link:hover { color: var(--sage-dark); text-decoration: underline; }
+
+    .essay-read-badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--sage);
+      background: rgba(125, 140, 110, 0.12);
+      padding: 3px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .essay-unread {
+      font-size: 12px;
+      color: #bbb;
+      white-space: nowrap;
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      padding: 32px 0 48px;
+      border-top: 1px solid var(--rule);
+      font-size: 12px;
+      color: var(--ink-light);
+    }
+
+    footer a {
+      color: var(--sage);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <nav class="site-nav">
+    <a href="/" class="brand">Paradox of Acceptance</a>
+    <a href="/mindfulness-essays/">← Essays</a>
+  </nav>
+
+  <h1 class="page-title">Reading Streak</h1>
+  <p class="page-subtitle">Your daily mindfulness reading habit, tracked.</p>
+
+  <!-- Auth gate (shown when not logged in) -->
+  <div id="auth-gate">
+    <p>Sign in to track your reading streak, view your history, and set daily goals.</p>
+    <button class="btn" id="signin-btn">Sign in</button>
+    <p style="margin-top:16px;font-size:13px;color:#aaa;">
+      No account? <a href="/mindfulness-essays/" style="color:var(--sage);">Start reading</a> — streaks save automatically when you sign in.
+    </p>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" style="display:none;">Loading your reading data…</div>
+
+  <!-- Main content (shown when logged in) -->
+  <div id="reading-content">
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-streak">0</div>
+        <div class="stat-label">Day streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-longest">0</div>
+        <div class="stat-label">Longest streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Essays read</div>
+      </div>
+    </div>
+
+    <!-- Daily goal -->
+    <div class="section-heading">Today's goal</div>
+    <div class="goal-widget" id="goal-widget">
+      <div class="goal-ring">
+        <svg width="56" height="56" viewBox="0 0 56 56">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="#e2ddd6" stroke-width="5" />
+          <circle id="goal-arc" cx="28" cy="28" r="22" fill="none"
+            stroke="#7d8c6e" stroke-width="5" stroke-linecap="round"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2"
+            transform="rotate(-90 28 28)" />
+        </svg>
+      </div>
+      <div class="goal-info">
+        <div class="goal-title" id="goal-title">Read 1 essay today</div>
+        <div class="goal-detail" id="goal-detail">No essays read yet today.</div>
+      </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="heatmap-section">
+      <div class="section-heading">Last 13 weeks</div>
+      <div class="heatmap-scroll">
+        <div class="heatmap-grid" id="heatmap-grid"></div>
+      </div>
+      <div class="heatmap-legend">
+        <div class="cell-sample" style="background:var(--rule);"></div>
+        No read
+        <div class="cell-sample" style="background:var(--sage);margin-left:8px;"></div>
+        Read
+      </div>
+    </div>
+
+    <!-- Essays list -->
+    <div class="essays-section">
+      <div class="section-heading">Essays</div>
+      <ul class="essays-list" id="essays-list"></ul>
+    </div>
+
+  </div><!-- /reading-content -->
+
+  <footer>
+    <a href="/mindfulness-essays/">← All essays</a>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var SUPABASE_URL = 'https://jyxwnfgcqgiqxjdlypvr.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5eHduZmdjcWdpcXhqZGx5cHZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODkxNTYsImV4cCI6MjA4ODg2NTE1Nn0.4NFTioFSjRZVRqOB9kXToi_UueNrvxBj-vy6uRtCtrE';
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+
+  var ESSAYS = [
+    { slug: 'paradox-of-acceptance',            title: 'The Paradox of Acceptance',       path: '/mindfulness-essays/paradox-of-acceptance/' },
+    { slug: 'should-you-get-into-mindfulness',  title: 'Should You Get Into Mindfulness?', path: '/mindfulness-essays/should-you-get-into-mindfulness/' },
+    { slug: 'the-avoidance-problem',            title: 'The Avoidance Problem',            path: '/mindfulness-essays/the-avoidance-problem/' },
+    { slug: 'the-cherry-picking-problem',       title: 'The Cherry-Picking Problem',       path: '/mindfulness-essays/the-cherry-picking-problem/' },
+    { slug: 'when-to-quit',                     title: 'When to Quit',                     path: '/mindfulness-essays/when-to-quit/' },
+  ];
+
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  var authGate     = document.getElementById('auth-gate');
+  var loadingEl    = document.getElementById('loading');
+  var contentEl    = document.getElementById('reading-content');
+  var signinBtn    = document.getElementById('signin-btn');
+
+  function show(el) { el.style.display = ''; }
+  function hide(el) { el.style.display = 'none'; }
+
+  // ── Auth ───────────────────────────────────────────────────────────────
+
+  signinBtn.addEventListener('click', function () {
+    sb.auth.signInWithOtp({ email: prompt('Enter your email address:') || '' })
+      .then(function (res) {
+        if (res.error) {
+          alert('Error: ' + res.error.message);
+        } else {
+          signinBtn.textContent = 'Check your email for a sign-in link.';
+          signinBtn.disabled = true;
+        }
+      });
+  });
+
+  // ── Init ───────────────────────────────────────────────────────────────
+
+  sb.auth.getSession().then(function (res) {
+    var session = res && res.data && res.data.session;
+    if (!session) {
+      show(authGate);
+      return;
+    }
+    hide(authGate);
+    show(loadingEl);
+    loadReadingData(session.access_token);
+  });
+
+  // Listen for auth changes (e.g., magic link return)
+  sb.auth.onAuthStateChange(function (_event, session) {
+    if (session && contentEl.style.display === 'none') {
+      hide(authGate);
+      show(loadingEl);
+      loadReadingData(session.access_token);
+    }
+  });
+
+  // ── Load data ─────────────────────────────────────────────────────────
+
+  function loadReadingData(token) {
+    fetch(API_BASE + '/api/reading-streak/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        hide(loadingEl);
+        if (!data) { show(contentEl); renderEmpty(); return; }
+        show(contentEl);
+        renderStats(data);
+        renderGoal(data);
+        renderHeatmap(data.read_dates_90d || []);
+        renderEssaysList(data.read_dates_90d || [], token);
+      })
+      .catch(function () {
+        hide(loadingEl);
+        show(contentEl);
+        renderEmpty();
+      });
+  }
+
+  function renderEmpty() {
+    document.getElementById('stat-streak').textContent = '0';
+    document.getElementById('stat-longest').textContent = '0';
+    document.getElementById('stat-total').textContent = '0';
+    renderGoal({ read_dates_90d: [] });
+    renderHeatmap([]);
+    renderEssaysList([], null);
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────
+
+  function renderStats(data) {
+    document.getElementById('stat-streak').textContent = data.current_streak || 0;
+    document.getElementById('stat-longest').textContent = data.longest_streak || 0;
+    document.getElementById('stat-total').textContent = data.total_essays_read || 0;
+  }
+
+  // ── Goal widget ───────────────────────────────────────────────────────
+
+  function renderGoal(data) {
+    var today = new Date().toISOString().slice(0, 10);
+    var readToday = (data.read_dates_90d || []).indexOf(today) !== -1;
+    var goalArc = document.getElementById('goal-arc');
+    var circumference = 138.2;
+
+    if (readToday) {
+      goalArc.setAttribute('stroke-dashoffset', '0');
+      goalArc.setAttribute('stroke', '#7d8c6e');
+      document.getElementById('goal-title').textContent = 'Goal complete ✓';
+      document.getElementById('goal-detail').textContent = 'You\'ve read an essay today. Come back tomorrow.';
+    } else {
+      goalArc.setAttribute('stroke-dashoffset', circumference.toString());
+      document.getElementById('goal-title').textContent = 'Read 1 essay today';
+      document.getElementById('goal-detail').textContent = 'Spend 30 seconds with any essay to count it.';
+    }
+  }
+
+  // ── Heatmap ───────────────────────────────────────────────────────────
+
+  function renderHeatmap(readDates) {
+    var grid = document.getElementById('heatmap-grid');
+    grid.innerHTML = '';
+
+    var datesSet = {};
+    for (var i = 0; i < readDates.length; i++) datesSet[readDates[i]] = true;
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var todayStr = today.toISOString().slice(0, 10);
+
+    // Go back to the Sunday before 91 days ago
+    var start = new Date(today.getTime() - 90 * 86400000);
+    start.setDate(start.getDate() - start.getDay()); // back to Sunday
+
+    var current = new Date(start);
+    var col = null;
+
+    while (current <= today) {
+      var dayOfWeek = current.getDay();
+
+      if (dayOfWeek === 0) {
+        col = document.createElement('div');
+        col.className = 'heatmap-col';
+        grid.appendChild(col);
+      }
+
+      var dateStr = current.toISOString().slice(0, 10);
+      var cell = document.createElement('div');
+      cell.className = 'heatmap-cell' +
+        (datesSet[dateStr] ? ' active' : '') +
+        (dateStr === todayStr ? ' today' : '');
+      cell.title = dateStr + (datesSet[dateStr] ? ' — read' : '');
+      col.appendChild(cell);
+
+      current = new Date(current.getTime() + 86400000);
+    }
+  }
+
+  // ── Essays list ───────────────────────────────────────────────────────
+
+  function renderEssaysList(readDates, token) {
+    var list = document.getElementById('essays-list');
+    list.innerHTML = '';
+
+    // Fetch per-essay read data if we have a token
+    var fetchPromise = token
+      ? fetch(API_BASE + '/api/reading-streak/me', { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+      : Promise.resolve(null);
+
+    fetchPromise.then(function () {
+      // For now, just mark essays as read if *any* reads exist for the user
+      // The endpoint returns total counts, not per-essay. Use local read_dates as proxy.
+      var hasAnyRead = readDates && readDates.length > 0;
+
+      ESSAYS.forEach(function (essay) {
+        var li = document.createElement('li');
+
+        var link = document.createElement('a');
+        link.href = essay.path;
+        link.className = 'essay-link';
+        link.textContent = essay.title;
+
+        var badge = document.createElement('span');
+        // We don't have per-essay tracking in the /me endpoint yet — show generic label
+        if (hasAnyRead) {
+          badge.className = 'essay-read-badge';
+          badge.textContent = 'Read';
+        } else {
+          badge.className = 'essay-unread';
+          badge.textContent = 'Unread';
+        }
+
+        li.appendChild(link);
+        li.appendChild(badge);
+        list.appendChild(li);
+      });
+    });
+  }
+
+})();
+</script>
+
+</body>
+</html>

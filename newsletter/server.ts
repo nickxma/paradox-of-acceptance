@@ -1998,6 +1998,247 @@ app.put("/api/sessions/:id/notes", async (req: Request, res: Response) => {
   res.json({ status: "saved", updated_at: now });
 });
 
+// ─── Essay Reading Tracker API ────────────────────────────────────────────────
+//
+// POST /api/essays/:slug/read-progress  — record a completed essay read (anon ok)
+// GET  /api/reading-streak/me           — return streak data for authed user
+
+const VALID_ESSAY_SLUGS = new Set([
+  "paradox-of-acceptance",
+  "should-you-get-into-mindfulness",
+  "the-avoidance-problem",
+  "the-cherry-picking-problem",
+  "when-to-quit",
+]);
+
+// CORS pre-flight for read-progress (called from static essay pages)
+app.options("/api/essays/:slug/read-progress", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Id");
+  res.sendStatus(204);
+});
+
+app.options("/api/reading-streak/me", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(204);
+});
+
+/**
+ * POST /api/essays/:slug/read-progress
+ *
+ * Records that a reader spent 30+ seconds on an essay.
+ * Auth is optional — authenticated users update their reading streak;
+ * anonymous users are tracked by session_id (from X-Session-Id header).
+ *
+ * Body (optional): { read_duration_seconds?: number }
+ */
+app.post("/api/essays/:slug/read-progress", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+  if (!VALID_ESSAY_SLUGS.has(slug)) {
+    res.status(404).json({ error: "Essay not found" });
+    return;
+  }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  const sessionId = !userId ? (req.headers["x-session-id"] as string | undefined)?.slice(0, 64) : undefined;
+
+  if (!userId && !sessionId) {
+    res.status(400).json({ error: "x-session-id header required for unauthenticated requests" });
+    return;
+  }
+
+  const readDuration = typeof req.body?.read_duration_seconds === "number"
+    ? Math.min(Math.max(Math.round(req.body.read_duration_seconds), 30), 7200)
+    : 30;
+
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // Insert the essay read (one row per reader per essay per calendar day).
+  // Check-then-insert for both auth and anon — expression-based unique indexes
+  // aren't reliably usable with Supabase's upsert onConflict parameter.
+  let insertError: unknown = null;
+  if (userId) {
+    const { data: existing } = await supabase
+      .from("essay_reads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("essay_slug", slug)
+      .gte("read_at", today + "T00:00:00Z")
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      const { error } = await supabase.from("essay_reads").insert({
+        user_id: userId,
+        essay_slug: slug,
+        read_at: new Date().toISOString(),
+        read_duration_seconds: readDuration,
+      });
+      insertError = error;
+    }
+  } else {
+    // For anonymous, only insert if not already read today (don't upsert — no conflict key for anon+session)
+    const { data: existing } = await supabase
+      .from("essay_reads")
+      .select("id")
+      .eq("session_id", sessionId!)
+      .eq("essay_slug", slug)
+      .gte("read_at", today + "T00:00:00Z")
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      const { error } = await supabase.from("essay_reads").insert({
+        session_id: sessionId,
+        essay_slug: slug,
+        read_at: new Date().toISOString(),
+        read_duration_seconds: readDuration,
+      });
+      insertError = error;
+    }
+  }
+
+  if (insertError) {
+    console.error("[essay-read] insert error:", insertError);
+    res.status(500).json({ error: "Failed to record read" });
+    return;
+  }
+
+  // For authenticated users, update reading streak
+  let streak: { current_streak: number; longest_streak: number; milestone: number | null } | null = null;
+  if (userId) {
+    streak = await upsertReadingStreak(userId, today);
+  }
+
+  res.json({ ok: true, ...(streak ? { streak } : {}) });
+});
+
+/**
+ * Upsert the reading_streaks row for a user after a new essay read.
+ * Streak logic (same as OLU-395 course streaks):
+ *   - last_read_date = today → no change
+ *   - last_read_date = yesterday → increment current_streak
+ *   - last_read_date < yesterday → reset to 1
+ *   - Update longest_streak if current > longest
+ * Returns current_streak, longest_streak, and a milestone if newly crossed.
+ */
+async function upsertReadingStreak(
+  userId: string,
+  today: string
+): Promise<{ current_streak: number; longest_streak: number; milestone: number | null }> {
+  const { data: existing } = await supabase!
+    .from("reading_streaks")
+    .select("current_streak, longest_streak, last_read_date")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const prev = existing as { current_streak: number; longest_streak: number; last_read_date: string | null } | null;
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  let currentStreak = 1;
+  let longestStreak = prev?.longest_streak ?? 1;
+  const prevStreak = prev?.current_streak ?? 0;
+
+  if (prev?.last_read_date === today) {
+    // Already read today — no change needed
+    return { current_streak: prevStreak, longest_streak: longestStreak, milestone: null };
+  } else if (prev?.last_read_date === yesterday) {
+    currentStreak = prevStreak + 1;
+  } else {
+    currentStreak = 1;
+  }
+
+  if (currentStreak > longestStreak) longestStreak = currentStreak;
+
+  await supabase!.from("reading_streaks").upsert(
+    {
+      user_id: userId,
+      current_streak: currentStreak,
+      longest_streak: longestStreak,
+      last_read_date: today,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  // Check for milestone (7 or 30 days; only fires when crossing the threshold)
+  const milestones = [7, 30];
+  const milestone = milestones.find(
+    (m) => currentStreak === m && prevStreak < m
+  ) ?? null;
+
+  return { current_streak: currentStreak, longest_streak: longestStreak, milestone };
+}
+
+/**
+ * GET /api/reading-streak/me
+ *
+ * Returns reading streak and recent history for the authenticated user.
+ * Requires Authorization: Bearer <supabase-jwt>.
+ */
+app.get("/api/reading-streak/me", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  // Streak row
+  const { data: streakRow } = await supabase
+    .from("reading_streaks")
+    .select("current_streak, longest_streak, last_read_date")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Read history for heatmap — last 90 days, one row per day
+  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  const { data: reads } = await supabase
+    .from("essay_reads")
+    .select("essay_slug, read_at")
+    .eq("user_id", userId)
+    .gte("read_at", since)
+    .order("read_at", { ascending: false });
+
+  // Aggregate into dates read (Set of YYYY-MM-DD strings) and total count
+  const datesRead = new Set<string>();
+  let totalReads = 0;
+  for (const row of (reads ?? []) as Array<{ essay_slug: string; read_at: string }>) {
+    datesRead.add(row.read_at.slice(0, 10));
+    totalReads++;
+  }
+
+  // Total reads ever (all time, not just 90d)
+  const { count: totalEssays } = await supabase
+    .from("essay_reads")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  res.json({
+    current_streak: streakRow?.current_streak ?? 0,
+    longest_streak: streakRow?.longest_streak ?? 0,
+    last_read_date: streakRow?.last_read_date ?? null,
+    total_reads_90d: totalReads,
+    total_essays_read: (totalEssays as unknown as number) ?? 0,
+    read_dates_90d: Array.from(datesRead).sort(),
+  });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 validateConfig();
