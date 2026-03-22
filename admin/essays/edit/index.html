@@ -691,12 +691,96 @@ header {
 @media (max-width: 768px) {
   .content { padding: 20px 16px; }
   header { padding: 0 16px; }
-  #vh-panel, #diff-panel { width: 100%; }
+  #vh-panel, #diff-panel, #seo-panel { width: 100%; }
   .diff-body { grid-template-columns: 1fr; }
   .diff-side.before { border-right: none; border-bottom: 1px solid #f0f0f0; }
   .diff-labels { grid-template-columns: 1fr; }
   .form-row-two { grid-template-columns: 1fr; }
 }
+
+/* ─── SEO check panel ───────────────────────────────────────── */
+#seo-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 200;
+}
+#seo-overlay.open { display: block; }
+
+#seo-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 201;
+  overflow: hidden;
+}
+#seo-panel.open { transform: translateX(0); }
+
+.seo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.seo-panel-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+
+.seo-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.seo-summary {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  line-height: 1.5;
+}
+.seo-summary strong { color: #111; }
+.seo-summary .seo-warn-count { color: #b45309; font-weight: 600; }
+.seo-summary .seo-pass-count { color: #16a34a; font-weight: 600; }
+
+.seo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.seo-item:last-child { border-bottom: none; }
+.seo-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; line-height: 1.4; }
+.seo-item-content { flex: 1; min-width: 0; }
+.seo-item-label { font-size: 13px; font-weight: 500; color: #111; }
+.seo-item-detail { font-size: 12px; color: #888; margin-top: 2px; }
+.seo-item.warn .seo-item-label { color: #92400e; }
+.seo-item.warn .seo-item-detail { color: #b45309; }
+.seo-item.info .seo-item-label { color: #555; }
+
+.seo-panel-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.btn-publish { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; }
+.btn-publish:hover { background: #15803d !important; border-color: #15803d !important; }
+.btn-publish:disabled { background: #aaa !important; border-color: #aaa !important; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -750,6 +834,7 @@ header {
       <div class="save-bar-right">
         <input type="text" id="change-summary" class="form-input" placeholder="Change summary (optional)" style="width:220px;font-size:13px" />
         <button class="btn btn-dark" id="btn-save" onclick="saveEssay()">Save</button>
+        <button class="btn btn-ghost btn-publish" id="btn-publish" onclick="openSeoPanel()">Publish</button>
       </div>
     </div>
 
@@ -831,6 +916,18 @@ header {
     <!-- Publishing -->
     <div class="form-panel">
       <div class="form-section-label">Publishing</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Members only</div>
+          <div class="toggle-hint">Show first 30% to free/unauthenticated readers, then blur + upgrade CTA. Pro &amp; trialing subscribers see the full essay.</div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <label class="toggle-switch">
+            <input type="checkbox" id="f-pro-only" onchange="markDirty()" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
       <div class="toggle-row">
         <div>
           <div class="toggle-label">Post to Twitter when published</div>
@@ -959,6 +1056,22 @@ header {
 
 <!-- Toast -->
 <div id="toast"></div>
+
+<!-- SEO check panel -->
+<div id="seo-overlay" onclick="closeSeoPanel()"></div>
+<div id="seo-panel">
+  <div class="seo-header">
+    <div class="seo-panel-title">Pre-publish SEO Check</div>
+    <button class="vh-close" onclick="closeSeoPanel()" title="Close">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+    </button>
+  </div>
+  <div class="seo-panel-body" id="seo-panel-body"></div>
+  <div class="seo-panel-footer">
+    <button class="btn btn-ghost" onclick="closeSeoPanel()">Cancel</button>
+    <button class="btn btn-ghost btn-publish" id="btn-confirm-publish" onclick="confirmPublish()">Publish now</button>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -1134,6 +1247,7 @@ function populateForm(e) {
   renderKeywordTags();
   updateWordCount();
   updateSeoPreview();
+  document.getElementById('f-pro-only').checked = e.pro_only === true;
   document.getElementById('f-post-to-twitter').checked = e.post_to_twitter !== false;
   const tweetStatusEl = document.getElementById('tweet-status');
   tweetStatusEl.textContent = e.tweet_id ? `tweeted ✓` : '';
@@ -1160,6 +1274,7 @@ async function saveEssay() {
     seo_keywords: keywords.length > 0 ? [...keywords] : null,
     change_summary: document.getElementById('change-summary').value.trim() || null,
     post_to_twitter: document.getElementById('f-post-to-twitter').checked,
+    pro_only: document.getElementById('f-pro-only').checked,
   };
 
   const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(essaySlug), {
@@ -1637,6 +1752,189 @@ document.getElementById('keyword-tags-input').addEventListener('blur', (e) => {
     e.target.value = '';
   }
 });
+
+// ─── SEO Check Panel ────────────────────────────────────────────
+
+function openSeoPanel() {
+  const checks = runSeoChecks();
+  renderSeoPanel(checks);
+  document.getElementById('seo-overlay').classList.add('open');
+  document.getElementById('seo-panel').classList.add('open');
+}
+
+function closeSeoPanel() {
+  document.getElementById('seo-overlay').classList.remove('open');
+  document.getElementById('seo-panel').classList.remove('open');
+}
+
+function runSeoChecks() {
+  const title = document.getElementById('f-title').value.trim();
+  const metaDesc = document.getElementById('f-meta-description').value.trim();
+  const seoDesc = document.getElementById('f-seo-description').value.trim();
+  const effectiveDesc = seoDesc || metaDesc;
+  const slug = document.getElementById('f-slug').value.trim();
+  const body = document.getElementById('f-body').value;
+  const checks = [];
+
+  // 1. Title: 30–60 chars
+  const titleLen = title.length;
+  if (titleLen === 0) {
+    checks.push({ label: 'Title', detail: 'No title set', status: 'warn' });
+  } else if (titleLen < 30) {
+    checks.push({ label: `Title (${titleLen} chars)`, detail: 'Too short — aim for 30–60 chars', status: 'warn' });
+  } else if (titleLen > 60) {
+    checks.push({ label: `Title (${titleLen} chars)`, detail: 'Too long — aim for 30–60 chars', status: 'warn' });
+  } else {
+    checks.push({ label: `Title (${titleLen} chars)`, detail: 'Good length', status: 'pass' });
+  }
+
+  // 2. Meta description: 120–160 chars
+  const descLen = effectiveDesc.length;
+  if (descLen === 0) {
+    checks.push({ label: 'Meta description', detail: 'Missing — add a meta or SEO description', status: 'warn' });
+  } else if (descLen < 120) {
+    checks.push({ label: `Meta description (${descLen} chars)`, detail: 'Too short — aim for 120–160 chars', status: 'warn' });
+  } else if (descLen > 160) {
+    checks.push({ label: `Meta description (${descLen} chars)`, detail: 'Too long — trim to 120–160 chars', status: 'warn' });
+  } else {
+    checks.push({ label: `Meta description (${descLen} chars)`, detail: 'Good length', status: 'pass' });
+  }
+
+  // 3. Slug: lowercase, hyphen-separated, no stop words
+  const STOP_WORDS = new Set(['a','an','the','and','or','but','in','on','at','to','for','of','with','is','it','as','by']);
+  if (!slug) {
+    checks.push({ label: 'Slug', detail: 'No slug set', status: 'warn' });
+  } else {
+    const slugIssues = [];
+    if (!/^[a-z0-9-]+$/.test(slug)) slugIssues.push('should be lowercase with hyphens only');
+    const foundStops = slug.split('-').filter(w => STOP_WORDS.has(w));
+    if (foundStops.length > 0) slugIssues.push(`contains stop word${foundStops.length > 1 ? 's' : ''}: ${foundStops.join(', ')}`);
+    if (slugIssues.length === 0) {
+      checks.push({ label: 'Slug', detail: slug, status: 'pass' });
+    } else {
+      checks.push({ label: 'Slug', detail: slugIssues.join('; '), status: 'warn' });
+    }
+  }
+
+  // 4. Estimated reading time (informational)
+  const wc = countWords(body);
+  const estimatedMins = Math.max(1, Math.round(wc / 200));
+  checks.push({ label: 'Reading time', detail: `~${estimatedMins} min (${wc.toLocaleString()} words)`, status: 'info' });
+
+  // 5. First image alt text
+  const imgMatches = body.match(/!\[([^\]]*)\]\([^)]+\)/g) || [];
+  if (imgMatches.length > 0) {
+    const altMatch = imgMatches[0].match(/!\[([^\]]*)\]/);
+    const alt = altMatch ? altMatch[1].trim() : '';
+    if (!alt) {
+      checks.push({ label: 'Image alt text', detail: 'First image is missing alt text', status: 'warn' });
+    } else {
+      checks.push({ label: 'Image alt text', detail: `"${alt}"`, status: 'pass' });
+    }
+  }
+
+  // 6. Word count: warn if below 600
+  if (wc < 600) {
+    checks.push({ label: `Word count (${wc.toLocaleString()})`, detail: 'Below 600 — may be flagged as thin content', status: 'warn' });
+  } else {
+    checks.push({ label: `Word count (${wc.toLocaleString()})`, detail: 'Meets minimum content threshold', status: 'pass' });
+  }
+
+  // 7. Internal links: at least 1 link to another essay
+  const internalLinkRe = /\[[^\]]+\]\((?:https?:\/\/paradoxofacceptance\.xyz)?\/mindfulness-essays\/[^)]+\)/g;
+  const internalLinks = body.match(internalLinkRe) || [];
+  if (internalLinks.length === 0) {
+    checks.push({ label: 'Internal links', detail: 'No links to other essays — add at least one', status: 'warn' });
+  } else {
+    checks.push({ label: `Internal links (${internalLinks.length})`, detail: 'Links to other essays found', status: 'pass' });
+  }
+
+  // 8. Heading structure: H2 required for articles over 800 words
+  if (wc > 800) {
+    const hasH2 = /^## /m.test(body);
+    if (!hasH2) {
+      checks.push({ label: 'Heading structure', detail: 'No H2 subheadings in a long article — add sections', status: 'warn' });
+    } else {
+      checks.push({ label: 'Heading structure', detail: 'H2 subheadings found', status: 'pass' });
+    }
+  }
+
+  return checks;
+}
+
+function renderSeoPanel(checks) {
+  const warnCount = checks.filter(c => c.status === 'warn').length;
+  const passCount = checks.filter(c => c.status === 'pass').length;
+
+  const summaryHtml = `<div class="seo-summary">
+    <span class="seo-pass-count">${passCount} passed</span> &ensp;·&ensp;
+    ${warnCount > 0
+      ? `<span class="seo-warn-count">${warnCount} warning${warnCount > 1 ? 's' : ''}</span>`
+      : '<span style="color:#16a34a;font-weight:600">No warnings</span>'}
+    &ensp;·&ensp; Warnings are advisory — they won't block publish.
+  </div>`;
+
+  const itemsHtml = checks.map(c => {
+    const icon = c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : 'ℹ️';
+    return `<div class="seo-item ${c.status}">
+      <span class="seo-icon">${icon}</span>
+      <div class="seo-item-content">
+        <div class="seo-item-label">${escHtml(c.label)}</div>
+        <div class="seo-item-detail">${escHtml(c.detail)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('seo-panel-body').innerHTML = summaryHtml + itemsHtml;
+
+  // Label the confirm button based on current publish state
+  const isPublished = essay && essay.published_at && new Date(essay.published_at) <= new Date();
+  document.getElementById('btn-confirm-publish').textContent = isPublished ? 'Republish' : 'Publish now';
+}
+
+async function confirmPublish() {
+  if (!essaySlug) return;
+  const btn = document.getElementById('btn-confirm-publish');
+  btn.disabled = true;
+  btn.textContent = 'Publishing…';
+
+  const payload = {
+    title: document.getElementById('f-title').value.trim(),
+    kicker: document.getElementById('f-kicker').value.trim(),
+    description: document.getElementById('f-description').value.trim(),
+    meta_description: document.getElementById('f-meta-description').value.trim(),
+    read_time: document.getElementById('f-read-time').value.trim(),
+    body_markdown: document.getElementById('f-body').value,
+    seo_title: document.getElementById('f-seo-title').value.trim() || null,
+    seo_description: document.getElementById('f-seo-description').value.trim() || null,
+    seo_keywords: keywords.length > 0 ? [...keywords] : null,
+    change_summary: document.getElementById('change-summary').value.trim() || null,
+    post_to_twitter: document.getElementById('f-post-to-twitter').checked,
+    pro_only: document.getElementById('f-pro-only').checked,
+    published_at: new Date().toISOString(),
+  };
+
+  const { ok, data } = await apiRequest('/api/admin/essays/' + encodeURIComponent(essaySlug), {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+  if (ok && data.essay) {
+    essay = data.essay;
+    document.getElementById('page-title').textContent = data.essay.title || essaySlug;
+    document.getElementById('change-summary').value = '';
+    const tweetStatusEl = document.getElementById('tweet-status');
+    tweetStatusEl.textContent = data.essay.tweet_id ? 'tweeted ✓' : '';
+    markClean();
+    closeSeoPanel();
+    showToast('Published!');
+  } else {
+    showToast(data.error || 'Publish failed', true);
+    btn.disabled = false;
+    const isPublished = essay && essay.published_at && new Date(essay.published_at) <= new Date();
+    btn.textContent = isPublished ? 'Republish' : 'Publish now';
+  }
+}
 
 // ─── Init ───────────────────────────────────────────────────────
 
