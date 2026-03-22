@@ -44,7 +44,10 @@ function AppInner() {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets } = useWallets();
   const walletAddress = wallets?.[0]?.address;
-  const { isMember, isLoading: memberLoading } = useMembershipStatus(walletAddress);
+  const { isMember, isStripeSubscriber, isLoading: memberLoading } = useMembershipStatus(walletAddress);
+
+  // Check if we just returned from a successful Stripe checkout
+  const stripeSuccess = new URLSearchParams(window.location.search).get('stripe_success') === '1';
 
   if (!ready) {
     return (
@@ -72,8 +75,10 @@ function AppInner() {
           <div className="pass-hero">
             <p className="pass-subtitle">Checking membership...</p>
           </div>
+        ) : stripeSuccess && !isMember ? (
+          <StripeSuccessPending />
         ) : isMember ? (
-          <MembersArea walletAddress={walletAddress} />
+          <MembersArea walletAddress={walletAddress} isStripeSubscriber={isStripeSubscriber} />
         ) : (
           <MintFlow walletAddress={walletAddress} />
         )}
@@ -91,25 +96,48 @@ function UnauthenticatedView({ onLogin }) {
         <h1 className="pass-headline">Acceptance Pass</h1>
         <p className="pass-subtitle">
           A membership credential for the Paradox of Acceptance community.
-          Connect to mint your pass and unlock members-only content.
+          Connect to mint your pass or subscribe with a card.
         </p>
       </div>
 
       <div className="pass-card">
         <div className="pass-card-label">What you get</div>
         <p className="pass-card-text">
-          The Acceptance Pass is a non-transferable membership credential on Ethereum (Base).
-          It gives you access to members-only practices, early drafts, and deeper material
+          Access to members-only practices, early drafts, and deeper material
           that doesn't appear on the public site.
         </p>
         <p className="pass-card-text">
-          Free to mint. No gas required. No speculation. Just membership.
+          Free to mint on-chain, or subscribe with a card — no crypto required.
         </p>
       </div>
 
       <div style={{ textAlign: 'center' }}>
         <button className="btn-primary" onClick={onLogin}>
-          Get your Acceptance Pass
+          Get access
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Shown when stripe_success=1 but the webhook hasn't processed yet
+function StripeSuccessPending() {
+  return (
+    <>
+      <div className="pass-hero">
+        <h1 className="pass-headline">Subscription confirmed.</h1>
+        <p className="pass-subtitle">
+          Your payment was successful. Access is being activated — this usually takes a few seconds.
+        </p>
+      </div>
+      <div className="pass-card">
+        <p className="pass-card-text">
+          If the members area doesn't appear automatically, refresh the page in a moment.
+        </p>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <button className="btn-primary" onClick={() => window.location.reload()}>
+          Refresh
         </button>
       </div>
     </>

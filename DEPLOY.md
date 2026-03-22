@@ -5,6 +5,8 @@
 - **Contract**: ERC-1155 on Base (soulbound, one per address)
 - **Frontend**: Vite + React app at `/pass/` with Privy wallet integration
 - **Chain**: Base (production, chain ID 8453)
+- **API**: Vercel serverless functions in `cron/` — Stripe checkout, webhooks, subscription status
+- **Database**: Supabase — `subscriptions` table for Stripe subscribers (schema: `stripe-schema.sql`)
 
 ## Production Deployment (Current)
 
@@ -38,7 +40,40 @@ BASE_RPC_URL=https://mainnet.base.org
 VITE_PRIVY_APP_ID=cmmyfvex101cy0clawnzxpur2
 VITE_CONTRACT_ADDRESS=0x9691107411AFB05b81CfDE537Efc4a00b9b1bB69
 VITE_CHAIN_ENV=production
+VITE_API_BASE_URL=https://<your-vercel-deployment-url>
 ```
+
+### `cron/` Vercel env vars (set in Vercel dashboard)
+```
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SITE_URL=https://paradoxofacceptance.xyz
+ALLOWED_ORIGIN=https://paradoxofacceptance.xyz
+```
+
+## Stripe Setup
+
+1. Create a **Stripe product** for the membership subscription (monthly billing).
+2. Copy the **Price ID** (`price_...`) → `STRIPE_PRICE_ID` env var.
+3. In the Stripe dashboard → **Webhooks**, add an endpoint pointing to `https://<vercel-url>/api/webhooks/stripe`.
+4. Select events: `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.updated`.
+5. Copy the **Signing secret** (`whsec_...`) → `STRIPE_WEBHOOK_SECRET` env var.
+
+## Deploy API (cron/ Vercel project)
+
+```bash
+cd cron
+vercel deploy --prod
+```
+
+After first deploy, copy the deployment URL and set `VITE_API_BASE_URL` in `pass-src/.env`, then rebuild the frontend.
+
+## Supabase: subscriptions table
+
+Run `stripe-schema.sql` in the Supabase SQL Editor to create the `subscriptions` table.
 
 ## Deploy Contract (new chain/redeploy)
 
@@ -109,6 +144,16 @@ cast call $CONTRACT_ADDRESS "totalMinted()(uint256)" --rpc-url $RPC_URL
 - [x] Test mint on mainnet (tx: `0xd61261ba99e4c90cf8360c8708074c28bb202553c9ab84609a667e26f5211b4a`)
 - [x] Verify metadata renders (JSON + SVG load correctly)
 - [x] Test web UI end-to-end: connect wallet → mint → members area (nick0xma.eth minted Pass #2)
+
+### Stripe integration (new — requires operator action)
+- [ ] Run `stripe-schema.sql` in Supabase SQL Editor
+- [ ] Create Stripe product + monthly price; copy Price ID
+- [ ] Set Stripe env vars in Vercel dashboard (`cron/` project)
+- [ ] Deploy `cron/` to Vercel (`vercel deploy --prod` in `cron/`)
+- [ ] Register Stripe webhook endpoint in Stripe dashboard (events: `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.updated`)
+- [ ] Set `VITE_API_BASE_URL` in `pass-src/.env` to the Vercel deployment URL
+- [ ] Rebuild and redeploy frontend (`npm run build` in `pass-src/`)
+- [ ] Test end-to-end: subscribe via Stripe → webhook fires → access granted
 
 ## Gas Sponsorship Setup (Privy Dashboard)
 
