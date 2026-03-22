@@ -10,3 +10,5 @@ contracts/out/
 contracts/cache/
 contracts/lib/
 contracts/broadcast/
+newsletter/node_modules/
+newsletter-analytics/node_modules/
