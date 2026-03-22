@@ -90,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string);
           stripeSubscriptionId = sub.id;
           stripeCustomerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-          currentPeriodEnd = new Date(sub.current_period_end * 1000).toISOString();
+          const ts = sub.items.data[0]?.current_period_end;
+          currentPeriodEnd = ts ? new Date(ts * 1000).toISOString() : null;
         }
 
         const { error } = await supabase.from("subscriptions").upsert(
@@ -117,9 +118,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sub = event.data.object as Stripe.Subscription;
         const stripeSubscriptionId = sub.id;
 
+        const cancelledPeriodEndTs = sub.items.data[0]?.current_period_end;
         const { error } = await supabase
           .from("subscriptions")
-          .update({ status: "cancelled", current_period_end: new Date(sub.current_period_end * 1000).toISOString() })
+          .update({
+            status: "cancelled",
+            current_period_end: cancelledPeriodEndTs
+              ? new Date(cancelledPeriodEndTs * 1000).toISOString()
+              : null,
+          })
           .eq("stripe_subscription_id", stripeSubscriptionId);
 
         if (error) {
@@ -135,7 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sub = event.data.object as Stripe.Subscription;
         const stripeSubscriptionId = sub.id;
         const status = sub.status === "active" ? "active" : sub.status === "past_due" ? "past_due" : "cancelled";
-        const currentPeriodEnd = new Date(sub.current_period_end * 1000).toISOString();
+        const updatedTs = sub.items.data[0]?.current_period_end;
+        const currentPeriodEnd = updatedTs ? new Date(updatedTs * 1000).toISOString() : null;
 
         const { error } = await supabase
           .from("subscriptions")
