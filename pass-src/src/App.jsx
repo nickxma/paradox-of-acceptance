@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import * as Sentry from '@sentry/react';
 import { useMembershipStatus } from './hooks/useMembershipStatus.js';
@@ -44,10 +44,30 @@ function AppInner() {
   const { ready, authenticated, login, logout, user } = usePrivy();
   const { wallets } = useWallets();
   const walletAddress = wallets?.[0]?.address;
-  const { isMember, isStripeSubscriber, isLoading: memberLoading } = useMembershipStatus(walletAddress);
+  const { isMember, isStripeSubscriber, stripeDetails, isLoading: memberLoading, refetch } = useMembershipStatus(walletAddress);
 
   // Check if we just returned from a successful Stripe checkout
-  const stripeSuccess = new URLSearchParams(window.location.search).get('stripe_success') === '1';
+  const params = new URLSearchParams(window.location.search);
+  const stripeSuccess = params.get('stripe_success') === '1';
+  const subscriptionUpdated = params.get('subscription_updated') === '1';
+
+  // Toast state for post-portal return
+  const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    if (subscriptionUpdated) {
+      // Refetch membership to get fresh data
+      refetch();
+      setShowToast(true);
+      // Clean the query param from the URL without a page reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('subscription_updated');
+      window.history.replaceState({}, '', url.toString());
+      // Auto-dismiss after 4s
+      const t = setTimeout(() => setShowToast(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, []); // run once on mount
 
   if (!ready) {
     return (
@@ -78,13 +98,21 @@ function AppInner() {
         ) : stripeSuccess && !isMember ? (
           <StripeSuccessPending />
         ) : isMember ? (
-          <MembersArea walletAddress={walletAddress} isStripeSubscriber={isStripeSubscriber} />
+          <MembersArea
+            walletAddress={walletAddress}
+            isStripeSubscriber={isStripeSubscriber}
+            stripeDetails={stripeDetails}
+          />
         ) : (
           <MintFlow walletAddress={walletAddress} />
         )}
       </div>
 
       <Footer />
+
+      {showToast && (
+        <div className="toast">Subscription updated.</div>
+      )}
     </>
   );
 }

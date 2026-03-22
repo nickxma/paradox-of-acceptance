@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
+import { API_BASE_URL } from '../lib/config.js';
 
-export default function MembersArea({ walletAddress }) {
+export default function MembersArea({ walletAddress, isStripeSubscriber, stripeDetails }) {
   return (
     <>
       <div className="pass-hero">
@@ -70,9 +71,93 @@ export default function MembersArea({ walletAddress }) {
         </div>
       </div>
 
+      {isStripeSubscriber && (
+        <SubscriptionSection walletAddress={walletAddress} stripeDetails={stripeDetails} />
+      )}
+
       <div className="mint-stats">
         Connected as {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
       </div>
     </>
+  );
+}
+
+function SubscriptionSection({ walletAddress, stripeDetails }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleManage = useCallback(async () => {
+    if (!walletAddress || !API_BASE_URL) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/stripe/portal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to open portal');
+      }
+      const { url } = await res.json();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No portal URL returned');
+      }
+    } catch (err) {
+      console.error('Portal error:', err);
+      setError('Could not open subscription portal. Please try again.');
+      setLoading(false);
+    }
+  }, [walletAddress]);
+
+  const renewalDate = stripeDetails?.currentPeriodEnd
+    ? new Date(stripeDetails.currentPeriodEnd).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
+  return (
+    <div className="subscription-section">
+      <div className="members-label" style={{ marginBottom: 16 }}>Subscription</div>
+      <div className="subscription-row">
+        <span className="subscription-key">Plan</span>
+        <span className="subscription-val">Pro</span>
+      </div>
+      {renewalDate && (
+        <div className="subscription-row">
+          <span className="subscription-key">Renews</span>
+          <span className="subscription-val">{renewalDate}</span>
+        </div>
+      )}
+      {stripeDetails?.last4 && (
+        <div className="subscription-row">
+          <span className="subscription-key">Card</span>
+          <span className="subscription-val">•••• {stripeDetails.last4}</span>
+        </div>
+      )}
+      <div style={{ marginTop: 20 }}>
+        <button
+          className="btn-secondary"
+          onClick={handleManage}
+          disabled={loading}
+          style={{ fontSize: 13 }}
+        >
+          {loading ? (
+            <>
+              <span className="spinner" style={{ width: 12, height: 12, borderColor: '#999', borderTopColor: 'transparent' }} />
+              {' '}Opening...
+            </>
+          ) : (
+            'Manage subscription →'
+          )}
+        </button>
+      </div>
+      {error && <p className="status-line error" style={{ marginTop: 10 }}>{error}</p>}
+    </div>
   );
 }

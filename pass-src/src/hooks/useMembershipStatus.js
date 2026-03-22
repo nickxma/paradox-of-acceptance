@@ -22,17 +22,22 @@ async function checkOnChainMembership(address) {
 }
 
 async function checkStripeSubscription(address) {
-  if (!address || !API_BASE_URL) return false;
+  if (!address || !API_BASE_URL) return null;
 
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/stripe/subscription?wallet=${encodeURIComponent(address)}`
     );
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const data = await res.json();
-    return data.isSubscriber === true;
+    if (!data.isSubscriber) return null;
+    return {
+      isSubscriber: true,
+      currentPeriodEnd: data.currentPeriodEnd ?? null,
+      last4: data.last4 ?? null,
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -41,7 +46,11 @@ async function checkMembership(address) {
     checkOnChainMembership(address),
     checkStripeSubscription(address),
   ]);
-  return { isMember: onChain || stripe, isStripeSubscriber: stripe };
+  return {
+    isMember: onChain || !!stripe,
+    isStripeSubscriber: !!stripe,
+    stripeDetails: stripe,
+  };
 }
 
 export function useMembershipStatus(address) {
@@ -55,6 +64,7 @@ export function useMembershipStatus(address) {
   return {
     isMember: data?.isMember ?? false,
     isStripeSubscriber: data?.isStripeSubscriber ?? false,
+    stripeDetails: data?.stripeDetails ?? null,
     isLoading: isLoading && !!address,
     refetch,
   };
