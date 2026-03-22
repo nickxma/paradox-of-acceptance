@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/dunning",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/trial-reminder",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/newsletter-sequence",
+      "schedule": "0 14 * * *"
     }
   ]
 }

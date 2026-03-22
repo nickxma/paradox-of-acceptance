@@ -147,27 +147,35 @@ async function handleOpened(
     return res.status(200).json({ ignored: true, reason: "no email_id" });
   }
 
-  // Only process if this is an onboarding email (check tags)
+  // Route to the correct tracking table based on sequence tag
   const tags: Array<{ name: string; value: string }> = payload.data?.tags ?? [];
-  const isOnboarding = tags.some((t) => t.name === "sequence" && t.value === "onboarding");
+  const sequenceTag = tags.find((t) => t.name === "sequence");
 
-  if (!isOnboarding) {
-    return res.status(200).json({ ignored: true, reason: "not onboarding sequence" });
+  if (!sequenceTag) {
+    return res.status(200).json({ ignored: true, reason: "no sequence tag" });
   }
 
-  // Update opened_at on the matching onboarding_sequences row
+  let table: string;
+  if (sequenceTag.value === "onboarding") {
+    table = "onboarding_sequences";
+  } else if (sequenceTag.value === "newsletter_welcome") {
+    table = "subscriber_sequence_progress";
+  } else {
+    return res.status(200).json({ ignored: true, reason: `unknown sequence: ${sequenceTag.value}` });
+  }
+
   const { error: updateError, count } = await supabase
-    .from("onboarding_sequences")
+    .from(table)
     .update({ opened_at: new Date().toISOString() })
     .eq("resend_email_id", emailId)
     .is("opened_at", null); // only update first open
 
   if (updateError) {
-    console.error(`resend-webhook: failed to update opened_at for email_id=${emailId}: ${updateError.message}`);
+    console.error(`resend-webhook: failed to update opened_at for email_id=${emailId} table=${table}: ${updateError.message}`);
     return res.status(500).json({ error: updateError.message });
   }
 
-  console.log(`resend-webhook: opened_at updated for email_id=${emailId} rows=${count}`);
+  console.log(`resend-webhook: opened_at updated for email_id=${emailId} table=${table} rows=${count}`);
   return res.status(200).json({ updated: count });
 }
 
