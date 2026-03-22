@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Honest Meditator — paradoxofacceptance.xyz</title>
+  <meta name="description" content="Six sessions on what meditation actually does to motivation, urgency, and felt stakes — including the parts few teachers mention." />
+  <meta property="og:title" content="The Honest Meditator" />
+  <meta property="og:description" content="Most mindfulness courses ask you to deepen your practice. This one asks you to examine it." />
+  <meta property="og:type" content="website" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #faf8f4;
+      --sage: #7d8c6e;
+      --sage-dark: #5a6b4e;
+      --ink: #2c2c2c;
+      --ink-light: #555;
+      --rule: #e2ddd6;
+      --exercise-bg: #f0ede6;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 19px;
+      line-height: 1.8;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Back nav */
+    .back-nav {
+      padding: 24px 0 0;
+    }
+    .back-nav a {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--sage);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .back-nav a:hover { text-decoration: underline; }
+
+    /* Header */
+    header {
+      padding: 56px 0 52px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 56px;
+    }
+
+    .kicker {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 20px;
+    }
+
+    .subheadline {
+      font-style: italic;
+      color: var(--ink-light);
+      font-size: 20px;
+      line-height: 1.55;
+      margin-bottom: 36px;
+      max-width: 580px;
+    }
+
+    .stat-line {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+      letter-spacing: 0.02em;
+    }
+
+    /* CTA */
+    .cta-wrap {
+      margin: 48px 0;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      background: var(--sage);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 14px 32px;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background 0.18s ease;
+    }
+    .cta-btn:hover { background: var(--sage-dark); }
+
+    /* Sections */
+    .section {
+      margin-bottom: 52px;
+    }
+
+    h2 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 20px;
+    }
+
+    p { margin-bottom: 1.5em; }
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      margin: 0 0 1.5em 0;
+      padding-left: 1.4em;
+    }
+    li {
+      margin-bottom: 0.65em;
+      line-height: 1.65;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 52px 0;
+    }
+
+    /* Introduction toggle */
+    .intro-toggle {
+      margin-top: 48px;
+    }
+
+    details {
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 18px 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      list-style: none;
+      user-select: none;
+      background: var(--exercise-bg);
+    }
+    summary::-webkit-details-marker { display: none; }
+
+    .toggle-icon {
+      font-size: 18px;
+      color: var(--sage);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    details[open] .toggle-icon { transform: rotate(45deg); }
+
+    .intro-body {
+      padding: 24px 24px 28px;
+      font-size: 18px;
+      line-height: 1.75;
+      color: var(--ink);
+    }
+    .intro-body p { margin-bottom: 1.4em; }
+    .intro-body p:last-child { margin-bottom: 0; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 36px 0 48px;
+      margin-top: 64px;
+    }
+
+    .footer-links {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .footer-links a {
+      color: var(--sage);
+      text-decoration: none;
+    }
+    .footer-links a:hover { text-decoration: underline; }
+
+    .footer-site {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      color: var(--ink-light);
+    }
+    .footer-site a { color: var(--sage); text-decoration: none; }
+    .footer-site a:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      header { padding: 40px 0 40px; }
+      .cta-wrap { margin: 36px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="back-nav">
+      <a href="/">← paradoxofacceptance.xyz</a>
+    </nav>
+
+    <header>
+      <p class="kicker">The Honest Meditator — Course 1</p>
+      <h1>Your practice is working. That might be part of the problem.</h1>
+      <p class="subheadline">Most mindfulness courses ask you to deepen your practice. This one asks you to examine it. Six sessions on what meditation actually does to motivation, urgency, and felt stakes — including the parts few teachers mention.</p>
+      <p class="stat-line">6 sessions &middot; ~90 minutes total &middot; Written exercises, not guided meditations</p>
+    </header>
+
+    <main>
+      <section class="section">
+        <h2>What You Will Learn</h2>
+        <ul>
+          <li>Name the specific gap between what your practice was supposed to do and what it's actually doing in your life</li>
+          <li>Recognize when acceptance is softening useful signal — not just unnecessary suffering</li>
+          <li>Build a personal dosage model rather than treating practice as a supplement without a ceiling</li>
+          <li>Identify the late-stage failure modes — spiritual bypassing, motivational erosion, equanimity as avoidance — and whether any are currently active in yours</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Who This Is For</h2>
+        <p>You already meditate. You've felt the benefits — and you've noticed something else too: a quiet sense that certain questions aren't being asked out loud. You're not disillusioned. You're curious in a way the standard material doesn't reach. This course is for practitioners who want honest accounting rather than another reason to keep going.</p>
+      </section>
+
+      <section class="section">
+        <h2>Who This Is Not For</h2>
+        <p>This is not a beginner's course. If you're looking for guided meditations, breathwork tutorials, or foundational technique, this isn't that. This course assumes you already practice and picks up where the introductory material stops.</p>
+      </section>
+
+      <div class="cta-wrap">
+        <a class="cta-btn" href="/courses/the-honest-meditator/session-1/">Begin the Course</a>
+      </div>
+
+      <hr />
+
+      <div class="intro-toggle">
+        <details>
+          <summary>
+            What to expect
+            <span class="toggle-icon">+</span>
+          </summary>
+          <div class="intro-body">
+            <p>This course is for people who already meditate. Not for people who are considering it, not for people who have lapsed and want to start again — for people who have a practice, have had one for some time, and have started to notice things the standard material doesn't quite account for.</p>
+            <p>You know what regular practice feels like. You've felt the benefits — less reactivity, a changed relationship to difficult emotions, moments of real clarity. You've also probably noticed something else: a gap between the promise and the reality that doesn't feel like personal failure, exactly, but also doesn't go away. A question underneath the practice that doesn't seem to have an obvious home.</p>
+            <p>This course is an attempt to make space for that question.</p>
+            <p>It is not an instruction course. There are no guided meditations, no breathwork sequences, no technique refinements. If you are looking for those things, there is excellent material available elsewhere. This course assumes you already know how to meditate and picks up at the point where that instruction typically stops.</p>
+            <p>What it examines is the practice itself — honestly. What the research actually shows about the effects of meditation, including the effects that get left out of the popular framing. What happens to motivation, urgency, and felt stakes as acceptance deepens. When the instruction to "begin again" is genuinely useful, and when it might be skipping past something worth keeping. The late-stage failure modes that show up in committed practices and are rarely discussed because there is not much language for them yet.</p>
+            <p>Six sessions. Each one is roughly twelve to fifteen minutes of teaching, followed by a short written exercise. Total time is approximately ninety minutes of content. The written exercises are not optional — they are where the actual work happens. This is an examination course, and the examination is of your own practice, in your own words, on the page.</p>
+            <p>The course ends with a personal practice contract. Not a prescription, not a commitment to more — a document you write for yourself that states what your practice is currently solving, how you'll know if it stops solving it, and what you are willing to question. It is meant to be short. It is meant to be revised. The point is to practice treating your practice as a choice you keep making with clear eyes, rather than a background condition of a reasonably well-functioning life.</p>
+            <p>If that sounds useful — not inspiring, not motivating, just useful — this course is probably for you.</p>
+          </div>
+        </details>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-links">
+        <a href="/courses/the-honest-meditator/faq/">Student FAQ</a>
+        <a href="/courses/the-honest-meditator/session-1/">Begin the Course</a>
+      </div>
+      <p class="footer-site">
+        Part of <a href="/">paradoxofacceptance.xyz</a>
+      </p>
+    </footer>
+  </div>
+</body>
+</html>

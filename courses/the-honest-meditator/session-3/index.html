@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session 3: Dosage — The Honest Meditator</title>
+  <meta name="description" content="Develop a personal dosage model for your practice, moving from 'more is better' to 'how much of this do I actually need, and for what?'" />
+  <script>
+    // FEATURE_FLAG_GATE: Set to true to require email/token verification before viewing session content.
+    // When enabled, users without a valid access token in localStorage will be redirected to the landing page gate.
+    const FEATURE_FLAG_GATE = false;
+    if (FEATURE_FLAG_GATE) {
+      const token = localStorage.getItem('honest-meditator-access');
+      if (!token) { window.location.href = '/courses/the-honest-meditator/#email-gate'; }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #faf8f4; --sage: #7d8c6e; --sage-dark: #5a6b4e;
+      --ink: #2c2c2c; --ink-light: #555; --rule: #e2ddd6; --exercise-bg: #f0ede6;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--cream); color: var(--ink); font-family: Georgia, 'Times New Roman', serif; font-size: 19px; line-height: 1.8; }
+    .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
+    .back-nav { padding: 24px 0 0; }
+    .back-nav a { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--sage); text-decoration: none; letter-spacing: 0.02em; }
+    .back-nav a:hover { text-decoration: underline; }
+    header { padding: 48px 0 44px; border-bottom: 1px solid var(--rule); margin-bottom: 52px; }
+    .session-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 16px; }
+    h1 { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: clamp(26px, 4.5vw, 40px); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 16px; }
+    .duration { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--ink-light); letter-spacing: 0.01em; }
+    .session-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 52px; gap: 16px; }
+    .session-nav a { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--sage); text-decoration: none; }
+    .session-nav a:hover { text-decoration: underline; }
+    article { padding-bottom: 64px; }
+    p { margin-bottom: 1.6em; }
+    p:last-child { margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid var(--rule); margin: 48px 0; }
+    .exercise { background: var(--exercise-bg); border-radius: 4px; padding: 32px 36px; margin: 48px 0; }
+    .exercise-title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .exercise p { margin-bottom: 1.4em; }
+    .exercise p:last-child { margin-bottom: 0; }
+    .exercise .pause { font-style: italic; color: var(--ink-light); font-size: 17px; margin-top: 24px; }
+    .session-summary { border-top: 1px solid var(--rule); padding-top: 40px; margin-top: 48px; }
+    .summary-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .session-summary p { font-size: 17px; line-height: 1.75; color: var(--ink-light); }
+    .closing { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--ink-light); margin-top: 48px; }
+    footer { border-top: 1px solid var(--rule); padding: 32px 0 48px; margin-top: 24px; }
+    .footer-links { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+    .footer-links a { color: var(--sage); text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+    .footer-site { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; color: var(--ink-light); }
+    .footer-site a { color: var(--sage); text-decoration: none; }
+    .footer-site a:hover { text-decoration: underline; }
+    @media print {
+      .back-nav, .session-nav, footer { display: none; }
+      body { font-size: 12pt; line-height: 1.6; color: #000; background: #fff; }
+      .exercise { background: #f5f5f5; border: 1px solid #ccc; padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="back-nav">
+      <a href="/courses/the-honest-meditator/">← The Honest Meditator</a>
+    </nav>
+
+    <header>
+      <p class="session-label">Session 3 of 6</p>
+      <h1>Dosage — When Is Enough Enough?</h1>
+      <p class="duration">~13 minutes teaching + 10-minute written exercise</p>
+    </header>
+
+    <nav class="session-nav">
+      <a href="/courses/the-honest-meditator/session-2/">← Session 2</a>
+      <a href="/courses/the-honest-meditator/session-4/">Session 4 →</a>
+    </nav>
+
+    <article>
+      <p>There's a distinction medicine makes that popular mindfulness instruction tends to skip: the distinction between a vitamin and a drug.</p>
+
+      <p>With vitamins — in the popular understanding, not the pharmacological one — more is generally better. You can't really overdose. There's no ceiling above which additional intake stops helping or starts hurting. You take them indefinitely. The logic is additive: more of a good thing is simply more good.</p>
+
+      <p>Drugs work differently. There's a dose-response relationship. Somewhere between too little and too much, there's a range that actually works. Below it, no effect. Above it, you're not getting more benefit — you may be getting harm. Drugs have contraindications: there are people for whom a given drug is not indicated, regardless of its general track record. And there's usually a stopping point. When the condition resolves, the prescription ends. You don't take antibiotics indefinitely.</p>
+
+      <p>Most mindfulness instruction treats practice like a vitamin. The general framing is: more is better, there's no ceiling, everyone is a candidate, and you should practice for the rest of your life. That framing is so embedded in how the practice is taught that it's almost invisible as a choice. It doesn't get examined because it doesn't get stated. It's just the water you're swimming in.</p>
+
+      <p>But the research treats practice more like a drug.</p>
+
+      <p>There are dose-response relationships. Modest amounts of consistent practice — somewhere in the range of fifteen to forty-five minutes a day — produce the well-documented benefits. The evidence for substantial additional benefit above that range is thinner. Not zero, but thinner. And there's an adverse effects literature that has been quietly accumulating for years. It's not fringe research or poorly conducted studies. It's careful work with committed practitioners who did everything right — and found themselves in states that looked less like greater insight and more like destabilization: emotional flattening, perceptual disturbances, a loss of motivation, a kind of unreality that didn't resolve cleanly when the retreat ended.</p>
+
+      <p>These effects are not rare. They're not failures of technique. They're recurring patterns in serious practitioners across multiple research populations. The researchers who have studied them most carefully tend to describe the mechanism as a mismatch between the dose and where the practitioner is — temperament, psychological history, life circumstances, readiness. The practice wasn't wrong. The calibration was off.</p>
+
+      <p>There's also a cultural pressure worth naming. In the communities that form around serious practice, there is almost always a pull toward more. More sitting time, longer retreats, eventually a kind of ideal in which practice expands to fill the available space in a life. The teachers who speak most authoritatively tend to be the ones who have done the most. The implicit message is that your practice is on a trajectory, and the trajectory goes in one direction. Tapering, reassessing, or deciding you've reached a good-enough dose is not a story the culture tells very often.</p>
+
+      <p>I'm not interested in arguing against practice. I'm interested in the question the vitamin framing blocks: what are you actually treating, what dose treats it, and how would you know when you've had enough?</p>
+
+      <p>Which brings me to the more common dosage problem — one that affects practitioners at moderate volumes, not just people doing intensive retreats. The more common problem isn't that you're practicing too much in the abstract. It's that you're still running the same dose for a problem that has changed.</p>
+
+      <p>Here is what I mean.</p>
+
+      <p>You started practicing for a reason. Maybe it was explicit — chronic anxiety, burnout, a therapist's recommendation, a specific period of distress you needed to get through. Maybe it was vaguer — a general sense that you were living too much on the surface of your experience, too reactive, not quite present. Whatever the original reason, there was a problem, and the practice was, in some sense, the response to it.</p>
+
+      <p>What often happens is that the practice continues while the problem evolves. The dose that made sense when you were drowning in work stress may not be the right dose now that the job has changed, or you've changed, or you've simply practiced your way into a different relationship to the stress. The dose that made sense in a period of acute difficulty may not be right for maintenance. The dose that made sense for the person you were five years ago may not match the person you are now.</p>
+
+      <p>This isn't a reason to stop. It's a reason to check. Because most of us don't go back and look at the original problem. We just keep practicing — at roughly the same volume, in roughly the same way — because that's the practice we built, and changing it would require a conversation we haven't had yet.</p>
+
+      <p>The calibration question is simple, and it's the core of this session: What problem were you originally trying to solve? Have you solved it? And is what you're doing now actually calibrated to where you are — or is it inherited from an earlier version of yourself, addressing a situation that has changed?</p>
+
+      <hr />
+
+      <div class="exercise">
+        <p class="exercise-title">Practice: The Calibration Question</p>
+        <p>This session's practice is a written exercise. Set aside ten minutes.</p>
+        <p>Three questions:</p>
+        <p><strong>First:</strong> What specific problem were you trying to solve when you started meditating? Write it down as precisely as you can. Not "I wanted to be more mindful" — something concrete and traceable. Something specific enough that you could, in principle, know whether it changed.</p>
+        <p><strong>Second:</strong> Have you solved that problem? Not "has practice helped in general" — has that specific thing changed? Be honest here. It's entirely possible to get a great deal out of practice without solving the original problem. It's also possible to have solved it completely and not noticed. Both happen.</p>
+        <p><strong>Third:</strong> Is your current practice — the volume, the format, the approach — calibrated to your current needs? Or is it a carryover from an earlier time, when the problem was different, the stakes were different, you were different?</p>
+        <p>You're not being asked to change anything yet. You're being asked to look honestly at whether what you're doing still matches what you're trying to do.</p>
+        <p class="pause">[Pause — allow 10 minutes for the written exercise.]</p>
+      </div>
+
+      <p>What you've just done is the beginning of a dosage conversation — with yourself, about your own practice. Not borrowed from a tradition. Not inherited from a teacher. Based on direct accounting of what you started with, where you are now, and whether they still match.</p>
+
+      <p>That question — whether what you're feeling in any given moment is noise to dissolve or signal to preserve — is where we're going next.</p>
+
+      <div class="session-summary">
+        <p class="summary-label">Session Summary</p>
+        <p>The session examines the vitamin-vs-drug distinction and what happens when you apply it to your own practice: there is a dose-response relationship in the research, an adverse effects literature in serious practitioners, and a cultural pull toward more that makes the calibration question nearly invisible. The key insight is that most practitioners are still running the dose calibrated to an earlier version of themselves, addressing a problem that may have changed. The written exercise asks you to name the specific problem you started meditating to solve, whether it has actually changed, and whether your current practice is calibrated to where you are now. Carry the calibration question into the next session: is what you're feeling noise or signal?</p>
+      </div>
+
+      <p class="closing">Session 3 of 6 — The Honest Meditator</p>
+    </article>
+
+    <footer>
+      <div class="footer-links">
+        <a href="/courses/the-honest-meditator/">Back to course</a>
+        <a href="/courses/the-honest-meditator/faq/">Student FAQ</a>
+        <a href="/courses/the-honest-meditator/session-4/">Next session →</a>
+      </div>
+      <p class="footer-site">Part of <a href="/">paradoxofacceptance.xyz</a></p>
+    </footer>
+  </div>
+</body>
+</html>

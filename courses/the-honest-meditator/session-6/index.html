@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Session 6: Practicing Honestly — The Honest Meditator</title>
+  <meta name="description" content="Design a personal practice that is calibrated — intentional about what it's for, how much is enough, and what it should and shouldn't be used for." />
+  <script>
+    // FEATURE_FLAG_GATE: Set to true to require email/token verification before viewing session content.
+    // When enabled, users without a valid access token in localStorage will be redirected to the landing page gate.
+    const FEATURE_FLAG_GATE = false;
+    if (FEATURE_FLAG_GATE) {
+      const token = localStorage.getItem('honest-meditator-access');
+      if (!token) { window.location.href = '/courses/the-honest-meditator/#email-gate'; }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #faf8f4; --sage: #7d8c6e; --sage-dark: #5a6b4e;
+      --ink: #2c2c2c; --ink-light: #555; --rule: #e2ddd6; --exercise-bg: #f0ede6;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--cream); color: var(--ink); font-family: Georgia, 'Times New Roman', serif; font-size: 19px; line-height: 1.8; }
+    .container { max-width: 680px; margin: 0 auto; padding: 0 24px; }
+    .back-nav { padding: 24px 0 0; }
+    .back-nav a { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--sage); text-decoration: none; letter-spacing: 0.02em; }
+    .back-nav a:hover { text-decoration: underline; }
+    header { padding: 48px 0 44px; border-bottom: 1px solid var(--rule); margin-bottom: 52px; }
+    .session-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 16px; }
+    h1 { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: clamp(26px, 4.5vw, 40px); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 16px; }
+    .duration { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--ink-light); letter-spacing: 0.01em; }
+    .session-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 52px; gap: 16px; }
+    .session-nav a { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--sage); text-decoration: none; }
+    .session-nav a:hover { text-decoration: underline; }
+    .session-nav .disabled { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--rule); cursor: default; }
+    article { padding-bottom: 64px; }
+    p { margin-bottom: 1.6em; }
+    p:last-child { margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid var(--rule); margin: 48px 0; }
+    .exercise { background: var(--exercise-bg); border-radius: 4px; padding: 32px 36px; margin: 48px 0; }
+    .exercise-title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .exercise p { margin-bottom: 1.4em; }
+    .exercise p:last-child { margin-bottom: 0; }
+    .exercise .pause { font-style: italic; color: var(--ink-light); font-size: 17px; margin-top: 24px; }
+    .session-summary { border-top: 1px solid var(--rule); padding-top: 40px; margin-top: 48px; }
+    .summary-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; }
+    .session-summary p { font-size: 17px; line-height: 1.75; color: var(--ink-light); }
+    .closing { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--ink-light); margin-top: 48px; }
+    footer { border-top: 1px solid var(--rule); padding: 32px 0 48px; margin-top: 24px; }
+    .footer-links { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+    .footer-links a { color: var(--sage); text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+    .footer-site { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 12px; color: var(--ink-light); }
+    .footer-site a { color: var(--sage); text-decoration: none; }
+    .footer-site a:hover { text-decoration: underline; }
+    @media print {
+      .back-nav, .session-nav, footer { display: none; }
+      body { font-size: 12pt; line-height: 1.6; color: #000; background: #fff; }
+      .exercise { background: #f5f5f5; border: 1px solid #ccc; padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="back-nav">
+      <a href="/courses/the-honest-meditator/">← The Honest Meditator</a>
+    </nav>
+
+    <header>
+      <p class="session-label">Session 6 of 6</p>
+      <h1>Practicing Honestly</h1>
+      <p class="duration">~15 minutes teaching + 10-minute written exercise</p>
+    </header>
+
+    <nav class="session-nav">
+      <a href="/courses/the-honest-meditator/session-5/">← Session 5</a>
+      <span class="disabled">Course complete</span>
+    </nav>
+
+    <article>
+      <p>The audit from last session asked three questions. Is there something in your life you've stopped feeling pressure about that you probably should still feel pressure about? Is there a difficult conversation or decision you've been accepting instead of engaging? And how would you tell the difference, in that specific case, between genuine equanimity and practiced avoidance?</p>
+
+      <p>Some of you will have found the questions easy — not much came up, or what came up was small. That's useful information. Some of you will have found them harder — something specific surfaced, something you'd rather it hadn't. That's also useful information. The point of the audit wasn't to produce a particular result. It was to run a check. And now you have data.</p>
+
+      <p>This session asks a different kind of question. Not what's wrong with the practice. Not which failure modes you're running. But: given what you now know — about how the practice works, about what it does and doesn't do, about where it's helped and where it's become avoidance — what would you actually choose?</p>
+
+      <p>That is the question an honest practice starts with.</p>
+
+      <hr />
+
+      <p>Most practitioners aren't running a practice they chose. They're running a practice they inherited.</p>
+
+      <p>At some point — years ago, maybe — you started meditating. There was a reason. There was a form that seemed right, a duration, an approach. Over time that calcified into "the practice." The practice became the background condition of a good life: something you do daily, indefinitely, with the general understanding that more is better and less is a failing. And that practice has been running, largely unchanged, across years in which you have changed considerably.</p>
+
+      <p>The inheritance model has a lot going for it. It produces consistency. It generates the kind of accumulated experience that actually changes what you can do. You don't build depth by reassessing everything constantly.</p>
+
+      <p>But there's a cost. The practice that was calibrated to who you were then, to the specific problem you were solving then, is not obviously the right practice now. Not because you've outgrown it — maybe you have, maybe you haven't — but because you've never explicitly asked whether it still fits. You've continued because continuing was the thing to do. The tradition says continue. The culture says continue. The streak says continue. Almost nothing in the environment around practice says: stop, check, ask the question again from scratch.</p>
+
+      <p>That's what I'm asking you to do now. Not to stop the practice. To stop and choose it.</p>
+
+      <hr />
+
+      <p>What does it actually mean to choose a practice rather than inherit one?</p>
+
+      <p>It means answering the calibration question — the one from session three — with updated information, and then deciding deliberately. Not "this is what I do" but "this is what I'm doing, for this reason, at this amount, and here is what I'm watching for."</p>
+
+      <p>It means knowing what problem you're solving. Not the problem from five years ago — the current one. If the original anxiety has resolved and you're still practicing at the same volume, something should update. Either the problem has shifted and the practice should shift with it, or you've identified new reasons the practice is earning its place. Either is fine. What isn't fine is the practice continuing as an unexamined inheritance while you tell yourself it's a choice.</p>
+
+      <p>It also means having permission — and I want to emphasize this, because the permission is rarely offered — to practice less. To stop temporarily. To change the form. To decide that what you've built has been sufficient for what you were treating, and that maintaining it at the current dose is no longer obviously the right call.</p>
+
+      <p>The tradition does not offer that permission. The culture around practice does not offer it. The implicit framing is that the trajectory of practice goes one direction: more depth, more time, greater integration. Suggesting that you might be done — or done for now, done at this volume, done with this particular approach — sounds like failure or disillusionment from inside that culture. It isn't. It's dosage. It's honest accounting. It's what the research actually supports.</p>
+
+      <p>What I'm not saying is that you should stop. I'm saying you should know why you're continuing. That's a different thing. A practice you've chosen with clear eyes about what it's for is entirely different from a practice you're running because you haven't yet examined whether it still applies.</p>
+
+      <hr />
+
+      <p>The specific move this session is trying to make is from practice as background condition to practice as ongoing choice.</p>
+
+      <p>Background conditions don't require justification. They just persist. For habits that carry no cost and need no calibration, that's fine. But practice — particularly a serious, sustained, conceptually demanding practice with documented side effects and a real dose-response curve — isn't that. It deserves the treatment you'd give something you're doing deliberately, with stakes.</p>
+
+      <p>What does that look like day-to-day? Mostly it doesn't look like constant reassessment. It looks like practicing — and occasionally, when something shifts or when sufficient time has passed, pulling out the contract you wrote and checking whether it still matches. The contract isn't a cage. It's a reference point. A way of knowing what you agreed to when you were thinking clearly, before the inertia of the habit made revisiting it feel unnecessary.</p>
+
+      <p>The contract doesn't need to be complicated. It needs to be honest. That's the only standard it has to meet.</p>
+
+      <hr />
+
+      <div class="exercise">
+        <p class="exercise-title">Practice: The Personal Practice Contract</p>
+        <p>This session's practice is a written exercise. Half a page — no more. Full sentences. The discipline of keeping it short is part of the practice; if you can't say it briefly, you don't understand it yet.</p>
+        <p>Four prompts:</p>
+        <p><strong>First:</strong> What problem is this practice currently solving in your life? Not what it did five years ago. Now. What is it treating, and are you still the right patient for this particular treatment?</p>
+        <p><strong>Second:</strong> How will you know if it stops solving that problem? Not a vague "I'll sense it" — something concrete. What would you be looking for? What would a change in status actually look like from the inside?</p>
+        <p><strong>Third:</strong> What will you preserve about your practice — and what are you willing to question? Not what you've been told to preserve. What you, having examined it honestly, choose to hold onto — and what you'd revise if the evidence pointed that way.</p>
+        <p><strong>Fourth:</strong> Name one thing you will not use mindfulness to avoid in the next month. Specifically. Not a category — a thing. A conversation. A decision. A piece of work. The concrete thing you have noticed yourself accepting instead of engaging.</p>
+        <p>Write it. Half a page. Then sign it, if that means anything to you. The signature is for yourself — a record that this was a choice, at a particular point in time, with a particular understanding, that is subject to revision.</p>
+        <p class="pause">[Pause — allow 10 minutes for the written exercise.]</p>
+      </div>
+
+      <p>This contract is not permanent. It shouldn't be. A practice that can never be revised is a practice that can never be honestly maintained. The contract is a snapshot of where you are now, with honest eyes, at this dose, for these reasons. When it no longer matches your situation, you rewrite it. That rewriting is part of the practice.</p>
+
+      <hr />
+
+      <p>Six sessions ago, you were asked about a promise. What were you told when you started this practice, and did it hold?</p>
+
+      <p>Since then: you looked at what the acceptance paradox actually does to motivation. You examined the dosage question — whether more is genuinely better, and what you're actually treating. You learned to distinguish noise from signal before you dissolve anything. You ran the diagnostic on whether the practice is producing equanimity or enabling avoidance.</p>
+
+      <p>And now you've done the accounting. You know what the practice is doing. You know what it isn't doing. You know what it costs, what it earns, and what you'd want to change.</p>
+
+      <p>The goal was never to stop meditating. The goal was honest contact with the practice as it actually is — not the story of a practice that is always deepening, always improving, always moving in one direction. The practice you have. With clear eyes about what it does, what it doesn't do, what you're treating, and whether the dose is right.</p>
+
+      <p>That relationship — to anything, not just this — is what honest practice looks like. The practice changes. The honesty stays.</p>
+
+      <div class="session-summary">
+        <p class="summary-label">Session Summary</p>
+        <p>The session examines the distinction between a practice you inherited and a practice you choose — and what it would mean to stop and choose it now, with updated information about what it does, what it doesn't do, and whether the dose still fits. The key insight is that the permission the tradition rarely offers — to practice less, to stop temporarily, to revise the form — is not disillusionment but honest dosage, and it's what the research actually supports. The written exercise asks you to draft a personal practice contract in half a page: what problem the practice is currently solving, how you'd know if it stopped, what you'll preserve and what you're willing to question, and one specific thing you will not use mindfulness to avoid in the next month.</p>
+      </div>
+
+      <p class="closing">Session 6 of 6 — The Honest Meditator</p>
+    </article>
+
+    <footer>
+      <div class="footer-links">
+        <a href="/courses/the-honest-meditator/">Back to course</a>
+        <a href="/courses/the-honest-meditator/faq/">Student FAQ</a>
+      </div>
+      <p class="footer-site">Part of <a href="/">paradoxofacceptance.xyz</a></p>
+    </footer>
+  </div>
+</body>
+</html>
