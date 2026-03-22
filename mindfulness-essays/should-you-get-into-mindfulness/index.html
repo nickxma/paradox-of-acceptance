@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
+  <title>Should You Get Into Mindfulness? The Case for Dosage</title>
+  <meta name="description" content="Mindfulness is marketed as universal. The honest answer is more specific — here's a framework for whether it actually matches your condition." />
+  <meta property="og:title" content="Should You Get Into Mindfulness? The Case for Dosage" />
+  <meta property="og:description" content="Mindfulness is sold as universal. Medicine isn't. The case for treating meditation like medicine — with dosage, contraindications, and honest calibration about who it's actually for." />
+  <meta property="og:type" content="article" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #faf8f4;
+      --sage: #7d8c6e;
+      --sage-light: #a4b594;
+      --sage-dark: #5a6b4e;
+      --ink: #2c2c2c;
+      --ink-light: #555;
+      --rule: #e2ddd6;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 19px;
+      line-height: 1.8;
+    }
+
+    #progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      width: 0%;
+      background: var(--sage);
+      z-index: 1000;
+      transition: width 0.1s linear;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .back-nav { padding: 20px 0 0; }
+    .back-nav a {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--sage);
+      text-decoration: none;
+      letter-spacing: 0.02em;
+    }
+    .back-nav a:hover { text-decoration: underline; }
+
+    header {
+      padding: 48px 0 60px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 64px;
+    }
+
+    .kicker {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 20px;
+    }
+
+    .subtitle {
+      font-style: italic;
+      color: var(--ink-light);
+      font-size: 20px;
+      line-height: 1.5;
+      margin-bottom: 32px;
+      max-width: 560px;
+    }
+
+    .meta {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+      display: flex;
+      gap: 20px;
+    }
+
+    article { padding-bottom: 80px; }
+
+    p { margin-bottom: 1.6em; }
+
+    h2 {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 72px 0 20px;
+      padding-top: 16px;
+      border-top: 2px solid var(--sage);
+      display: inline-block;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 56px 0;
+    }
+
+    article a { color: var(--sage); text-decoration: none; }
+    article a:hover { text-decoration: underline; }
+
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 40px 0 60px;
+      text-align: center;
+    }
+
+    footer p {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink-light);
+      margin-bottom: 0;
+    }
+
+    footer a { color: var(--sage); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Dark mode */
+    [data-theme="dark"] body { background: #111111; color: #EEEEEE; }
+    [data-theme="dark"] { --cream: #111111; --ink: #EEEEEE; --ink-light: #888888; --rule: #2A2A2A; }
+    [data-theme="dark"] footer p { color: #666666; }
+
+    /* Dark mode toggle */
+    .essay-toggle { position: fixed; top: 20px; right: 24px; z-index: 100; background: none; border: none; cursor: pointer; padding: 2px; display: flex; align-items: center; gap: 6px; }
+    .toggle-track { width: 40px; height: 22px; background: #DDDDDD; border-radius: 11px; position: relative; transition: background 0.25s; display: block; flex-shrink: 0; }
+    [data-theme="dark"] .toggle-track { background: #555555; }
+    .toggle-knob { width: 16px; height: 16px; background: #FFFFFF; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+    [data-theme="dark"] .toggle-knob { transform: translateX(18px); }
+    .moon-icon { color: #CCCCCC; flex-shrink: 0; transition: color 0.25s; }
+    [data-theme="dark"] .moon-icon { color: #DDDDDD; }
+
+    @media (max-width: 640px) {
+      body { font-size: 17px; }
+      header { padding: 40px 0 48px; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+<button class="essay-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+  <span class="toggle-track"><span class="toggle-knob"></span></span>
+  <svg class="moon-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+</button>
+
+<div id="progress-bar"></div>
+
+<div class="container">
+  <div class="back-nav">
+    <a href="/mindfulness-essays/">← All essays</a>
+  </div>
+
+  <header>
+    <div class="kicker">Essay · Mindfulness &amp; Motivation</div>
+    <h1>Should You Get Into Mindfulness?</h1>
+    <p class="subtitle">The case for treating meditation like medicine, not vitamins</p>
+    <div class="meta">
+      <span>~6 min read</span>
+    </div>
+  </header>
+
+  <article>
+
+    <p>My father takes a GLP-1 medication for weight loss. Every month his doctor adjusts the dosage — up or down, depending on how he's responding. Eventually the doctor might tell him he doesn't need it anymore. I've been meditating seriously for years and no one — not a teacher, not an app, not a single voice in the growing clinical literature — has ever suggested I might have had enough.</p>
+
+    <p>One researcher who has spent years studying meditation's adverse effects puts it plainly: all practices are beneficial for some people, some of the time. That qualifier changes everything. Medicine has dosage. Physical training has a concept of enough. Mindfulness, somehow, does not. It's almost like being given Parkinson's medication when you came in for weight loss. The treatment is real. The question is whether it matches the condition.</p>
+
+    <hr>
+
+    <h2 id="the-default-sales-pitch">The Default Sales Pitch</h2>
+
+    <p>Mindfulness is marketed on a short list of benefits: stress reduction, improved focus, emotional regulation, better relationships. The implicit framing is that more is always better and everyone is a candidate.</p>
+
+    <p>This isn't dishonest. The evidence base is real. For many populations, at many doses, meditation does what the brochure says. This is not a debunking piece. The benefits exist. The question is who they're for, and how much is enough.</p>
+
+    <h2 id="where-it-genuinely-works">Where It Genuinely Works</h2>
+
+    <p>The strongest case for mindfulness is also the most specific: chronic rumination, over-identification with outcomes, anxiety that spirals and won't stop. For people whose suffering is driven by an overactive narrative — a mind that turns one bad thing into ten — the shift practice produces is often genuinely helpful.</p>
+
+    <p>The mechanism isn't mysterious. Mindfulness creates distance between a thought and the emotional weight it would normally carry. For someone in chronic distress, that distance is relief. It interrupts the loop. It reduces a lot of unnecessary suffering without touching the circumstances that caused it, which is usually fine, because the circumstances weren't the real problem anyway.</p>
+
+    <p>The early benefits are real and worth having. This piece is not about the early benefits.</p>
+
+    <h2 id="the-part-nobody-mentions">The Part Nobody Mentions</h2>
+
+    <p>Adyashanti, one of the more experienced teachers in the non-dual tradition, has said something quietly that the wellness industry doesn't print on packaging: if you get good at meditating, you can get really good at hiding from yourself. It's one of the dangers of practice.</p>
+
+    <p>The specific risk: skilled practitioners develop the ability to release difficult emotions in real-time, equanimously, without ever confronting the patterns generating those emotions. Anxiety appears, gets met with awareness, and dissolves — before anything is examined, named, or changed. The practice replaces the work it was supposed to support.</p>
+
+    <p>For the chronically anxious, this is usually a feature. For someone who is already fairly calm — low-rumination, comfortable in their skin, perhaps somewhat undermotivated — more equanimity solves a problem they don't have. The practice becomes an escape hatch rather than a confrontation. Not from suffering in the ordinary sense, but from the obligations that discomfort was supposed to motivate them to address.</p>
+
+    <h2 id="the-ego-problem">The Ego Problem</h2>
+
+    <p>The standard Buddhist framing treats ego as obstacle. A developmental framing treats it differently: ego is a stage you grow through, not a disease you cure.</p>
+
+    <p>The distinction matters practically. Diane Musho Hamilton, a Zen teacher and developmental theorist, puts it this way: she prefers working with a model of outgrowing the ego rather than destroying it. The implication is that there's a prerequisite. You need to have something solid enough to outgrow.</p>
+
+    <p>If someone hasn't yet built a strong enough ego — hasn't developed a clear sense of who they are, what they're capable of, what they're willing to sustain over time — dissolving what they have isn't liberation. It's structural damage. The instruction assumes a foundation that isn't always there.</p>
+
+    <p>A harder version of the same point: no matter how much someone practices, some sense of being a particular person in the play of life inevitably remains. We need a biological sense of location to function. Healthy boundaries aren't spiritual failure. Complete dissolution is not actually available. Which means the question of whether you've built enough before trying to dissolve isn't theoretical — it's clinical.</p>
+
+    <h2 id="the-britton-data">The Britton Data</h2>
+
+    <p>Willoughby Britton, a neuroscientist at Brown University, has spent years systematically documenting meditation-related adverse effects. The findings are not flattering.</p>
+
+    <p>Among the documented patterns: practitioners who lost all emotions, who stopped feeling pleasure, a woman who no longer felt affection for her children. Her colleague Jared Lindahl has described the specific trajectory — so much equanimity and diminished affect that ordinary emotional life becomes inaccessible.</p>
+
+    <p>These aren't rare edge cases. They're recurring patterns across committed practitioners, across multiple Buddhist traditions, across different practice types. Roughly 70% of documented difficulties emerged during intensive retreat, but 30% came from ordinary daily practice — less than an hour a day, sustained over time. The harm threshold is lower than the community assumes.</p>
+
+    <p>The non-monotonic curve is the key finding: equanimity is beneficial up to a point, then becomes flattening. Detachment is useful up to a point, then becomes dissociation. Meditation reduces emotional reactivity across the board — positive and negative alike. Usually that's the goal. Sometimes it goes further than anyone intended.</p>
+
+    <p>The mindfulness community doesn't have good language for this. The framework has no conceptual room for "you've had enough" or "this isn't right for you." An adverse outcome is almost always framed as misunderstanding the practice, not evidence that the practice was the problem.</p>
+
+    <h2 id="a-better-question">A Better Question</h2>
+
+    <p>The question "should I meditate?" is probably too blunt to be useful. A better question: what is my current condition, and does this treatment match it?</p>
+
+    <p>If you're chronically anxious, over-reactive, trapped in recursive self-criticism you can't interrupt — yes, probably. The treatment matches the condition. The early benefits are likely to be real and worth the investment.</p>
+
+    <p>If you're already fairly calm, if your problem is more about drive than distress, if more equanimity seems like the last thing you need — the honest answer might be no, or at least <em>not more</em>. You're applying a treatment designed for a different condition.</p>
+
+    <p>No one in the mindfulness world gives this answer. The framework doesn't allow for it. There is a path in and a path deeper. There is no calibration for when you've arrived, and no path out.</p>
+
+    <h2 id="the-asymmetry">The Asymmetry</h2>
+
+    <p>The mindfulness world has sophisticated language for why you should start, deepen, and continue. It has almost no language for "you've had enough."</p>
+
+    <p>That absence is not an oversight. It's structural. A framework built around awakening — around the idea that awareness is always available, always deeper, always more to realize — cannot simultaneously say: this was right for you at one dose and wrong at another. A path that never ends cannot have a dosage model. The concept of contraindications is incompatible with the concept of universal, boundless liberation.</p>
+
+    <p>Whether that makes mindfulness a path or a trap depends on where you're starting from.</p>
+
+    <p>Some people walk in anxious and leave freer. The practice was the right medicine. Others walk in calm and leave flatter — less reactive, yes, but also less compelled, less urgent, less connected to the asymmetries that once made their choices feel necessary. For them, the question was never whether the practice was real. It was whether it was the right prescription.</p>
+
+    <p>The doctor who gives the same medication to every patient isn't being thorough. They're not looking.</p>
+
+    <hr>
+
+    <p><em>This essay is the prequel to <a href="/mindfulness-essays/paradox-of-acceptance/">The Paradox of Acceptance</a>, which takes up what happens to motivation when practice goes deep — and assumes the reader has already answered yes to the question this piece poses.</em></p>
+
+  </article>
+</div>
+
+<footer>
+  <div class="container">
+    <p><a href="/">Paradox of Acceptance</a> · <a href="/mindfulness-essays/">All essays</a></p>
+  </div>
+</footer>
+
+<script>
+  // Progress bar
+  const bar = document.getElementById('progress-bar');
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY;
+    const total = document.body.scrollHeight - window.innerHeight;
+    if (total > 0) bar.style.width = (scrolled / total * 100) + '%';
+  }, { passive: true });
+
+  // Dark mode toggle
+  const toggle = document.getElementById('theme-toggle');
+  toggle.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.removeItem('theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    }
+  });
+</script>
+
+</body>
+</html>
