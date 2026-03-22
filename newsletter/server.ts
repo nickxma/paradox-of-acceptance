@@ -58,6 +58,46 @@ const CONVERGENCE_ADMIN_WALLET = process.env.CONVERGENCE_ADMIN_WALLET ?? "";
 const PREFERENCES_JWT_SECRET = process.env.PREFERENCES_JWT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+// ─── Slug helpers ─────────────────────────────────────────────────────────────
+
+/** Convert a newsletter subject to a URL-safe slug. Max 80 chars. */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 80);
+}
+
+/**
+ * Generate a unique slug for a newsletter send.
+ * Falls back to empty string if Supabase is not configured.
+ */
+async function generateNewsletterSlug(
+  subject: string,
+  supabaseClient: typeof supabase
+): Promise<string> {
+  if (!supabaseClient) return "";
+  const base = slugify(subject);
+  if (!base) return "";
+  let slug = base;
+  let attempt = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await supabaseClient
+      .from("newsletter_sends")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!data) return slug;
+    attempt++;
+    slug = `${base}-${attempt}`;
+  }
+}
+
 // ─── Supabase (optional — for send log) ──────────────────────────────────────
 
 let supabase: SupabaseClient | null = null;
@@ -360,6 +400,7 @@ type SendLogEntry = {
   bodyHtml?: string;
   bodyText?: string;
   includeInArchive?: boolean;
+  slug?: string;
 };
 
 async function logSend(entry: SendLogEntry): Promise<void> {
@@ -383,6 +424,7 @@ async function logSend(entry: SendLogEntry): Promise<void> {
     body_html: entry.bodyHtml ?? null,
     body_text: entry.bodyText ?? null,
     include_in_archive: entry.includeInArchive ?? true,
+    slug: entry.slug || null,
   });
 
   if (error) {
@@ -1159,6 +1201,7 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
       bodyHtml: htmlBody,
       bodyText: textBody,
       includeInArchive: includeInArchive ?? true,
+      slug: await generateNewsletterSlug(subject, supabase),
     };
     await logSend(logEntry);
 
@@ -1210,6 +1253,7 @@ app.post("/api/newsletter/send", requireAdminSecret, async (req: Request, res: R
     bodyHtml: htmlBody,
     bodyText: textBody,
     includeInArchive: includeInArchive ?? true,
+    slug: await generateNewsletterSlug(subject, supabase),
   };
   await logSend(logEntry);
 
@@ -1344,7 +1388,7 @@ app.get("/api/newsletter/archive", async (_req: Request, res: Response) => {
 
   const { data, error } = await supabase
     .from("newsletter_sends")
-    .select("id, subject, preview_text, sent_at, recipient_count")
+    .select("id, slug, subject, preview_text, sent_at, recipient_count")
     .eq("test_mode", false)
     .eq("status", "sent")
     .eq("include_in_archive", true)
@@ -1389,7 +1433,7 @@ app.get("/api/newsletter/archive/:id", async (req: Request, res: Response) => {
 
   const { data, error } = await supabase
     .from("newsletter_sends")
-    .select("id, subject, preview_text, sent_at, recipient_count, body_html, body_text")
+    .select("id, slug, subject, preview_text, sent_at, recipient_count, body_html, body_text")
     .eq("id", id)
     .eq("test_mode", false)
     .eq("status", "sent")
@@ -1403,6 +1447,416 @@ app.get("/api/newsletter/archive/:id", async (req: Request, res: Response) => {
 
   res.json(data);
 });
+
+// ─── GET /api/newsletter/archive/slug/:slug ────────────────────────────────────
+
+/**
+ * GET /api/newsletter/archive/slug/:slug
+ *
+ * Public endpoint. Returns the full HTML body of a past newsletter issue by slug.
+ * Only serves rows that are non-test, sent, and include_in_archive=true.
+ */
+app.options("/api/newsletter/archive/slug/:slug", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.get("/api/newsletter/archive/slug/:slug", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const { slug } = req.params;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    res.status(400).json({ error: "Invalid issue slug" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("newsletter_sends")
+    .select("id, slug, subject, preview_text, sent_at, recipient_count, body_html, body_text")
+    .eq("slug", slug)
+    .eq("test_mode", false)
+    .eq("status", "sent")
+    .eq("include_in_archive", true)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ error: "Issue not found" });
+    return;
+  }
+
+  res.json(data);
+});
+
+// ─── GET /newsletter/:slug — browser preview (HTML) ───────────────────────────
+
+/**
+ * GET /newsletter/:slug
+ *
+ * Server-side rendered newsletter browser preview page.
+ * Returns a full HTML document with canonical link, OG tags, and subscribe CTA.
+ * Only serves public, non-test, sent, include_in_archive=true rows.
+ *
+ * Requires nginx (or reverse proxy) to route /newsletter/:slug to this server.
+ * Static paths /newsletter/ and /newsletter/issue/ are still served by GitHub Pages.
+ */
+app.get("/newsletter/:slug([a-z0-9-]+)", async (req: Request, res: Response) => {
+  if (!supabase) {
+    res.redirect("/newsletter/");
+    return;
+  }
+
+  const { slug } = req.params;
+
+  const { data, error } = await supabase
+    .from("newsletter_sends")
+    .select("id, slug, subject, preview_text, sent_at, recipient_count, body_html, body_text")
+    .eq("slug", slug)
+    .eq("test_mode", false)
+    .eq("status", "sent")
+    .eq("include_in_archive", true)
+    .single();
+
+  if (error || !data) {
+    res.status(404).send(renderNewsletterNotFound());
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderNewsletterIssue(data));
+});
+
+/** Format an ISO date string as "Month D, YYYY". */
+function formatIssueDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+/** Escape HTML for safe text insertion. */
+function escHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Render the full HTML page for a newsletter issue. */
+function renderNewsletterIssue(issue: {
+  id: string;
+  slug: string | null;
+  subject: string;
+  preview_text: string | null;
+  sent_at: string;
+  recipient_count: number;
+  body_html: string | null;
+  body_text: string | null;
+}): string {
+  const canonicalSlug = issue.slug ?? issue.id;
+  const canonicalUrl = `${SERVER_URL}/newsletter/${canonicalSlug}/`;
+  const title = escHtml(issue.subject);
+  const description = issue.preview_text ? escHtml(issue.preview_text) : `Newsletter issue — ${formatIssueDate(issue.sent_at)}`;
+  const dateStr = formatIssueDate(issue.sent_at);
+
+  // Sanitize body: strip <script> tags server-side as a basic precaution.
+  // DOMPurify runs client-side for full sanitization.
+  const rawBody = issue.body_html ?? (issue.body_text ? `<p>${escHtml(issue.body_text)}</p>` : "");
+  const safeBody = rawBody.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} — Paradox of Acceptance</title>
+<meta name="description" content="${description}">
+<link rel="canonical" href="${canonicalUrl}">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="${canonicalUrl}">
+<meta property="og:site_name" content="Paradox of Acceptance">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
+<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/design-tokens.css">
+<link rel="stylesheet" href="/shared/theme-mono.css">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page-content { padding: 48px 280px 80px; max-width: 1200px; margin: 0 auto; }
+.issue-body-wrap { max-width: 680px; }
+.footer { padding: 48px 280px; }
+
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #999; margin-bottom: 36px; transition: color 0.15s; }
+.back-link:hover { color: #666; }
+
+.issue-subject { font-family: 'Newsreader', serif; font-size: 36px; font-weight: 400; color: #111; line-height: 1.25; margin-bottom: 12px; }
+.issue-meta { font-size: 13px; color: #999; margin-bottom: 40px; }
+
+/* Subscribe CTA */
+.subscribe-cta { background: #F7F7F7; border: 1px solid #EEEEEE; border-radius: 6px; padding: 20px 24px; margin-bottom: 36px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.subscribe-cta-text { font-size: 14px; color: #555; }
+.subscribe-cta-text strong { color: #111; }
+.subscribe-cta-form { display: inline-flex; border: 1px solid #DDD; border-radius: 4px; overflow: hidden; background: #fff; }
+.subscribe-cta-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 9px 14px; border: none; outline: none; width: 220px; }
+.subscribe-cta-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 9px 18px; background: #111; color: #fff; border: none; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.subscribe-cta-btn:hover { background: #333; }
+.subscribe-cta-btn:disabled { background: #666; cursor: default; }
+.subscribe-cta-msg { font-size: 12px; margin-top: 6px; min-height: 16px; }
+.subscribe-cta-msg.success { color: #22C55E; }
+.subscribe-cta-msg.error { color: #DC2626; }
+
+/* Bottom subscribe block */
+.subscribe-bottom { border-top: 1px solid #EEEEEE; margin-top: 56px; padding-top: 48px; text-align: center; }
+.subscribe-bottom-headline { font-family: 'Newsreader', serif; font-size: 28px; font-weight: 400; color: #111; margin-bottom: 10px; }
+.subscribe-bottom-sub { font-size: 15px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+.subscribe-bottom-form { display: inline-flex; border: 1px solid #DDD; border-radius: 4px; overflow: hidden; }
+.subscribe-bottom-input { font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 16px; border: none; outline: none; width: 280px; }
+.subscribe-bottom-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; padding: 12px 24px; background: #111; color: #fff; border: none; cursor: pointer; transition: background 0.15s; }
+.subscribe-bottom-btn:hover { background: #333; }
+.subscribe-bottom-btn:disabled { background: #666; cursor: default; }
+.subscribe-bottom-msg { font-size: 13px; margin-top: 12px; min-height: 20px; }
+.subscribe-bottom-msg.success { color: #22C55E; }
+.subscribe-bottom-msg.error { color: #DC2626; }
+
+/* Email body */
+.email-body-container { border: 1px solid #EEEEEE; border-radius: 6px; padding: 40px; background: #FAFAFA; overflow: hidden; }
+.email-body-container * { max-width: 100%; }
+.email-body-container a { color: #111; text-decoration: underline; }
+.email-body-container p { line-height: 1.7; margin-bottom: 16px; color: #333; font-size: 16px; }
+.email-body-container h1, .email-body-container h2, .email-body-container h3 {
+  font-family: 'Newsreader', serif; font-weight: 400; color: #111; margin-bottom: 12px; margin-top: 32px; line-height: 1.3;
+}
+.email-body-container h1 { font-size: 28px; }
+.email-body-container h2 { font-size: 24px; }
+.email-body-container h3 { font-size: 20px; }
+.email-body-container ul, .email-body-container ol { padding-left: 24px; margin-bottom: 16px; }
+.email-body-container li { line-height: 1.7; margin-bottom: 6px; color: #333; font-size: 16px; }
+.email-body-container blockquote { border-left: 3px solid #DDD; padding-left: 16px; margin: 24px 0; color: #666; font-style: italic; }
+.email-body-container hr { border: none; border-top: 1px solid #EEE; margin: 32px 0; }
+.email-body-container img { border-radius: 4px; }
+.email-body-container table { max-width: 100%; border-collapse: collapse; }
+
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+@media (max-width: 900px) {
+  .nav, .page-content, .footer { padding-left: 24px; padding-right: 24px; }
+  .issue-subject { font-size: 28px; }
+  .nav-links { gap: 20px; }
+  .email-body-container { padding: 24px; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-links { gap: 16px; }
+  .subscribe-cta { flex-direction: column; align-items: flex-start; }
+  .subscribe-cta-form { width: 100%; }
+  .subscribe-cta-input { flex: 1; }
+  .subscribe-bottom-form { flex-direction: column; width: 100%; max-width: 320px; }
+  .subscribe-bottom-input { width: 100%; }
+  .subscribe-bottom-btn { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/newsletter/">Newsletter</a>
+      <a href="/pass/">Pass</a>
+    </div>
+  </div>
+</nav>
+
+<hr class="divider">
+
+<div class="page-content">
+  <a href="/newsletter/" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    All issues
+  </a>
+
+  <!-- Top subscribe CTA -->
+  <div class="subscribe-cta">
+    <div>
+      <div class="subscribe-cta-text"><strong>Paradox of Acceptance</strong> — essays and tools for the questions practice raises.</div>
+      <div class="subscribe-cta-msg" id="cta-top-msg"></div>
+    </div>
+    <form class="subscribe-cta-form" onsubmit="handleSubscribe(event,'top')">
+      <input class="subscribe-cta-input" type="email" id="cta-top-email" placeholder="you@email.com" required>
+      <button class="subscribe-cta-btn" type="submit" id="cta-top-btn">Subscribe free</button>
+    </form>
+  </div>
+
+  <div class="issue-body-wrap">
+    <h1 class="issue-subject">${title}</h1>
+    <div class="issue-meta">${dateStr}</div>
+    <div class="email-body-container" id="issue-body">
+      ${safeBody}
+    </div>
+
+    <!-- Bottom subscribe CTA -->
+    <div class="subscribe-bottom">
+      <div class="subscribe-bottom-headline">Stay with the questions</div>
+      <p class="subscribe-bottom-sub">Essays and tools for meditators navigating what mindfulness actually does to a person.<br>New issues when they&rsquo;re ready. No spam.</p>
+      <form class="subscribe-bottom-form" onsubmit="handleSubscribe(event,'bottom')">
+        <input class="subscribe-bottom-input" type="email" id="cta-bottom-email" placeholder="you@email.com" required>
+        <button class="subscribe-bottom-btn" type="submit" id="cta-bottom-btn">Subscribe</button>
+      </form>
+      <div class="subscribe-bottom-msg" id="cta-bottom-msg"></div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/meditation-quiz/">Quiz</a>
+    <a href="/meditation-debates/">Debates</a>
+    <a href="/teacher-debates/">Teacher Map</a>
+    <a href="/meditation-recommender/">Recommender</a>
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/mindfulness-pointers/">Pointers</a>
+    <a href="/mindfulness-wiki/">Wiki</a>
+    <a href="/newsletter/">Newsletter</a>
+    <a href="/about/">About</a>
+    <a href="/pass/">Pass</a>
+    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
+    <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/terms/">Terms</a>
+  </div>
+</footer>
+
+<script>
+(function() {
+  var API_BASE = '${SERVER_URL}';
+
+  // Client-side DOMPurify sanitization (belt-and-suspenders on top of server-side strip)
+  var body = document.getElementById('issue-body');
+  if (body && typeof DOMPurify !== 'undefined') {
+    body.innerHTML = DOMPurify.sanitize(body.innerHTML, {
+      FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange'],
+      ALLOW_DATA_ATTR: false
+    });
+  }
+
+  window.handleSubscribe = function(e, position) {
+    e.preventDefault();
+    var emailId = position === 'top' ? 'cta-top-email' : 'cta-bottom-email';
+    var btnId   = position === 'top' ? 'cta-top-btn'   : 'cta-bottom-btn';
+    var msgId   = position === 'top' ? 'cta-top-msg'   : 'cta-bottom-msg';
+    var email = document.getElementById(emailId).value.trim();
+    var btn   = document.getElementById(btnId);
+    var msg   = document.getElementById(msgId);
+    if (!email) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    msg.textContent = '';
+    msg.className = position === 'top' ? 'subscribe-cta-msg' : 'subscribe-bottom-msg';
+
+    fetch(API_BASE + '/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = position === 'top' ? 'Subscribe free' : 'Subscribe';
+        if (data.error) {
+          msg.textContent = 'Something went wrong. Try again.';
+          msg.className = (position === 'top' ? 'subscribe-cta-msg' : 'subscribe-bottom-msg') + ' error';
+        } else {
+          window.plausible && window.plausible('Subscribe', { props: { source: 'newsletter-preview-' + position } });
+          msg.textContent = "You're in. Welcome.";
+          msg.className = (position === 'top' ? 'subscribe-cta-msg' : 'subscribe-bottom-msg') + ' success';
+          document.getElementById(emailId).value = '';
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = position === 'top' ? 'Subscribe free' : 'Subscribe';
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = (position === 'top' ? 'subscribe-cta-msg' : 'subscribe-bottom-msg') + ' error';
+      });
+  };
+})();
+</script>
+</body>
+</html>`;
+}
+
+/** Render a 404 page for an unknown newsletter slug. */
+function renderNewsletterNotFound(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Issue not found — Paradox of Acceptance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/design-tokens.css">
+<link rel="stylesheet" href="/shared/theme-mono.css">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+.nav { display: flex; align-items: center; padding: 24px 280px; }
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+.page-content { padding: 80px 280px; text-align: center; }
+.not-found-title { font-family: 'Newsreader', serif; font-size: 36px; font-weight: 400; color: #111; margin-bottom: 12px; }
+.not-found-sub { font-size: 15px; color: #666; margin-bottom: 28px; }
+.not-found-link { font-size: 14px; color: #111; text-decoration: underline; }
+@media (max-width: 900px) { .nav, .page-content { padding-left: 24px; padding-right: 24px; } }
+</style>
+</head>
+<body>
+<nav class="nav"><a href="/" class="nav-logo">Paradox of Acceptance</a></nav>
+<hr class="divider">
+<div class="page-content">
+  <div class="not-found-title">Issue not found</div>
+  <p class="not-found-sub">This newsletter issue isn&rsquo;t in the public archive.</p>
+  <a href="/newsletter/" class="not-found-link">Browse all issues</a>
+</div>
+</body>
+</html>`;
+}
 
 // ─── POST /api/track-view ─────────────────────────────────────────────────────
 
@@ -2727,7 +3181,13 @@ app.post("/api/email/preferences/send-link", async (req: Request, res: Response)
  *
  * No auth key required — this endpoint is called by Resend's infrastructure.
  */
-const TRACKED_EVENT_TYPES = new Set(["email.opened", "email.clicked", "email.bounced", "email.complained"]);
+const TRACKED_EVENT_TYPES = new Set([
+  "email.opened",
+  "email.clicked",
+  "email.bounced",
+  "email.complained",
+  "email.unsubscribed",
+]);
 
 app.post("/api/webhooks/resend", async (req: Request, res: Response) => {
   const rawBody: string = (req as any).rawBody ?? JSON.stringify(req.body);
@@ -2749,7 +3209,7 @@ app.post("/api/webhooks/resend", async (req: Request, res: Response) => {
 
   const emailId = String(data.email_id ?? "") || null;
   const toField = data.to;
-  const recipientEmail = Array.isArray(toField) ? String(toField[0]) : (toField ? String(toField) : null);
+  const recipientEmail = (Array.isArray(toField) ? String(toField[0]) : (toField ? String(toField) : null))?.toLowerCase().trim() ?? null;
   const occurredAt = String(data.created_at ?? payload.created_at ?? new Date().toISOString());
 
   if (!supabase) {
@@ -2798,6 +3258,49 @@ app.post("/api/webhooks/resend", async (req: Request, res: Response) => {
     console.error("[webhook/resend] Failed to store event:", error);
     res.status(500).json({ error: "Failed to store event" });
     return;
+  }
+
+  // ── Side-effects: update subscriber status based on event type ──────────────
+  if (recipientEmail) {
+    if (eventType === "email.bounced") {
+      // Only suppress on hard bounces — soft bounces are transient
+      const bounce = data.bounce as Record<string, unknown> | undefined;
+      const bounceType = String(bounce?.type ?? data.bounce_type ?? "hard").toLowerCase();
+      if (bounceType === "hard") {
+        await supabase
+          .from("subscribers")
+          .update({ status: "bounced" })
+          .eq("email", recipientEmail)
+          .neq("status", "bounced");
+        console.log(`[webhook/resend] Hard bounce — suppressed ${recipientEmail}`);
+      } else {
+        console.log(`[webhook/resend] Soft bounce for ${recipientEmail} — not suppressed`);
+      }
+    } else if (eventType === "email.unsubscribed") {
+      // Resend has already marked the contact unsubscribed; mirror in Supabase
+      await supabase
+        .from("subscribers")
+        .update({ status: "unsubscribed" })
+        .eq("email", recipientEmail)
+        .not("status", "in", '("bounced","unsubscribed")');
+      console.log(`[webhook/resend] Unsubscribed — suppressed ${recipientEmail}`);
+    } else if (eventType === "email.complained") {
+      // Spam complaint: suppress immediately and insert to complaints table
+      await supabase
+        .from("subscribers")
+        .update({ status: "unsubscribed" })
+        .eq("email", recipientEmail)
+        .not("status", "in", '("bounced","unsubscribed")');
+      // Non-fatal insert to complaints for tracking complaint rate
+      await supabase.from("complaints").insert({
+        email: recipientEmail,
+        complained_at: occurredAt,
+        message_id: emailId,
+      }).then(({ error: cErr }) => {
+        if (cErr) console.warn(`[webhook/resend] Could not insert complaint record for ${recipientEmail}: ${cErr.message}`);
+      });
+      console.log(`[webhook/resend] Spam complaint — suppressed ${recipientEmail} and flagged for review`);
+    }
   }
 
   console.log(`[webhook/resend] ${eventType} stored — send=${sendId ?? "unlinked"}`);
