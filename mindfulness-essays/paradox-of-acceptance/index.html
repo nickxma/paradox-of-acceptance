@@ -48,6 +48,20 @@
       transition: width 0.1s linear;
     }
 
+    #reading-time-badge {
+      position: fixed;
+      top: 8px;
+      right: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: var(--ink-light);
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1001;
+      pointer-events: none;
+    }
+    [data-theme="dark"] #reading-time-badge { color: #777; }
+
     /* ─── Back nav ─── */
     .back-nav {
       padding: 20px 0 0;
@@ -89,6 +103,16 @@
       align-self: flex-start;
       padding-top: 4px;
     }
+
+    .toc-essay-title {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: #BBBBBB;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    [data-theme="dark"] .toc-essay-title { color: #444444; }
 
     .toc-label {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -520,11 +544,48 @@
     footer a { color: var(--sage); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
 
+    /* ─── Mobile TOC toggle ─── */
+    .toc-mobile-btn {
+      display: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--sage);
+      background: none;
+      border: 1px solid var(--sage-light);
+      border-radius: 4px;
+      padding: 7px 14px;
+      cursor: pointer;
+      margin-bottom: 32px;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .toc-mobile-btn svg { flex-shrink: 0; transition: transform 0.2s; }
+    .toc-mobile-btn.open svg { transform: rotate(180deg); }
+
+    [data-theme="dark"] .toc-mobile-btn { border-color: #333; color: var(--sage); }
+
+    .toc-mobile-overlay {
+      display: none;
+      background: var(--cream);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .toc-mobile-overlay.open { display: block; }
+
+    [data-theme="dark"] .toc-mobile-overlay { background: #1A1A1A; border-color: #2A2A2A; }
+
     /* ─── Responsive ─── */
-    @media (max-width: 840px) {
+    @media (max-width: 1023px) {
       .toc-sidebar { display: none; }
       .body-layout { display: block; padding: 0 24px; }
       .article-wrap { max-width: 680px; margin: 0 auto; }
+      .toc-mobile-btn { display: flex; }
     }
 
     @media (max-width: 640px) {
@@ -601,6 +662,7 @@
 </button>
 
 <div id="progress-bar"></div>
+<div id="reading-time-badge"></div>
 
 <div class="container">
   <div class="back-nav">
@@ -612,7 +674,9 @@
     <h1>The Paradox of Acceptance</h1>
     <p class="subtitle">What happens to ambition, urgency, and deferred gratification when mindfulness becomes very good?</p>
     <div class="meta">
-      <span>~15 min read</span>
+      <span id="reading-time-label">18 min read</span>
+      <span>·</span>
+      <span>3,444 words</span>
       <span>·</span>
       <span>Interactive</span>
     </div>
@@ -623,6 +687,7 @@
 
   <!-- TOC sidebar -->
   <aside class="toc-sidebar">
+    <div class="toc-essay-title">The Paradox of Acceptance</div>
     <div class="toc-label">Contents</div>
     <ul class="toc-nav">
       <li><a href="#dosage-problem">The Dosage Problem</a></li>
@@ -641,6 +706,16 @@
   </aside>
 
   <div class="article-wrap">
+
+    <!-- Mobile TOC toggle -->
+    <button class="toc-mobile-btn" id="toc-mobile-btn" aria-expanded="false" aria-controls="toc-mobile-overlay">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      Contents
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="toc-mobile-overlay" id="toc-mobile-overlay" role="navigation" aria-label="Table of contents">
+      <ul class="toc-nav toc-mobile-nav"></ul>
+    </div>
 
     <article>
 
@@ -977,12 +1052,23 @@
 </div><!-- /body-layout -->
 
 <script>
-  // ─── Progress bar ───
+  // ─── Progress bar + time remaining ───
+  const _badge = document.getElementById('reading-time-badge');
+  const _WORDS = 3444;
   window.addEventListener('scroll', () => {
     const scrollTop = window.scrollY;
     const docHeight = document.documentElement.scrollHeight - window.innerHeight;
     const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
     document.getElementById('progress-bar').style.width = pct + '%';
+    if (_badge) {
+      if (pct > 5 && pct < 95) {
+        const minLeft = Math.max(1, Math.ceil(_WORDS * (1 - pct / 100) / 200));
+        _badge.textContent = minLeft + ' min left';
+        _badge.style.opacity = '1';
+      } else {
+        _badge.style.opacity = '0';
+      }
+    }
   });
 
   // ─── Expandable thought experiments ───
@@ -1003,27 +1089,93 @@
 
   pullQuotes.forEach(pq => pullObserver.observe(pq));
 
-  // ─── TOC active section tracking ───
-  const tocLinks = document.querySelectorAll('.toc-nav a');
-  const sectionIds = Array.from(tocLinks).map(a => a.getAttribute('href').slice(1));
-  const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+  // ─── TOC: build mobile nav, empty state, active section via IntersectionObserver ───
+  (function() {
+    const sidebar = document.querySelector('.toc-sidebar');
+    const mobileBtn = document.getElementById('toc-mobile-btn');
+    const mobileOverlay = document.getElementById('toc-mobile-overlay');
+    const mobileNav = document.querySelector('.toc-mobile-nav');
 
-  function updateActiveToc() {
-    const scrollY = window.scrollY + 80;
-    let active = sections[0];
-    for (const section of sections) {
-      if (section && section.offsetTop <= scrollY) {
-        active = section;
-      }
+    // Collect H2 headings from the article (exclude assessment section label)
+    const article = document.querySelector('article');
+    const h2s = article ? Array.from(article.querySelectorAll('h2[id]')) : [];
+
+    // Empty state: hide everything if fewer than 2 H2s
+    if (h2s.length < 2) {
+      if (sidebar) sidebar.style.display = 'none';
+      if (mobileBtn) mobileBtn.style.display = 'none';
+      return;
     }
-    tocLinks.forEach(a => {
-      const isActive = active && a.getAttribute('href') === '#' + active.id;
-      a.classList.toggle('active', isActive);
-    });
-  }
 
-  window.addEventListener('scroll', updateActiveToc, { passive: true });
-  updateActiveToc();
+    // Populate mobile nav by cloning desktop TOC items
+    const desktopLinks = document.querySelectorAll('.toc-sidebar .toc-nav a');
+    desktopLinks.forEach(a => {
+      const li = document.createElement('li');
+      const clone = a.cloneNode(true);
+      clone.addEventListener('click', () => {
+        mobileOverlay.classList.remove('open');
+        mobileBtn.classList.remove('open');
+        mobileBtn.setAttribute('aria-expanded', 'false');
+        // Update URL hash
+        history.pushState(null, '', a.getAttribute('href'));
+      });
+      li.appendChild(clone);
+      mobileNav.appendChild(li);
+    });
+
+    // Mobile toggle
+    if (mobileBtn) {
+      mobileBtn.addEventListener('click', () => {
+        const isOpen = mobileOverlay.classList.toggle('open');
+        mobileBtn.classList.toggle('open', isOpen);
+        mobileBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+    }
+
+    // Update URL hash on desktop TOC clicks
+    desktopLinks.forEach(a => {
+      a.addEventListener('click', () => {
+        history.pushState(null, '', a.getAttribute('href'));
+      });
+    });
+
+    // Active section via IntersectionObserver
+    const allTocLinks = document.querySelectorAll('.toc-nav a');
+    const sectionIds = Array.from(desktopLinks).map(a => a.getAttribute('href').slice(1));
+    const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+    let activeId = null;
+
+    function setActive(id) {
+      if (id === activeId) return;
+      activeId = id;
+      allTocLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setActive(entry.target.id);
+        }
+      });
+    }, {
+      rootMargin: '-60px 0px -70% 0px',
+      threshold: 0
+    });
+
+    sections.forEach(s => observer.observe(s));
+    // Set initial active based on scroll position
+    if (sections.length) {
+      const scrollY = window.scrollY + 80;
+      let initial = sections[0];
+      for (const s of sections) {
+        if (s.offsetTop <= scrollY) initial = s;
+      }
+      setActive(initial.id);
+    }
+  })();
 
   // ─── Self-assessment ───
   function submitAssessment() {

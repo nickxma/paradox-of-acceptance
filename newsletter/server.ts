@@ -3822,6 +3822,34 @@ app.get("/api/courses/:slug/export", async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET /api/essays ─────────────────────────────────────────────────────────
+
+/**
+ * GET /api/essays
+ *
+ * Public. Returns all essays with word_count and reading_time_minutes.
+ * Used by static pages to render accurate reading time labels.
+ */
+app.options("/api/essays", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.get("/api/essays", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const essays = Object.entries(ESSAY_META).map(([slug, meta]) => ({
+    slug,
+    title: meta.title,
+    description: meta.description,
+    path: meta.path,
+    word_count: meta.word_count,
+    reading_time_minutes: meta.reading_time_minutes,
+  }));
+  res.json({ essays });
+});
+
 // ─── Reading Lists API ────────────────────────────────────────────────────────
 //
 // GET  /api/reading-lists        — public; returns published lists + item count + first-3 essays
@@ -3846,31 +3874,42 @@ app.options("/api/reading-lists/:slug", (_req: Request, res: Response) => {
 
 // Known essays — used to enrich reading list responses with title/path metadata.
 // Matches the ESSAYS constant already defined above.
-const ESSAY_META: Record<string, { title: string; description: string; path: string }> = {
+// word_count: counted from <article> body text (whitespace-split). reading_time_minutes: ceil(word_count / 200).
+const ESSAY_META: Record<string, { title: string; description: string; path: string; word_count: number; reading_time_minutes: number }> = {
   "paradox-of-acceptance": {
     title: "The Paradox of Acceptance",
     description: "A meditation on what happens to ambition, urgency, and deferred gratification when mindfulness becomes very good.",
     path: "/mindfulness-essays/paradox-of-acceptance/",
+    word_count: 3444,
+    reading_time_minutes: 18,
   },
   "should-you-get-into-mindfulness": {
     title: "Should You Get Into Mindfulness?",
     description: "An honest look at who benefits from mindfulness practice and who might be better served elsewhere.",
     path: "/mindfulness-essays/should-you-get-into-mindfulness/",
+    word_count: 1273,
+    reading_time_minutes: 7,
   },
   "the-avoidance-problem": {
     title: "The Avoidance Problem",
     description: "On using mindfulness to avoid rather than engage — and how to tell the difference.",
     path: "/mindfulness-essays/the-avoidance-problem/",
+    word_count: 1677,
+    reading_time_minutes: 9,
   },
   "the-cherry-picking-problem": {
     title: "The Cherry-Picking Problem",
     description: "Why we select the comfortable parts of mindfulness and leave the harder teachings untouched.",
     path: "/mindfulness-essays/the-cherry-picking-problem/",
+    word_count: 1252,
+    reading_time_minutes: 7,
   },
   "when-to-quit": {
     title: "When to Quit",
     description: "How mindfulness changes the calculus around persistence, quitting, and what counts as giving up.",
     path: "/mindfulness-essays/when-to-quit/",
+    word_count: 1656,
+    reading_time_minutes: 9,
   },
 };
 
@@ -3946,7 +3985,7 @@ app.get("/api/reading-lists", async (_req: Request, res: Response) => {
       cover_image_url,
       display_order: list.display_order,
       item_count: slugs.length,
-      estimated_read_minutes: slugs.length * 7,
+      estimated_read_minutes: slugs.reduce((sum, slug) => sum + (ESSAY_META[slug]?.reading_time_minutes ?? 7), 0),
       preview_essays,
     };
   });
@@ -4010,7 +4049,7 @@ app.get("/api/reading-lists/:slug", async (req: Request, res: Response) => {
       description: list.description,
       cover_image_url: list.cover_image_url,
       item_count: essays.length,
-      estimated_read_minutes: essays.length * 7,
+      estimated_read_minutes: essays.reduce((sum, e) => sum + (ESSAY_META[e.slug]?.reading_time_minutes ?? 7), 0),
       essays,
     },
   });
