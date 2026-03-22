@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSV Import — Paradox of Acceptance</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+.content {
+  padding: 28px 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ─── Wizard steps ──────────────────────────────────────────── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+.step-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #aaa;
+  font-weight: 500;
+}
+.step-node.active { color: #111; }
+.step-node.done { color: #22c55e; }
+.step-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e8e8e8;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.step-node.active .step-circle { background: #111; color: #fff; }
+.step-node.done .step-circle { background: #22c55e; color: #fff; }
+.step-divider {
+  flex: 1;
+  height: 1px;
+  background: #e8e8e8;
+  margin: 0 12px;
+  max-width: 60px;
+}
+
+/* ─── Cards ─────────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.card-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #999;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.card-body { padding: 20px; }
+
+/* ─── Drop zone ─────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: #111;
+  background: #fafafa;
+}
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.drop-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+  color: #bbb;
+}
+.drop-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+.drop-sub {
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* ─── Column mapping ────────────────────────────────────────── */
+.mapping-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+.mapping-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mapping-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
+.mapping-select {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+.mapping-select:focus { border-color: #111; }
+
+/* ─── Preview table ─────────────────────────────────────────── */
+.preview-table-wrap { overflow-x: auto; margin-top: 16px; }
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.preview-table th {
+  background: #f5f5f5;
+  border: 1px solid #e8e8e8;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+}
+.preview-table td {
+  border: 1px solid #f0f0f0;
+  padding: 6px 10px;
+  color: #333;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Stats row ─────────────────────────────────────────────── */
+.stats-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.stat-box {
+  flex: 1;
+  min-width: 100px;
+  background: #f9f9f9;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.stat-box-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+.stat-box-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #111;
+}
+.stat-box-value.green { color: #16a34a; }
+.stat-box-value.red { color: #dc2626; }
+.stat-box-value.amber { color: #d97706; }
+
+/* ─── Invalid sample ────────────────────────────────────────── */
+.invalid-sample {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #666;
+}
+.invalid-sample-title {
+  font-weight: 600;
+  color: #dc2626;
+  margin-bottom: 6px;
+}
+.invalid-email-list {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #991b1b;
+}
+
+/* ─── Progress bar ──────────────────────────────────────────── */
+.progress-wrap {
+  margin-bottom: 20px;
+}
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+.progress-bar-track {
+  height: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: #111;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-bar-fill.done { background: #22c55e; }
+
+/* ─── Result summary ────────────────────────────────────────── */
+.result-summary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.result-item-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #aaa;
+}
+.result-item-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
+}
+.result-item-value.green { color: #16a34a; }
+.result-item-value.amber { color: #d97706; }
+.result-item-value.red { color: #dc2626; }
+
+/* ─── Buttons ───────────────────────────────────────────────── */
+.btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.btn {
+  padding: 9px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline {
+  background: #fff;
+  color: #333;
+  border-color: #ddd;
+}
+.btn-outline:hover:not(:disabled) { border-color: #aaa; background: #f5f5f5; }
+.btn-dark {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+.btn-dark:hover:not(:disabled) { background: #333; }
+.btn-green {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
+.btn-green:hover:not(:disabled) { background: #15803d; }
+.btn-link {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.btn-link:hover { color: #111; }
+
+/* ─── Alerts ────────────────────────────────────────────────── */
+.alert {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.alert-warning { background: #fefce8; border: 1px solid #fde68a; color: #92400e; }
+.alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+}
+.toast {
+  background: #111;
+  color: #fff;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: slide-in 0.2s ease;
+}
+.toast-error { background: #dc2626; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>CSV Import</h1>
+    <p>Paradox of Acceptance Admin</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/email/import-csv/" class="active">CSV Import</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/essays/">Essays</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+
+    <!-- Step indicator -->
+    <div class="step-indicator">
+      <div class="step-node active" id="step-node-1">
+        <div class="step-circle">1</div>
+        <span>Upload</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-node" id="step-node-2">
+        <div class="step-circle">2</div>
+        <span>Validate</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-node" id="step-node-3">
+        <div class="step-circle">3</div>
+        <span>Import</span>
+      </div>
+    </div>
+
+    <!-- ─── Step 1: Upload ─────────────────────────────────── -->
+    <div id="step-1">
+      <div class="card">
+        <div class="card-header">Upload CSV</div>
+        <div class="card-body">
+          <div class="drop-zone" id="drop-zone">
+            <input type="file" id="file-input" accept=".csv,text/csv" />
+            <div class="drop-icon">📂</div>
+            <div class="drop-label">Drop CSV file here, or click to browse</div>
+            <div class="drop-sub">Must have a header row with an email column</div>
+          </div>
+          <div id="file-name" style="font-size:13px;color:#555;margin-top:12px;display:none;"></div>
+        </div>
+      </div>
+
+      <div class="card" id="preview-card" style="display:none;">
+        <div class="card-header">Preview &amp; Column Mapping</div>
+        <div class="card-body">
+          <div style="font-size:13px;color:#555;margin-bottom:4px;">
+            <strong id="preview-row-count"></strong> rows detected
+          </div>
+
+          <!-- Column mapping -->
+          <div class="mapping-grid">
+            <div class="mapping-row">
+              <label class="mapping-label" for="col-email">Email column <span style="color:#dc2626;">*</span></label>
+              <select id="col-email" class="mapping-select"></select>
+            </div>
+            <div class="mapping-row">
+              <label class="mapping-label" for="col-firstname">First name column <span style="color:#aaa;">(optional)</span></label>
+              <select id="col-firstname" class="mapping-select"></select>
+            </div>
+            <div class="mapping-row">
+              <label class="mapping-label" for="col-lastname">Last name column <span style="color:#aaa;">(optional)</span></label>
+              <select id="col-lastname" class="mapping-select"></select>
+            </div>
+          </div>
+
+          <!-- 5-row preview table -->
+          <div class="preview-table-wrap" id="preview-table-wrap"></div>
+        </div>
+      </div>
+
+      <div id="step1-error" style="display:none;"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-dark" id="btn-to-step2" disabled>Validate →</button>
+      </div>
+    </div>
+
+    <!-- ─── Step 2: Validate ───────────────────────────────── -->
+    <div id="step-2" style="display:none;">
+      <div class="card">
+        <div class="card-header">Validation Summary</div>
+        <div class="card-body">
+          <div class="stats-row">
+            <div class="stat-box">
+              <div class="stat-box-label">Total Rows</div>
+              <div class="stat-box-value" id="v-total">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-label">Valid</div>
+              <div class="stat-box-value green" id="v-valid">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-label">Invalid Email</div>
+              <div class="stat-box-value red" id="v-invalid">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-label">Duplicates in CSV</div>
+              <div class="stat-box-value amber" id="v-duplicates">—</div>
+            </div>
+          </div>
+
+          <div id="v-error-alert" style="display:none;"></div>
+
+          <!-- Sample of invalid rows -->
+          <div id="invalid-sample-block" style="display:none;">
+            <div class="invalid-sample">
+              <div class="invalid-sample-title" id="invalid-sample-title"></div>
+              <div class="invalid-email-list" id="invalid-email-list"></div>
+            </div>
+            <button class="btn-link" id="btn-download-invalid" style="margin-top:8px;">
+              ↓ Download all invalid rows as CSV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" id="btn-back-step1">← Back</button>
+        <button class="btn btn-dark" id="btn-to-step3" disabled>Import <span id="btn-import-count"></span>→</button>
+      </div>
+    </div>
+
+    <!-- ─── Step 3: Import ─────────────────────────────────── -->
+    <div id="step-3" style="display:none;">
+      <div class="card">
+        <div class="card-header">Importing into Resend</div>
+        <div class="card-body">
+          <div class="progress-wrap">
+            <div class="progress-label">
+              <span id="progress-text">Starting…</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progress-bar"></div>
+            </div>
+          </div>
+
+          <div id="import-error-alert" style="display:none;"></div>
+
+          <div id="import-result" style="display:none;">
+            <div class="alert alert-success" style="margin-bottom:16px;">
+              Import complete!
+            </div>
+            <div class="result-summary">
+              <div class="result-item">
+                <span class="result-item-label">Imported</span>
+                <span class="result-item-value green" id="r-imported">—</span>
+              </div>
+              <div class="result-item">
+                <span class="result-item-label">Skipped Duplicates</span>
+                <span class="result-item-value amber" id="r-skipped">—</span>
+              </div>
+              <div class="result-item">
+                <span class="result-item-label">Failed</span>
+                <span class="result-item-value red" id="r-failed">—</span>
+              </div>
+              <div class="result-item">
+                <span class="result-item-label">Total Rows</span>
+                <span class="result-item-value" id="r-total">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" id="step3-btns" style="display:none;">
+        <button class="btn btn-outline" id="btn-import-another">Import Another File</button>
+      </div>
+    </div>
+
+  </div><!-- /.content -->
+</div><!-- /#main -->
+
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+// ─── State ────────────────────────────────────────────────────
+let adminSecret = '';
+let parsedData = null;   // { rows, headers }
+let validRows = [];      // [{email, firstName}]
+let invalidRows = [];    // [{row, email, reason}]
+let inCsvDuplicates = 0;
+let emailCol = '';
+let firstNameCol = '';
+let lastNameCol = '';
+let currentJobId = null;
+let pollTimer = null;
+
+// ─── Helpers ──────────────────────────────────────────────────
+function toast(message, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type === 'error' ? ' toast-error' : '');
+  el.textContent = message;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim());
+}
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+// ─── Auth ─────────────────────────────────────────────────────
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Step indicator ───────────────────────────────────────────
+function setActiveStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const node = document.getElementById(`step-node-${i}`);
+    node.classList.remove('active', 'done');
+    if (i < n) node.classList.add('done');
+    else if (i === n) node.classList.add('active');
+    // Update check mark for done steps
+    node.querySelector('.step-circle').textContent = i < n ? '✓' : String(i);
+  }
+  document.getElementById('step-1').style.display = n === 1 ? '' : 'none';
+  document.getElementById('step-2').style.display = n === 2 ? '' : 'none';
+  document.getElementById('step-3').style.display = n === 3 ? '' : 'none';
+}
+
+// ─── Drop zone ────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  if (file) handleFile(file);
+});
+
+function handleFile(file) {
+  if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+    showStep1Error('Only CSV files are accepted.');
+    return;
+  }
+  clearStep1Error();
+  document.getElementById('file-name').style.display = '';
+  document.getElementById('file-name').textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim(),
+    complete: (results) => {
+      parsedData = { rows: results.data, headers: results.meta.fields || [] };
+      renderStep1Preview();
+    },
+    error: (err) => {
+      showStep1Error(`CSV parse error: ${err.message}`);
+    },
+  });
+}
+
+function showStep1Error(msg) {
+  const el = document.getElementById('step1-error');
+  el.style.display = '';
+  el.innerHTML = `<div class="alert alert-error">${escapeHtml(msg)}</div>`;
+  document.getElementById('btn-to-step2').disabled = true;
+}
+function clearStep1Error() {
+  document.getElementById('step1-error').style.display = 'none';
+}
+
+function renderStep1Preview() {
+  const { rows, headers } = parsedData;
+
+  // Show row count
+  document.getElementById('preview-row-count').textContent = rows.length.toLocaleString();
+
+  // Populate column selects
+  const noOpt = '<option value="">— none —</option>';
+  const opts = headers.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+
+  const emailSel = document.getElementById('col-email');
+  emailSel.innerHTML = noOpt + opts;
+  const autoEmail = headers.find(h => /^e-?mail$/i.test(h));
+  if (autoEmail) emailSel.value = autoEmail;
+
+  const fnSel = document.getElementById('col-firstname');
+  fnSel.innerHTML = noOpt + opts;
+  const autoFn = headers.find(h => /^first.?name$/i.test(h));
+  if (autoFn) fnSel.value = autoFn;
+
+  const lnSel = document.getElementById('col-lastname');
+  lnSel.innerHTML = noOpt + opts;
+  const autoLn = headers.find(h => /^last.?name$/i.test(h));
+  if (autoLn) lnSel.value = autoLn;
+
+  // 5-row preview table
+  const preview = rows.slice(0, 5);
+  const thCells = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  const tdRows = preview.map(row => {
+    const tds = headers.map(h => `<td>${escapeHtml(String(row[h] ?? ''))}</td>`).join('');
+    return `<tr>${tds}</tr>`;
+  }).join('');
+  document.getElementById('preview-table-wrap').innerHTML = `
+    <table class="preview-table">
+      <thead><tr>${thCells}</tr></thead>
+      <tbody>${tdRows}</tbody>
+    </table>`;
+
+  document.getElementById('preview-card').style.display = '';
+  validateStep1CanProceed();
+
+  // Re-check when mapping changes
+  emailSel.onchange = validateStep1CanProceed;
+}
+
+function validateStep1CanProceed() {
+  const col = document.getElementById('col-email').value;
+  document.getElementById('btn-to-step2').disabled = !col;
+}
+
+// ─── Step 1 → 2 ───────────────────────────────────────────────
+document.getElementById('btn-to-step2').addEventListener('click', () => {
+  emailCol = document.getElementById('col-email').value;
+  firstNameCol = document.getElementById('col-firstname').value;
+  lastNameCol = document.getElementById('col-lastname').value;
+
+  if (!emailCol) { toast('Select an email column first.', 'error'); return; }
+  runValidation();
+  setActiveStep(2);
+});
+
+// ─── Step 2: Validation ───────────────────────────────────────
+function runValidation() {
+  const { rows } = parsedData;
+  validRows = [];
+  invalidRows = [];
+  inCsvDuplicates = 0;
+  const seenEmails = new Set();
+
+  for (const row of rows) {
+    const rawEmail = (row[emailCol] || '').trim();
+    if (!rawEmail) {
+      invalidRows.push({ email: rawEmail, reason: 'empty' });
+      continue;
+    }
+    const email = rawEmail.toLowerCase();
+    if (!isValidEmail(email)) {
+      invalidRows.push({ email: rawEmail, reason: 'invalid format' });
+      continue;
+    }
+    if (seenEmails.has(email)) {
+      inCsvDuplicates++;
+      continue;
+    }
+    seenEmails.add(email);
+
+    let firstName = undefined;
+    if (firstNameCol) {
+      const fn = (row[firstNameCol] || '').trim();
+      const ln = lastNameCol ? (row[lastNameCol] || '').trim() : '';
+      firstName = ln ? `${fn} ${ln}`.trim() : fn || undefined;
+    }
+    validRows.push({ email, firstName, _row: row });
+  }
+
+  // Render stats
+  document.getElementById('v-total').textContent = rows.length.toLocaleString();
+  document.getElementById('v-valid').textContent = validRows.length.toLocaleString();
+  document.getElementById('v-invalid').textContent = invalidRows.length.toLocaleString();
+  document.getElementById('v-duplicates').textContent = inCsvDuplicates.toLocaleString();
+
+  // Error if no valid rows
+  const errEl = document.getElementById('v-error-alert');
+  if (validRows.length === 0) {
+    errEl.style.display = '';
+    errEl.innerHTML = `<div class="alert alert-error">No valid rows to import. Fix the CSV and try again.</div>`;
+    document.getElementById('btn-to-step3').disabled = true;
+  } else {
+    errEl.style.display = 'none';
+    document.getElementById('btn-to-step3').disabled = false;
+    document.getElementById('btn-import-count').textContent = `${validRows.length.toLocaleString()} rows `;
+  }
+
+  // Invalid sample
+  const sampleBlock = document.getElementById('invalid-sample-block');
+  if (invalidRows.length > 0) {
+    sampleBlock.style.display = '';
+    const SAMPLE = 10;
+    const shown = invalidRows.slice(0, SAMPLE);
+    document.getElementById('invalid-sample-title').textContent =
+      `${invalidRows.length} invalid row${invalidRows.length !== 1 ? 's' : ''} (showing first ${Math.min(SAMPLE, invalidRows.length)}):`;
+    document.getElementById('invalid-email-list').textContent =
+      shown.map(r => `${r.email || '(empty)'}  — ${r.reason}`).join('\n');
+  } else {
+    sampleBlock.style.display = 'none';
+  }
+}
+
+// Download invalid rows as CSV
+document.getElementById('btn-download-invalid').addEventListener('click', () => {
+  const lines = ['email,reason'];
+  for (const r of invalidRows) {
+    const email = `"${String(r.email).replace(/"/g, '""')}"`;
+    const reason = `"${String(r.reason).replace(/"/g, '""')}"`;
+    lines.push(`${email},${reason}`);
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'invalid-rows.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btn-back-step1').addEventListener('click', () => setActiveStep(1));
+
+// ─── Step 2 → 3: Start import ─────────────────────────────────
+document.getElementById('btn-to-step3').addEventListener('click', async () => {
+  setActiveStep(3);
+  await startImport();
+});
+
+async function startImport() {
+  // Build FormData with original file
+  const fileEl = document.getElementById('file-input');
+  const file = fileEl.files[0];
+  if (!file) { showImportError('No file selected.'); return; }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const params = new URLSearchParams({ email_col: emailCol });
+  if (firstNameCol) params.set('first_name_col', firstNameCol);
+  if (lastNameCol) params.set('last_name_col', lastNameCol);
+
+  let resp;
+  try {
+    resp = await fetch(`/api/admin/email/import-csv?${params}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Secret': adminSecret },
+      body: formData,
+    });
+  } catch (err) {
+    showImportError(`Network error: ${err.message}`);
+    return;
+  }
+
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    showImportError(json.error || `Server error ${resp.status}`);
+    return;
+  }
+
+  currentJobId = json.jobId;
+  const total = json.total;
+
+  updateProgress(0, total, 0);
+  pollImportStatus(currentJobId, total);
+}
+
+function pollImportStatus(jobId, total) {
+  pollTimer = setInterval(async () => {
+    const { ok, data } = await apiRequest(`/api/admin/email/import-csv/status/${jobId}`);
+    if (!ok) return;
+
+    updateProgress(data.processed, total || data.total, data.imported);
+
+    if (data.status === 'done') {
+      clearInterval(pollTimer);
+      updateProgress(data.total, data.total, data.imported);
+      showImportResult(data);
+    } else if (data.status === 'failed') {
+      clearInterval(pollTimer);
+      showImportError(data.error || 'Import failed on the server.');
+    }
+  }, 600);
+}
+
+function updateProgress(processed, total, imported) {
+  const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-text').textContent =
+    `${processed.toLocaleString()} of ${total.toLocaleString()} processed · ${imported.toLocaleString()} imported`;
+}
+
+function showImportResult(data) {
+  document.getElementById('progress-bar').classList.add('done');
+  document.getElementById('progress-text').textContent = 'Import complete!';
+  document.getElementById('r-imported').textContent = (data.imported || 0).toLocaleString();
+  document.getElementById('r-skipped').textContent = (data.skipped_duplicates || 0).toLocaleString();
+  document.getElementById('r-failed').textContent = (data.failed || 0).toLocaleString();
+  document.getElementById('r-total').textContent = (data.total || 0).toLocaleString();
+  document.getElementById('import-result').style.display = '';
+  document.getElementById('step3-btns').style.display = '';
+}
+
+function showImportError(msg) {
+  const el = document.getElementById('import-error-alert');
+  el.style.display = '';
+  el.innerHTML = `<div class="alert alert-error">${escapeHtml(msg)}</div>`;
+}
+
+// ─── Import another ───────────────────────────────────────────
+document.getElementById('btn-import-another').addEventListener('click', () => {
+  // Reset all state
+  parsedData = null;
+  validRows = [];
+  invalidRows = [];
+  inCsvDuplicates = 0;
+  emailCol = '';
+  firstNameCol = '';
+  lastNameCol = '';
+  currentJobId = null;
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-name').style.display = 'none';
+  document.getElementById('preview-card').style.display = 'none';
+  document.getElementById('step1-error').style.display = 'none';
+  document.getElementById('btn-to-step2').disabled = true;
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-bar').classList.remove('done');
+  document.getElementById('import-result').style.display = 'none';
+  document.getElementById('import-error-alert').style.display = 'none';
+  document.getElementById('step3-btns').style.display = 'none';
+
+  setActiveStep(1);
+});
+
+// ─── Init ─────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>

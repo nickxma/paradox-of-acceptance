@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Page — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.page-actions { display: flex; gap: 10px; }
+
+/* ─── Panel ─────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+.panel-title { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ─── Form ──────────────────────────────────────────────────── */
+.form-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 12px; font-weight: 600; color: #555; }
+.form-input, .form-textarea {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  background: #fff;
+}
+.form-input:focus, .form-textarea:focus { border-color: #111; }
+.form-textarea { resize: vertical; min-height: 180px; line-height: 1.6; }
+.form-hint { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+/* Photo upload */
+.photo-upload-row { display: flex; align-items: flex-start; gap: 16px; }
+.photo-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e0e0e0;
+  flex-shrink: 0;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bbb;
+  font-size: 28px;
+  font-family: Georgia, serif;
+  overflow: hidden;
+}
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-upload-controls { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.photo-upload-label {
+  display: inline-block;
+  padding: 7px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #444;
+  background: #fafafa;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  width: fit-content;
+}
+.photo-upload-label:hover { border-color: #bbb; background: #f0f0f0; }
+.photo-upload-input { display: none; }
+.photo-filename { font-size: 12px; color: #888; }
+.photo-clear { font-size: 12px; color: #dc2626; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* ─── Form actions ──────────────────────────────────────────── */
+.form-actions { padding: 0 20px 20px; display: flex; align-items: center; gap: 12px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+}
+.btn:hover { background: #f5f5f5; }
+.btn-save {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+.btn-save:hover { background: #333; border-color: #333; }
+.btn-save:disabled { background: #aaa; border-color: #aaa; cursor: not-allowed; }
+.btn-preview { }
+
+.form-msg { font-size: 12px; }
+.form-msg.success { color: #16a34a; }
+.form-msg.error { color: #dc2626; }
+
+/* ─── Preview pane ──────────────────────────────────────────── */
+#preview-pane {
+  display: none;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+#preview-pane.open { display: block; }
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+.preview-title { font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+.preview-close { background: none; border: none; cursor: pointer; color: #999; font-size: 18px; line-height: 1; }
+.preview-close:hover { color: #111; }
+.preview-body {
+  padding: 32px 40px;
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #faf8f4;
+}
+.preview-hero { display: flex; align-items: center; gap: 28px; margin-bottom: 32px; }
+.preview-photo {
+  width: 80px; height: 80px; border-radius: 50%;
+  object-fit: cover; border: 2px solid #e8e4dc; flex-shrink: 0;
+}
+.preview-photo-placeholder {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: #e8e4dc; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #c4bdb0; flex-shrink: 0;
+}
+.preview-name { font-size: 28px; color: #111; margin-bottom: 8px; }
+.preview-tagline { font-size: 16px; color: #555; font-style: italic; }
+.preview-bio { font-size: 16px; color: #222; line-height: 1.75; }
+.preview-bio p + p { margin-top: 18px; }
+.preview-links { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 10px; }
+.preview-link {
+  display: inline-block;
+  font-family: -apple-system, sans-serif;
+  font-size: 13px;
+  color: #444;
+  background: #fff;
+  border: 1px solid #E8E8E8;
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+
+/* ─── Loading ────────────────────────────────────────────────── */
+.loading { font-size: 13px; color: #bbb; padding: 24px 20px; }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin</h1>
+    <p>Enter your admin secret to continue.</p>
+    <input type="password" id="auth-input" class="auth-input" placeholder="Admin secret"
+      onkeydown="if(event.key==='Enter')authenticate()">
+    <button class="btn-primary" onclick="authenticate()">Sign in</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main UI -->
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/email/import-csv/">CSV Import</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/essays/">Essays</a>
+      <a href="/admin/about/" class="active">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <h1 class="page-title">About Page</h1>
+      <div class="page-actions">
+        <a href="/about/" target="_blank" class="btn">View live page ↗</a>
+      </div>
+    </div>
+
+    <!-- Preview pane -->
+    <div id="preview-pane">
+      <div class="preview-header">
+        <span class="preview-title">Preview</span>
+        <button class="preview-close" onclick="closePreview()" title="Close preview">×</button>
+      </div>
+      <div class="preview-body" id="preview-body">
+        <!-- rendered preview -->
+      </div>
+    </div>
+
+    <!-- Edit form -->
+    <div class="panel" id="form-panel">
+      <div class="panel-header">
+        <span class="panel-title">Edit About Page</span>
+      </div>
+
+      <div id="loading" class="loading">Loading current content…</div>
+
+      <form id="about-form" onsubmit="saveAbout(event)" style="display:none">
+        <div class="form-body">
+
+          <!-- Photo -->
+          <div class="form-group">
+            <label class="form-label">Profile Photo</label>
+            <div class="photo-upload-row">
+              <div class="photo-preview" id="photo-preview">N</div>
+              <div class="photo-upload-controls">
+                <label class="photo-upload-label" for="photo-file-input">
+                  Choose photo…
+                </label>
+                <input type="file" id="photo-file-input" class="photo-upload-input"
+                  accept="image/*" onchange="handlePhotoSelect(this)">
+                <span class="photo-filename" id="photo-filename">No file chosen</span>
+                <button type="button" class="photo-clear" id="photo-clear-btn"
+                  onclick="clearPhoto()" style="display:none">Remove photo</button>
+              </div>
+            </div>
+            <span class="form-hint">JPEG, PNG, or WebP. Max 10 MB. Displayed as a circle.</span>
+          </div>
+
+          <!-- Tagline -->
+          <div class="form-group">
+            <label class="form-label" for="tagline">Tagline</label>
+            <input type="text" id="tagline" class="form-input"
+              placeholder="One-line description of who you are and what you write about"
+              maxlength="200">
+            <span class="form-hint">Appears below your name in the hero section. Keep it under ~120 characters.</span>
+          </div>
+
+          <!-- Bio -->
+          <div class="form-group">
+            <label class="form-label" for="bio-markdown">Bio</label>
+            <textarea id="bio-markdown" class="form-textarea"
+              placeholder="Write your bio here. Markdown supported: **bold**, *italic*, [links](url).
+
+2–3 paragraphs works well. Separate paragraphs with a blank line."></textarea>
+            <span class="form-hint">Markdown supported. Use blank lines to separate paragraphs.</span>
+          </div>
+
+          <!-- Social links row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="twitter-url">Twitter / X URL</label>
+              <input type="url" id="twitter-url" class="form-input"
+                placeholder="https://x.com/yourusername">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="linkedin-url">LinkedIn URL</label>
+              <input type="url" id="linkedin-url" class="form-input"
+                placeholder="https://linkedin.com/in/yourprofile">
+            </div>
+          </div>
+
+          <!-- Contact email -->
+          <div class="form-group">
+            <label class="form-label" for="contact-email">Contact Email</label>
+            <input type="email" id="contact-email" class="form-input"
+              placeholder="nick@paradoxofacceptance.xyz">
+            <span class="form-hint">Shown as a mailto: link in the Connect section.</span>
+          </div>
+
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-save" id="save-btn">Save changes</button>
+          <button type="button" class="btn btn-preview" onclick="showPreview()">Preview</button>
+          <span class="form-msg" id="form-msg"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+  var adminSecret = '';
+  var currentPhotoUrl = null;   // photo URL loaded from API
+  var selectedPhotoFile = null; // file selected but not yet saved
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  window.authenticate = function() {
+    var secret = document.getElementById('auth-input').value.trim();
+    if (!secret) return;
+    adminSecret = secret;
+    // Validate by hitting the about endpoint with admin secret
+    fetch(API_BASE + '/api/admin/about', {
+      method: 'PATCH',
+      headers: { 'X-Admin-Secret': secret },
+      // Send empty patch to validate credentials (server accepts no-op update)
+    })
+      .then(function(r) {
+        if (r.status === 401 || r.status === 503) throw new Error('unauthorized');
+        // 200 or 500 (Supabase might not be configured in dev) — both mean auth passed
+        document.getElementById('auth-gate').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        loadAboutContent();
+      })
+      .catch(function(err) {
+        if (err.message === 'unauthorized') {
+          document.getElementById('auth-error').textContent = 'Invalid admin secret.';
+        } else {
+          // Network error or server unavailable — accept and proceed (dev mode)
+          document.getElementById('auth-gate').style.display = 'none';
+          document.getElementById('main').style.display = 'block';
+          loadAboutContent();
+        }
+      });
+  };
+
+  // ── Load existing content ─────────────────────────────────────────────────
+  function loadAboutContent() {
+    fetch(API_BASE + '/api/about')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var a = data.about;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('about-form').style.display = 'block';
+
+        if (!a) return; // no row yet — form starts blank
+
+        if (a.tagline) document.getElementById('tagline').value = a.tagline;
+        if (a.bio_markdown) document.getElementById('bio-markdown').value = a.bio_markdown;
+        if (a.twitter_url) document.getElementById('twitter-url').value = a.twitter_url;
+        if (a.linkedin_url) document.getElementById('linkedin-url').value = a.linkedin_url;
+        if (a.contact_email) document.getElementById('contact-email').value = a.contact_email;
+
+        if (a.photo_url) {
+          currentPhotoUrl = a.photo_url;
+          setPhotoPreview(a.photo_url);
+          document.getElementById('photo-clear-btn').style.display = 'inline';
+          document.getElementById('photo-filename').textContent = 'Current photo saved';
+        }
+      })
+      .catch(function() {
+        document.getElementById('loading').textContent = 'Could not load current content (server may be offline).';
+        document.getElementById('about-form').style.display = 'block';
+      });
+  }
+
+  // ── Photo handling ────────────────────────────────────────────────────────
+  function setPhotoPreview(src) {
+    var wrap = document.getElementById('photo-preview');
+    wrap.innerHTML = '<img src="' + src + '" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+  }
+
+  window.handlePhotoSelect = function(input) {
+    var file = input.files[0];
+    if (!file) return;
+    selectedPhotoFile = file;
+    document.getElementById('photo-filename').textContent = file.name;
+    document.getElementById('photo-clear-btn').style.display = 'inline';
+
+    var reader = new FileReader();
+    reader.onload = function(e) { setPhotoPreview(e.target.result); };
+    reader.readAsDataURL(file);
+  };
+
+  window.clearPhoto = function() {
+    selectedPhotoFile = null;
+    currentPhotoUrl = null;
+    document.getElementById('photo-file-input').value = '';
+    document.getElementById('photo-filename').textContent = 'No file chosen';
+    document.getElementById('photo-clear-btn').style.display = 'none';
+    document.getElementById('photo-preview').innerHTML = 'N';
+  };
+
+  // ── Save ─────────────────────────────────────────────────────────────────
+  window.saveAbout = function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('save-btn');
+    var msg = document.getElementById('form-msg');
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    msg.textContent = '';
+    msg.className = 'form-msg';
+
+    var formData = new FormData();
+    formData.append('tagline', document.getElementById('tagline').value);
+    formData.append('bio_markdown', document.getElementById('bio-markdown').value);
+    formData.append('twitter_url', document.getElementById('twitter-url').value);
+    formData.append('linkedin_url', document.getElementById('linkedin-url').value);
+    formData.append('contact_email', document.getElementById('contact-email').value);
+    if (selectedPhotoFile) {
+      formData.append('photo', selectedPhotoFile);
+    }
+
+    fetch(API_BASE + '/api/admin/about', {
+      method: 'PATCH',
+      headers: { 'X-Admin-Secret': adminSecret },
+      body: formData,
+    })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Save failed'); });
+        return r.json();
+      })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Save changes';
+        msg.textContent = 'Saved.';
+        msg.className = 'form-msg success';
+        if (data.about && data.about.photo_url) {
+          currentPhotoUrl = data.about.photo_url;
+          selectedPhotoFile = null;
+          document.getElementById('photo-file-input').value = '';
+          document.getElementById('photo-filename').textContent = 'Current photo saved';
+        }
+        setTimeout(function() { msg.textContent = ''; }, 3000);
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'Save changes';
+        msg.textContent = err.message || 'Save failed. Is the server running?';
+        msg.className = 'form-msg error';
+      });
+  };
+
+  // ── Preview ──────────────────────────────────────────────────────────────
+  function renderMarkdown(md) {
+    if (!md) return '';
+    var paragraphs = md.trim().split(/\n{2,}/);
+    return paragraphs.map(function(p) {
+      var html = p
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      return '<p>' + html + '</p>';
+    }).join('\n');
+  }
+
+  window.showPreview = function() {
+    var tagline = document.getElementById('tagline').value;
+    var bio = document.getElementById('bio-markdown').value;
+    var twitter = document.getElementById('twitter-url').value;
+    var linkedin = document.getElementById('linkedin-url').value;
+    var email = document.getElementById('contact-email').value;
+
+    // Photo: use local preview or saved URL
+    var photoEl;
+    var previewImg = document.getElementById('photo-preview').querySelector('img');
+    if (previewImg) {
+      photoEl = '<img class="preview-photo" src="' + previewImg.src + '" alt="Profile">';
+    } else {
+      photoEl = '<div class="preview-photo-placeholder">N</div>';
+    }
+
+    var links = '';
+    if (twitter) links += '<span class="preview-link">Twitter / X</span>';
+    if (linkedin) links += '<span class="preview-link">LinkedIn</span>';
+    if (email) links += '<span class="preview-link">' + email + '</span>';
+
+    var html = (
+      '<div class="preview-hero">' +
+        photoEl +
+        '<div><div class="preview-name">Nick</div>' +
+        '<div class="preview-tagline">' + (tagline || '<em style="color:#bbb">No tagline set</em>') + '</div></div>' +
+      '</div>' +
+      '<div class="preview-bio">' + (renderMarkdown(bio) || '<p style="color:#bbb;font-style:italic">No bio set</p>') + '</div>' +
+      (links ? '<div class="preview-links">' + links + '</div>' : '')
+    );
+
+    document.getElementById('preview-body').innerHTML = html;
+    document.getElementById('preview-pane').classList.add('open');
+    document.getElementById('preview-pane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.closePreview = function() {
+    document.getElementById('preview-pane').classList.remove('open');
+  };
+})();
+</script>
+</body>
+</html>

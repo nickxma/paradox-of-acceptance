@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newsletter — Paradox of Acceptance</title>
+<meta name="description" content="Paradox of Acceptance newsletter issue">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/design-tokens.css">
+<link rel="stylesheet" href="/shared/theme-mono.css">
+<!-- DOMPurify for HTML sanitization -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page-content { padding: 48px 280px 80px; max-width: 1200px; margin: 0 auto; }
+.issue-body-wrap { max-width: 680px; }
+.footer { padding: 48px 280px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* Back link */
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #999; margin-bottom: 36px; transition: color 0.15s; }
+.back-link:hover { color: #666; }
+
+/* Issue header */
+.issue-subject { font-family: 'Newsreader', serif; font-size: 36px; font-weight: 400; color: #111; line-height: 1.25; margin-bottom: 12px; }
+.issue-meta { font-size: 13px; color: #999; margin-bottom: 40px; }
+
+/* Issue body — scoped email HTML */
+.email-body-container {
+  border: 1px solid #EEEEEE;
+  border-radius: 6px;
+  padding: 40px;
+  background: #FAFAFA;
+  overflow: hidden;
+}
+.email-body-container * { max-width: 100%; }
+.email-body-container a { color: #111; text-decoration: underline; }
+.email-body-container p { line-height: 1.7; margin-bottom: 16px; color: #333; font-size: 16px; }
+.email-body-container h1, .email-body-container h2, .email-body-container h3 {
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 12px;
+  margin-top: 32px;
+  line-height: 1.3;
+}
+.email-body-container h1 { font-size: 28px; }
+.email-body-container h2 { font-size: 24px; }
+.email-body-container h3 { font-size: 20px; }
+.email-body-container ul, .email-body-container ol { padding-left: 24px; margin-bottom: 16px; }
+.email-body-container li { line-height: 1.7; margin-bottom: 6px; color: #333; font-size: 16px; }
+.email-body-container blockquote {
+  border-left: 3px solid #DDD;
+  padding-left: 16px;
+  margin: 24px 0;
+  color: #666;
+  font-style: italic;
+}
+.email-body-container hr { border: none; border-top: 1px solid #EEE; margin: 32px 0; }
+.email-body-container img { border-radius: 4px; }
+/* Strip email footers (unsubscribe lines) */
+.email-body-container table { max-width: 100%; border-collapse: collapse; }
+
+/* Loading/error states */
+.state-loading { font-size: 15px; color: #CCC; padding: 80px 0; text-align: center; }
+.state-error { font-size: 14px; color: #DC2626; padding: 48px 0; text-align: center; }
+
+/* Footer */
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav, .page-content, .footer { padding-left: 24px; padding-right: 24px; }
+  .issue-subject { font-size: 28px; }
+  .nav-links { gap: 20px; }
+  .email-body-container { padding: 24px; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-links { gap: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/newsletter/">Newsletter</a>
+    <a href="/about/">About</a>
+      <a href="/pass/">Pass</a>
+    </div>
+  </div>
+</nav>
+
+<hr class="divider">
+
+<div class="page-content">
+  <a href="/newsletter/" class="back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    All issues
+  </a>
+  <div id="issue-container">
+    <div class="state-loading">Loading&hellip;</div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/meditation-quiz/">Quiz</a>
+    <a href="/meditation-debates/">Debates</a>
+    <a href="/teacher-debates/">Teacher Map</a>
+    <a href="/meditation-recommender/">Recommender</a>
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/mindfulness-pointers/">Pointers</a>
+    <a href="/mindfulness-wiki/">Wiki</a>
+    <a href="/newsletter/">Newsletter</a>
+    <a href="/about/">About</a>
+    <a href="/pass/">Pass</a>
+    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
+    <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/terms/">Terms</a>
+  </div>
+</footer>
+
+<script>
+(function() {
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+
+  function getParam(name) {
+    var params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function escapeHtml(str) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(str));
+    return d.innerHTML;
+  }
+
+  var id = getParam('id');
+  var container = document.getElementById('issue-container');
+
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    container.innerHTML = '<div class="state-error">Invalid issue link. <a href="/newsletter/" style="text-decoration:underline;">Back to newsletter</a></div>';
+    return;
+  }
+
+  fetch(API_BASE + '/api/newsletter/archive/' + encodeURIComponent(id))
+    .then(function(r) {
+      if (r.status === 404) throw new Error('not-found');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(issue) {
+      // Update page title and meta
+      document.title = escapeHtml(issue.subject) + ' — Paradox of Acceptance';
+
+      // Sanitize HTML with DOMPurify — allow styles but no scripts or unsafe attrs
+      var cleanHtml = '';
+      if (issue.body_html) {
+        if (typeof DOMPurify !== 'undefined') {
+          cleanHtml = DOMPurify.sanitize(issue.body_html, {
+            FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
+            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onchange'],
+            ALLOW_DATA_ATTR: false
+          });
+        } else {
+          // DOMPurify failed to load — strip all HTML as fallback
+          cleanHtml = '<p>' + escapeHtml(issue.body_text || '') + '</p>';
+        }
+      } else if (issue.body_text) {
+        cleanHtml = '<p>' + issue.body_text.split('\n\n').map(function(p) { return escapeHtml(p.trim()); }).join('</p><p>') + '</p>';
+      }
+
+      var html = '';
+      html += '<div class="issue-body-wrap">';
+      html += '<h1 class="issue-subject">' + escapeHtml(issue.subject) + '</h1>';
+      html += '<div class="issue-meta">' + formatDate(issue.sent_at) + '</div>';
+      if (cleanHtml) {
+        html += '<div class="email-body-container">' + cleanHtml + '</div>';
+      } else {
+        html += '<div class="state-error" style="text-align:left;padding:0;">This issue has no body content.</div>';
+      }
+      html += '</div>';
+
+      container.innerHTML = html;
+    })
+    .catch(function(err) {
+      if (err.message === 'not-found') {
+        container.innerHTML = '<div class="state-error">Issue not found or not in the public archive. <a href="/newsletter/" style="text-decoration:underline;">Back to newsletter</a></div>';
+      } else {
+        container.innerHTML = '<div class="state-error">Could not load this issue. Please try again later.</div>';
+      }
+    });
+})();
+</script>
+</body>
+</html>

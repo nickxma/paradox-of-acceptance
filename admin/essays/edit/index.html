@@ -514,6 +514,97 @@ header {
 .btn-revert:hover { background: #b91c1c; }
 .btn-revert:disabled { background: #aaa; cursor: not-allowed; }
 
+/* ─── SEO char counters ─────────────────────────────────────── */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.char-counter { font-size: 11px; color: #aaa; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.char-counter.warn { color: #f59e0b; font-weight: 600; }
+.char-counter.over { color: #dc2626; font-weight: 600; }
+
+/* ─── Keyword tags ──────────────────────────────────────────── */
+.keyword-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  min-height: 36px;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.keyword-tags:focus-within { border-color: #111; }
+.keyword-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  padding: 2px 7px 2px 8px;
+  font-size: 12px;
+  color: #333;
+}
+.keyword-tag-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  padding: 0 1px;
+  font-size: 15px;
+  line-height: 1;
+  font-family: inherit;
+}
+.keyword-tag-remove:hover { color: #111; }
+.keyword-tags-input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 120px;
+  flex: 1;
+  background: transparent;
+  padding: 2px 4px;
+  color: #111;
+}
+
+/* ─── Google snippet preview ────────────────────────────────── */
+.snippet-preview {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 14px 16px;
+  background: #fff;
+  font-family: Arial, sans-serif;
+  max-width: 600px;
+}
+.snippet-title {
+  color: #1a0dab;
+  font-size: 18px;
+  line-height: 1.3;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.snippet-url {
+  color: #006621;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.snippet-desc {
+  color: #545454;
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ─── Loading skeleton ──────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -557,6 +648,7 @@ header {
       <a href="/admin/newsletter/">Newsletter</a>
       <a href="/admin/courses/">Courses</a>
       <a href="/admin/essays/" class="active">Essays</a>
+      <a href="/admin/about/">About</a>
     </nav>
   </header>
 
@@ -592,7 +684,7 @@ header {
       <div class="form-section-label">Metadata</div>
       <div class="form-row">
         <label class="form-label" for="f-title">Title</label>
-        <input type="text" id="f-title" class="form-input" placeholder="Essay title" oninput="markDirty()" />
+        <input type="text" id="f-title" class="form-input" placeholder="Essay title" oninput="markDirty(); updateSeoPreview()" />
       </div>
       <div class="form-row">
         <label class="form-label" for="f-kicker">Kicker</label>
@@ -625,6 +717,42 @@ header {
       <div class="form-row">
         <textarea id="f-body" class="form-textarea" rows="32" placeholder="Essay body in Markdown…" oninput="markDirty(); updateWordCount()"></textarea>
         <p class="form-hint" id="word-count-hint" style="margin-top:6px"></p>
+      </div>
+    </div>
+
+    <!-- SEO -->
+    <div class="form-panel">
+      <div class="form-section-label">SEO</div>
+      <div class="form-row">
+        <div class="form-label-row">
+          <label class="form-label" for="f-seo-title" style="margin-bottom:0">SEO Title</label>
+          <span id="seo-title-count" class="char-counter">0 / 60</span>
+        </div>
+        <input type="text" id="f-seo-title" class="form-input" placeholder="Leave empty to use essay title" oninput="markDirty(); updateSeoPreview()" />
+        <p class="form-hint">Overrides <code>&lt;title&gt;</code> and og:title. Keep under 60 chars.</p>
+      </div>
+      <div class="form-row">
+        <div class="form-label-row">
+          <label class="form-label" for="f-seo-description" style="margin-bottom:0">SEO Description</label>
+          <span id="seo-desc-count" class="char-counter">0 / 160</span>
+        </div>
+        <textarea id="f-seo-description" class="form-textarea" rows="3" placeholder="Leave empty to use meta description or first 160 chars of body" oninput="markDirty(); updateSeoPreview()"></textarea>
+        <p class="form-hint">Overrides <code>&lt;meta name="description"&gt;</code> and og:description. Keep under 160 chars.</p>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Keywords</label>
+        <div class="keyword-tags" id="keyword-tags-container" onclick="document.getElementById('keyword-tags-input').focus()">
+          <input type="text" id="keyword-tags-input" class="keyword-tags-input" placeholder="Type a keyword and press Enter or comma…" />
+        </div>
+        <p class="form-hint">Added to <code>&lt;meta name="keywords"&gt;</code>. Press Enter or comma to add, Backspace to remove last.</p>
+      </div>
+      <div class="form-row">
+        <div class="form-label">Google Preview</div>
+        <div class="snippet-preview">
+          <span class="snippet-title" id="snippet-title">Essay Title</span>
+          <div class="snippet-url" id="snippet-url">paradoxofacceptance.xyz › mindfulness-essays › …</div>
+          <div class="snippet-desc" id="snippet-desc">Description will appear here…</div>
+        </div>
       </div>
     </div>
   </div>
@@ -694,6 +822,7 @@ let adminSecret = '';
 let essaySlug = '';
 let essay = null;
 let isDirty = false;
+let keywords = [];
 
 // Version history state
 let vhVersions = [];
@@ -851,7 +980,12 @@ function populateForm(e) {
   document.getElementById('f-read-time').value = e.read_time || '';
   document.getElementById('f-slug').value = e.slug || '';
   document.getElementById('f-body').value = e.body_markdown || '';
+  document.getElementById('f-seo-title').value = e.seo_title || '';
+  document.getElementById('f-seo-description').value = e.seo_description || '';
+  keywords = Array.isArray(e.seo_keywords) ? [...e.seo_keywords] : [];
+  renderKeywordTags();
   updateWordCount();
+  updateSeoPreview();
 }
 
 // ─── Save ──────────────────────────────────────────────────────
@@ -870,6 +1004,9 @@ async function saveEssay() {
     meta_description: document.getElementById('f-meta-description').value.trim(),
     read_time: document.getElementById('f-read-time').value.trim(),
     body_markdown: document.getElementById('f-body').value,
+    seo_title: document.getElementById('f-seo-title').value.trim() || null,
+    seo_description: document.getElementById('f-seo-description').value.trim() || null,
+    seo_keywords: keywords.length > 0 ? [...keywords] : null,
     change_summary: document.getElementById('change-summary').value.trim() || null,
   };
 
@@ -1098,6 +1235,82 @@ async function doRevert() {
 // Close confirm modal on backdrop
 document.getElementById('confirm-modal').addEventListener('click', (e) => {
   if (e.target === document.getElementById('confirm-modal')) closeConfirmModal();
+});
+
+// ─── SEO section ───────────────────────────────────────────────
+
+function updateSeoPreview() {
+  const titleVal = document.getElementById('f-seo-title').value;
+  const descVal = document.getElementById('f-seo-description').value;
+
+  // Char counters
+  const titleCount = document.getElementById('seo-title-count');
+  titleCount.textContent = `${titleVal.length} / 60`;
+  titleCount.className = 'char-counter' + (titleVal.length > 60 ? ' over' : titleVal.length > 50 ? ' warn' : '');
+
+  const descCount = document.getElementById('seo-desc-count');
+  descCount.textContent = `${descVal.length} / 160`;
+  descCount.className = 'char-counter' + (descVal.length > 160 ? ' over' : descVal.length > 140 ? ' warn' : '');
+
+  // Snippet preview
+  const baseTitle = document.getElementById('f-title').value.trim();
+  const baseDesc = document.getElementById('f-meta-description').value.trim();
+  const slug = document.getElementById('f-slug').value;
+
+  const displayTitle = titleVal.trim() || baseTitle || 'Essay Title';
+  const displayDesc = descVal.trim() || baseDesc || 'Description will appear here…';
+
+  document.getElementById('snippet-title').textContent = displayTitle;
+  document.getElementById('snippet-url').textContent =
+    `paradoxofacceptance.xyz › mindfulness-essays › ${slug || '…'}`;
+  document.getElementById('snippet-desc').textContent = displayDesc;
+}
+
+// ─── Keyword tags ───────────────────────────────────────────────
+
+function renderKeywordTags() {
+  const container = document.getElementById('keyword-tags-container');
+  const input = document.getElementById('keyword-tags-input');
+  Array.from(container.querySelectorAll('.keyword-tag')).forEach(el => el.remove());
+  keywords.forEach((kw, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'keyword-tag';
+    tag.innerHTML = `${escHtml(kw)}<button type="button" class="keyword-tag-remove" title="Remove" onclick="removeKeyword(${i})">×</button>`;
+    container.insertBefore(tag, input);
+  });
+}
+
+function addKeyword(raw) {
+  const kw = raw.trim().replace(/,+$/, '').trim();
+  if (!kw || keywords.includes(kw)) return;
+  keywords.push(kw);
+  renderKeywordTags();
+  markDirty();
+}
+
+function removeKeyword(index) {
+  keywords.splice(index, 1);
+  renderKeywordTags();
+  markDirty();
+}
+
+document.getElementById('keyword-tags-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    if (e.target.value.trim()) {
+      addKeyword(e.target.value);
+      e.target.value = '';
+    }
+  } else if (e.key === 'Backspace' && e.target.value === '' && keywords.length > 0) {
+    removeKeyword(keywords.length - 1);
+  }
+});
+
+document.getElementById('keyword-tags-input').addEventListener('blur', (e) => {
+  if (e.target.value.trim()) {
+    addKeyword(e.target.value);
+    e.target.value = '';
+  }
 });
 
 // ─── Init ───────────────────────────────────────────────────────

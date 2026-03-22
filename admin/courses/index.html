@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Courses — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed; inset: 0; background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.auth-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 40px 48px; width: 360px; text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%; padding: 10px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main ──────────────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px; color: #888; text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+.content { padding: 28px 32px; max-width: 960px; margin: 0 auto; }
+
+/* ─── Page header ───────────────────────────────────────────── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.page-sub { font-size: 13px; color: #888; margin-top: 3px; }
+
+/* ─── Course table ──────────────────────────────────────────── */
+.panel {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px 10px; border-bottom: 1px solid #f0f0f0;
+}
+.panel-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.8px; color: #999;
+}
+
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: #fafafa; }
+th {
+  text-align: left; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.7px; color: #999;
+  padding: 10px 18px; border-bottom: 1px solid #f0f0f0;
+}
+td {
+  padding: 14px 18px; border-bottom: 1px solid #f5f5f5;
+  font-size: 13px; vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #fafafa; }
+
+.course-name { font-weight: 500; }
+.course-slug { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 11px; color: #888; margin-top: 2px; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 500;
+}
+.badge-free { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.badge-paid { background: #f5f5f5; color: #888; border: 1px solid #e5e5e5; }
+
+/* ─── Edit form ─────────────────────────────────────────────── */
+.edit-row { display: none; }
+.edit-row.open { display: table-row; }
+.edit-cell {
+  padding: 16px 18px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+.edit-form-title {
+  font-size: 13px; font-weight: 600; margin-bottom: 14px; color: #333;
+}
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; font-weight: 500; color: #555; margin-bottom: 5px; }
+.field select {
+  width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid #ddd;
+  border-radius: 5px; font-size: 13px; font-family: inherit; outline: none;
+  background: #fff; transition: border-color 0.15s;
+}
+.field select:focus { border-color: #999; }
+.field select[multiple] { height: 120px; }
+.field-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+.field-row { display: flex; align-items: center; gap: 8px; }
+.field-row input[type="checkbox"] { cursor: pointer; }
+.field-row label { font-size: 13px; color: #333; cursor: pointer; }
+
+.form-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.btn-save {
+  padding: 8px 20px; background: #111; color: #fff;
+  border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-save:hover { background: #333; }
+.btn-save:disabled { background: #aaa; cursor: not-allowed; }
+.btn-cancel {
+  padding: 8px 16px; background: transparent; color: #666;
+  border: 1px solid #ddd; border-radius: 5px; font-size: 13px;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-cancel:hover { background: #f0f0f0; }
+.save-msg { font-size: 12px; min-height: 16px; }
+.save-msg.ok { color: #16a34a; }
+.save-msg.err { color: #dc2626; }
+
+.edit-btn {
+  padding: 5px 12px; background: transparent; color: #666;
+  border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
+  font-family: inherit; cursor: pointer; transition: background 0.1s;
+}
+.edit-btn:hover { background: #f0f0f0; }
+
+/* ─── Loading / error ───────────────────────────────────────── */
+.loading-row td { padding: 32px 18px; color: #aaa; font-size: 13px; }
+.error-row td { padding: 24px 18px; color: #dc2626; font-size: 13px; }
+
+@media (max-width: 600px) {
+  .content { padding: 20px 16px; }
+  header { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin — Courses</h1>
+    <p>Paradox of Acceptance</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password">
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/" class="active">Courses</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Courses</div>
+        <div class="page-sub">Manage course prerequisites and unlock logic</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Course Catalog</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Sessions</th>
+            <th>Access</th>
+            <th>Prerequisites</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="courses-tbody">
+          <tr class="loading-row"><td colspan="5">Loading courses…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+let coursesData = [];
+
+// ─── Auth ──────────────────────────────────────────────────────
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) { adminSecret = stored; showMain(); return; }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadCourses();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true; btn.textContent = 'Checking…'; errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false; btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Load courses ──────────────────────────────────────────────
+
+async function loadCourses() {
+  const tbody = document.getElementById('courses-tbody');
+  const { ok, data } = await apiRequest('/api/admin/courses');
+  if (!ok || !Array.isArray(data.courses)) {
+    tbody.innerHTML = '<tr class="error-row"><td colspan="5">Failed to load courses. Is the newsletter server running?</td></tr>';
+    return;
+  }
+  coursesData = data.courses;
+  renderTable();
+}
+
+// ─── Render ────────────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function prereqNames(prereqs) {
+  if (!Array.isArray(prereqs) || prereqs.length === 0) return '<span style="color:#aaa">None</span>';
+  return prereqs.map(pid => {
+    const c = coursesData.find(x => x.id === pid);
+    return c ? escHtml(c.title) : '<em style="color:#aaa">Unknown</em>';
+  }).join(', ');
+}
+
+function renderTable() {
+  const tbody = document.getElementById('courses-tbody');
+  if (coursesData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px 18px;color:#aaa">No courses found.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  coursesData.forEach((course) => {
+    const prereqs = Array.isArray(course.prerequisites) ? course.prerequisites : [];
+    const badge = course.is_free
+      ? '<span class="badge badge-free">Free</span>'
+      : '<span class="badge badge-paid">Paid</span>';
+
+    html += `<tr data-id="${escHtml(course.id)}">
+      <td>
+        <div class="course-name">${escHtml(course.title)}</div>
+        <div class="course-slug">${escHtml(course.slug)}</div>
+      </td>
+      <td>${course.sessions_total}</td>
+      <td>${badge}</td>
+      <td>${prereqNames(prereqs)}</td>
+      <td><button class="edit-btn" onclick="openEdit('${escHtml(course.id)}')">Edit</button></td>
+    </tr>`;
+
+    // Edit row (hidden by default)
+    html += `<tr class="edit-row" id="edit-row-${escHtml(course.id)}">
+      <td colspan="5" class="edit-cell">
+        <div class="edit-form-title">Edit: ${escHtml(course.title)}</div>
+        <div class="field">
+          <label>Prerequisites</label>
+          <select id="prereq-select-${escHtml(course.id)}" multiple>
+            ${coursesData
+              .filter(c => c.id !== course.id)
+              .map(c => `<option value="${escHtml(c.id)}" ${prereqs.includes(c.id) ? 'selected' : ''}>${escHtml(c.title)}</option>`)
+              .join('')}
+          </select>
+          <div class="field-hint">Hold Cmd/Ctrl to select multiple. Leave blank for no prerequisites.</div>
+        </div>
+        <div class="field">
+          <div class="field-row">
+            <input type="checkbox" id="free-${escHtml(course.id)}" ${course.is_free ? 'checked' : ''}>
+            <label for="free-${escHtml(course.id)}">Free (always unlocked for everyone)</label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-save" onclick="saveCourse('${escHtml(course.id)}')">Save</button>
+          <button class="btn-cancel" onclick="closeEdit('${escHtml(course.id)}')">Cancel</button>
+          <span class="save-msg" id="save-msg-${escHtml(course.id)}"></span>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+}
+
+// ─── Edit ──────────────────────────────────────────────────────
+
+function openEdit(id) {
+  // Close any other open edit rows first
+  document.querySelectorAll('.edit-row.open').forEach(r => {
+    if (r.id !== 'edit-row-' + id) r.classList.remove('open');
+  });
+  const row = document.getElementById('edit-row-' + id);
+  if (row) row.classList.toggle('open');
+}
+
+function closeEdit(id) {
+  const row = document.getElementById('edit-row-' + id);
+  if (row) row.classList.remove('open');
+}
+
+async function saveCourse(id) {
+  const selectEl = document.getElementById('prereq-select-' + id);
+  const freeEl = document.getElementById('free-' + id);
+  const msgEl = document.getElementById('save-msg-' + id);
+  const saveBtn = document.querySelector(`#edit-row-${id} .btn-save`);
+
+  const prerequisites = selectEl
+    ? Array.from(selectEl.selectedOptions).map(o => o.value)
+    : [];
+  const is_free = freeEl ? freeEl.checked : false;
+
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; msgEl.textContent = '';
+
+  const { ok, data } = await apiRequest('/api/admin/courses/' + id, {
+    method: 'PATCH',
+    body: JSON.stringify({ prerequisites, is_free }),
+  });
+
+  saveBtn.disabled = false; saveBtn.textContent = 'Save';
+
+  if (ok && data.course) {
+    // Update local state
+    const idx = coursesData.findIndex(c => c.id === id);
+    if (idx !== -1) coursesData[idx] = data.course;
+    msgEl.textContent = 'Saved.';
+    msgEl.className = 'save-msg ok';
+    setTimeout(() => {
+      msgEl.textContent = '';
+      closeEdit(id);
+      renderTable();
+    }, 900);
+  } else {
+    msgEl.textContent = data.error || 'Save failed.';
+    msgEl.className = 'save-msg err';
+  }
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>

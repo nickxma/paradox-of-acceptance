@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stats — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ─── Stat cards ────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px 22px;
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #999;
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #111;
+  line-height: 1;
+}
+.stat-value.loading { color: #ccc; font-size: 20px; font-weight: 400; }
+.stat-sub {
+  font-size: 12px;
+  color: #888;
+  margin-top: 5px;
+}
+
+/* ─── Panels ────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #999;
+}
+.panel-refresh {
+  font-size: 12px;
+  color: #aaa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.panel-refresh:hover { background: #f0f0f0; color: #555; }
+
+/* ─── Table ─────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #aaa;
+  border-bottom: 1px solid #f0f0f0;
+}
+td {
+  padding: 11px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f5f5;
+  color: #333;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+.email-cell { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 12px; }
+.views-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bar-bg {
+  flex: 1;
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 160px;
+}
+.bar-fill {
+  height: 100%;
+  background: #111;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.views-num { font-size: 13px; color: #555; min-width: 30px; text-align: right; }
+.empty-state {
+  padding: 32px 20px;
+  text-align: center;
+  color: #aaa;
+  font-size: 13px;
+}
+
+/* ─── Quick actions ─────────────────────────────────────────── */
+.actions-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+}
+.action-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+  text-decoration: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.action-btn:hover { background: #e8e8e8; border-color: #ccc; }
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin Stats</h1>
+    <p>Paradox of Acceptance</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password" />
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/stats/" class="active">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+
+    <!-- Stat cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Subscribers</div>
+        <div class="stat-value loading" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">New (7 days)</div>
+        <div class="stat-value loading" id="stat-7d">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">New (30 days)</div>
+        <div class="stat-value loading" id="stat-30d">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Published Essays</div>
+        <div class="stat-value" id="stat-essays">5</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Course Sessions</div>
+        <div class="stat-value" id="stat-sessions">6</div>
+        <div class="stat-sub">The Honest Meditator</div>
+      </div>
+    </div>
+
+    <!-- Essay engagement -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Essay Engagement (Page Views)</span>
+        <button class="panel-refresh" onclick="loadEssays()">Refresh</button>
+      </div>
+      <div id="essays-body">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Recent signups -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Signups</span>
+        <button class="panel-refresh" onclick="loadSubscribers()">Refresh</button>
+      </div>
+      <div id="subscribers-body">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Quick Actions</span>
+      </div>
+      <div class="actions-grid">
+        <a class="action-btn" href="/admin/newsletter/">Send Newsletter</a>
+        <a class="action-btn" href="/admin/flagged/">View Flagged Posts</a>
+        <a class="action-btn" href="/admin/">Q&amp;A Analytics</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+// ─── Auth ─────────────────────────────────────────────────────
+
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadStats();
+  loadEssays();
+  loadSubscribers();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────
+
+async function loadStats() {
+  const { ok, data } = await apiRequest('/api/newsletter/stats');
+  if (ok) {
+    document.getElementById('stat-total').textContent = data.subscriberCount.toLocaleString();
+    document.getElementById('stat-total').classList.remove('loading');
+    document.getElementById('stat-7d').textContent = (data.newLast7Days ?? '—').toLocaleString();
+    document.getElementById('stat-7d').classList.remove('loading');
+    document.getElementById('stat-30d').textContent = (data.newLast30Days ?? '—').toLocaleString();
+    document.getElementById('stat-30d').classList.remove('loading');
+  } else {
+    document.getElementById('stat-total').textContent = 'Error';
+    document.getElementById('stat-7d').textContent = 'Error';
+    document.getElementById('stat-30d').textContent = 'Error';
+  }
+}
+
+// ─── Essay engagement ─────────────────────────────────────────
+
+async function loadEssays() {
+  const el = document.getElementById('essays-body');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+  const { ok, data } = await apiRequest('/api/essays/stats');
+  if (!ok || !data.essays) {
+    el.innerHTML = '<div class="empty-state">Unable to load essay stats.</div>';
+    return;
+  }
+  const essays = data.essays;
+  const maxViews = Math.max(...essays.map(e => e.views), 1);
+
+  let html = '<table><thead><tr><th>Essay</th><th>Page Views</th></tr></thead><tbody>';
+  for (const essay of essays) {
+    const pct = Math.round((essay.views / maxViews) * 100);
+    html += `<tr>
+      <td><a href="${escHtml(essay.path)}" target="_blank" rel="noopener" style="color:#111;text-decoration:none;">${escHtml(essay.title)}</a></td>
+      <td>
+        <div class="views-bar">
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span class="views-num">${essay.views.toLocaleString()}</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ─── Recent signups ───────────────────────────────────────────
+
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function loadSubscribers() {
+  const el = document.getElementById('subscribers-body');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+  const { ok, data } = await apiRequest('/api/newsletter/subscribers');
+  if (!ok || !data.subscribers) {
+    el.innerHTML = '<div class="empty-state">Unable to load subscriber list.</div>';
+    return;
+  }
+  const subs = data.subscribers;
+  if (subs.length === 0) {
+    el.innerHTML = '<div class="empty-state">No subscribers yet.</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Email</th><th>Subscribed</th></tr></thead><tbody>';
+  for (const sub of subs) {
+    html += `<tr>
+      <td class="email-cell">${escHtml(sub.email)}</td>
+      <td>${formatDate(sub.subscribedAt)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ─── Util ─────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>

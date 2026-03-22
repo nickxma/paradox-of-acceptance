@@ -529,9 +529,13 @@ header {
 <div id="main">
   <header>
     <div class="header-title">Newsletter Admin</div>
-    <div id="subscriber-badge">
-      <span class="dot"></span>
-      <span id="subscriber-count">Loading…</span>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <a href="/admin/email/import-csv/" style="font-size:13px;color:#888;text-decoration:none;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#888'">CSV Import →</a>
+      <a href="/admin/about/" style="font-size:13px;color:#888;text-decoration:none;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#888'">About →</a>
+      <div id="subscriber-badge">
+        <span class="dot"></span>
+        <span id="subscriber-count">Loading…</span>
+      </div>
     </div>
   </header>
 

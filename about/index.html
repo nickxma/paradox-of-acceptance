@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Nick — Paradox of Acceptance</title>
+<meta name="description" content="Nick writes about the questions that mindfulness practice raises — for meditators navigating what it actually does to a person.">
+<meta property="og:title" content="About — Paradox of Acceptance" />
+<meta property="og:description" content="Nick writes about the questions that mindfulness practice raises — for meditators navigating what it actually does to a person." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://paradoxofacceptance.xyz/about/" />
+<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/design-tokens.css">
+<link rel="stylesheet" href="/shared/theme-mono.css">
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page-content { max-width: 1200px; margin: 0 auto; }
+.footer { padding: 48px 280px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+.nav-links a.active { color: #111; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* ── Hero section ─────────────────────────────────────────────────────── */
+.hero {
+  background: #faf8f4;
+  padding: 72px 280px 64px;
+  display: flex;
+  align-items: center;
+  gap: 56px;
+}
+.hero-photo-wrap {
+  flex-shrink: 0;
+}
+.hero-photo {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e8e4dc;
+  display: block;
+}
+.hero-photo-placeholder {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: #e8e4dc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Newsreader', serif;
+  font-size: 56px;
+  color: #c4bdb0;
+  flex-shrink: 0;
+}
+.hero-text {}
+.hero-name {
+  font-family: 'Newsreader', serif;
+  font-size: 40px;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 12px;
+  line-height: 1.2;
+}
+.hero-tagline {
+  font-size: 18px;
+  color: #555;
+  line-height: 1.6;
+  max-width: 520px;
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+}
+.hero-tagline-placeholder {
+  font-size: 16px;
+  color: #bbb;
+  font-style: italic;
+}
+
+/* ── Bio section ──────────────────────────────────────────────────────── */
+.bio-section {
+  padding: 56px 280px;
+  max-width: 760px;
+}
+.bio-text {
+  font-family: 'Newsreader', serif;
+  font-size: 19px;
+  color: #222;
+  line-height: 1.75;
+}
+.bio-text p + p { margin-top: 24px; }
+
+/* ── What you'll find ─────────────────────────────────────────────────── */
+.find-section {
+  padding: 0 280px 56px;
+  max-width: 760px;
+}
+.section-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.find-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.find-list li {
+  display: flex;
+  gap: 12px;
+  font-size: 15px;
+  color: #444;
+  line-height: 1.6;
+}
+.find-list li::before {
+  content: "—";
+  color: #bbb;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Connect section ──────────────────────────────────────────────────── */
+.connect-section {
+  padding: 0 280px 56px;
+}
+.connect-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+}
+.connect-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+  background: #f5f5f5;
+  border: 1px solid #E8E8E8;
+  border-radius: 6px;
+  padding: 10px 16px;
+  transition: border-color 0.15s, color 0.15s;
+  text-decoration: none;
+}
+.connect-link:hover { border-color: #bbb; color: #111; }
+.connect-link svg { flex-shrink: 0; }
+
+/* ── Recent essays ────────────────────────────────────────────────────── */
+.essays-section {
+  padding: 48px 280px;
+  border-top: 1px solid #EEEEEE;
+}
+.essays-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+.essay-card {
+  display: block;
+  border: 1px solid #E8E8E8;
+  border-radius: 8px;
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.essay-card:hover { border-color: #CCC; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.essay-card-title {
+  font-family: 'Newsreader', serif;
+  font-size: 20px;
+  color: #111;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+.essay-card-desc {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.essay-card-meta {
+  font-size: 12px;
+  color: #AAA;
+}
+.essays-loading { font-size: 14px; color: #CCC; padding: 24px 0; }
+
+/* ── Newsletter CTA ───────────────────────────────────────────────────── */
+.subscribe-section {
+  padding: 72px 280px;
+  background: #faf8f4;
+  text-align: center;
+}
+.subscribe-headline {
+  font-family: 'Newsreader', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 12px;
+}
+.subscribe-sub {
+  font-size: 15px;
+  color: #666;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+.subscribe-form {
+  display: inline-flex;
+  border: 1px solid #DDD;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.subscribe-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 12px 16px;
+  border: none;
+  outline: none;
+  width: 300px;
+  background: #fff;
+}
+.subscribe-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 24px;
+  background: #111;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.subscribe-btn:hover { background: #333; }
+.subscribe-btn:disabled { background: #666; cursor: default; }
+.subscribe-msg { font-size: 13px; margin-top: 12px; min-height: 20px; }
+.subscribe-msg.success { color: #22C55E; }
+.subscribe-msg.error { color: #DC2626; }
+
+/* Footer */
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav, .footer { padding-left: 24px; padding-right: 24px; }
+  .hero { flex-direction: column; align-items: flex-start; gap: 28px; padding: 48px 24px 40px; }
+  .hero-name { font-size: 32px; }
+  .hero-tagline { font-size: 16px; }
+  .bio-section, .find-section, .connect-section, .essays-section { padding-left: 24px; padding-right: 24px; }
+  .bio-section { max-width: 100%; }
+  .subscribe-section { padding-left: 24px; padding-right: 24px; }
+  .subscribe-form { flex-direction: column; width: 100%; }
+  .subscribe-input { width: 100%; }
+  .subscribe-btn { width: 100%; }
+  .essays-grid { grid-template-columns: 1fr; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-links { gap: 16px; }
+  .nav-links { gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/reading-lists/">Reading Lists</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/newsletter/">Newsletter</a>
+      <a href="/about/" class="active">About</a>
+      <a href="/pass/">Pass</a>
+    </div>
+  </div>
+</nav>
+
+<hr class="divider">
+
+<div class="page-content">
+
+  <!-- Hero -->
+  <section class="hero" id="hero-section">
+    <div class="hero-photo-wrap" id="photo-wrap">
+      <div class="hero-photo-placeholder" id="photo-placeholder">N</div>
+    </div>
+    <div class="hero-text">
+      <h1 class="hero-name">Nick</h1>
+      <p class="hero-tagline" id="hero-tagline">
+        <span class="hero-tagline-placeholder">Loading…</span>
+      </p>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- Bio -->
+  <section class="bio-section">
+    <div class="bio-text" id="bio-content">
+      <!-- loaded from API -->
+    </div>
+  </section>
+
+  <!-- What you'll find -->
+  <section class="find-section">
+    <div class="section-kicker">What you'll find here</div>
+    <ul class="find-list">
+      <li>Long-form essays on what mindfulness actually does to a person — the strange side effects nobody warned you about.</li>
+      <li>Interactive tools for navigating the questions that practice raises: teacher comparisons, recommenders, and guided reading paths.</li>
+      <li>Honest writing about the tensions between acceptance, ambition, and life in the world.</li>
+      <li>A small community of readers who take this stuff seriously and want to go deeper.</li>
+    </ul>
+  </section>
+
+  <!-- Connect -->
+  <section class="connect-section" id="connect-section">
+    <div class="section-kicker">Connect</div>
+    <div class="connect-links" id="connect-links">
+      <!-- loaded from API -->
+    </div>
+  </section>
+
+</div>
+
+<hr class="divider">
+
+<!-- Recent Essays -->
+<section class="essays-section">
+  <div class="section-kicker">Recent Essays</div>
+  <div class="essays-grid" id="essays-grid">
+    <div class="essays-loading">Loading…</div>
+  </div>
+</section>
+
+<!-- Newsletter CTA -->
+<section class="subscribe-section">
+  <h2 class="subscribe-headline">Stay with the questions</h2>
+  <p class="subscribe-sub">Essays and tools for meditators navigating what mindfulness actually does to a person.<br>New issues when they're ready. No spam.</p>
+  <form class="subscribe-form" onsubmit="handleSubscribe(event)">
+    <input class="subscribe-input" type="email" id="subscribe-email" placeholder="you@email.com" required>
+    <button class="subscribe-btn" type="submit" id="subscribe-btn">Subscribe</button>
+  </form>
+  <div class="subscribe-msg" id="subscribe-msg"></div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/meditation-quiz/">Quiz</a>
+    <a href="/meditation-debates/">Debates</a>
+    <a href="/teacher-debates/">Teacher Map</a>
+    <a href="/meditation-recommender/">Recommender</a>
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/reading-lists/">Reading Lists</a>
+    <a href="/mindfulness-pointers/">Pointers</a>
+    <a href="/mindfulness-wiki/">Wiki</a>
+    <a href="/newsletter/">Newsletter</a>
+    <a href="/about/">About</a>
+    <a href="/pass/">Pass</a>
+    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
+    <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/terms/">Terms</a>
+  </div>
+</footer>
+
+<script>
+(function() {
+  var API_BASE = 'https://paradoxofacceptance.xyz';
+
+  // ── Load about page content ────────────────────────────────────────────────
+  function renderMarkdown(md) {
+    if (!md) return '';
+    // Simple Markdown → HTML: paragraphs, **bold**, *italic*, [link](url)
+    var paragraphs = md.trim().split(/\n{2,}/);
+    return paragraphs.map(function(p) {
+      var html = p
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      return '<p>' + html + '</p>';
+    }).join('\n');
+  }
+
+  function renderConnectLinks(about) {
+    var links = [];
+    if (about.twitter_url) {
+      links.push(
+        '<a class="connect-link" href="' + about.twitter_url + '" target="_blank" rel="noopener">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.261 5.636L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>' +
+        'Twitter / X</a>'
+      );
+    }
+    if (about.linkedin_url) {
+      links.push(
+        '<a class="connect-link" href="' + about.linkedin_url + '" target="_blank" rel="noopener">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>' +
+        'LinkedIn</a>'
+      );
+    }
+    if (about.contact_email) {
+      links.push(
+        '<a class="connect-link" href="mailto:' + about.contact_email + '">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' +
+        'Email</a>'
+      );
+    }
+    return links.join('');
+  }
+
+  fetch(API_BASE + '/api/about')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var about = data.about;
+
+      // Photo
+      if (about && about.photo_url) {
+        var wrap = document.getElementById('photo-wrap');
+        wrap.innerHTML = '<img class="hero-photo" src="' + about.photo_url + '" alt="Nick">';
+      }
+
+      // Tagline
+      var taglineEl = document.getElementById('hero-tagline');
+      if (about && about.tagline) {
+        taglineEl.innerHTML = about.tagline;
+        taglineEl.className = 'hero-tagline';
+      } else {
+        taglineEl.innerHTML = 'Writing about the questions practice raises.';
+        taglineEl.className = 'hero-tagline';
+      }
+
+      // Bio
+      var bioEl = document.getElementById('bio-content');
+      if (about && about.bio_markdown) {
+        bioEl.innerHTML = renderMarkdown(about.bio_markdown);
+      } else {
+        bioEl.innerHTML = '<p style="color:#bbb;font-style:italic">Bio coming soon.</p>';
+      }
+
+      // Connect links
+      var connectEl = document.getElementById('connect-links');
+      if (about) {
+        var linksHtml = renderConnectLinks(about);
+        connectEl.innerHTML = linksHtml || '<p style="color:#bbb;font-size:14px">—</p>';
+      }
+    })
+    .catch(function() {
+      document.getElementById('hero-tagline').textContent = 'Writing about the questions practice raises.';
+      document.getElementById('bio-content').innerHTML = '<p style="color:#bbb;font-style:italic">Bio unavailable.</p>';
+    });
+
+  // ── Load recent essays ─────────────────────────────────────────────────────
+  fetch(API_BASE + '/api/essays')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var essays = (data.essays || []).slice(0, 3);
+      var grid = document.getElementById('essays-grid');
+      if (!essays.length) {
+        grid.innerHTML = '<p style="color:#bbb;font-size:14px">No essays yet.</p>';
+        return;
+      }
+      grid.innerHTML = essays.map(function(e) {
+        var readTime = e.reading_time_minutes ? e.reading_time_minutes + ' min read' : '';
+        return (
+          '<a class="essay-card" href="' + e.path + '">' +
+          '<div class="essay-card-title">' + e.title + '</div>' +
+          (e.description ? '<div class="essay-card-desc">' + e.description + '</div>' : '') +
+          (readTime ? '<div class="essay-card-meta">' + readTime + '</div>' : '') +
+          '</a>'
+        );
+      }).join('');
+    })
+    .catch(function() {
+      document.getElementById('essays-grid').innerHTML = '';
+    });
+
+  // ── Subscribe ──────────────────────────────────────────────────────────────
+  window.handleSubscribe = function(e) {
+    e.preventDefault();
+    var email = document.getElementById('subscribe-email').value.trim();
+    var btn = document.getElementById('subscribe-btn');
+    var msg = document.getElementById('subscribe-msg');
+    if (!email) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    msg.textContent = '';
+    msg.className = 'subscribe-msg';
+
+    fetch(API_BASE + '/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Subscribe';
+        if (data.error) {
+          msg.textContent = 'Something went wrong. Try again.';
+          msg.className = 'subscribe-msg error';
+        } else {
+          window.plausible && window.plausible('Subscribe');
+          msg.textContent = "You're in. Welcome.";
+          msg.className = 'subscribe-msg success';
+          document.getElementById('subscribe-email').value = '';
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Subscribe';
+        msg.textContent = 'Something went wrong. Try again.';
+        msg.className = 'subscribe-msg error';
+      });
+  };
+})();
+</script>
+</body>
+</html>
