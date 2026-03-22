@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search — Paradox of Acceptance</title>
+<meta name="description" content="Search essays on mindfulness, practice, and what meditation actually does to a person.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
+.page-header { padding: 64px 280px 48px; border-bottom: 1px solid #EEEEEE; }
+.section { padding: 48px 280px; }
+.footer { padding: 48px 280px; }
+
+/* Nav */
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 36px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover { color: #111; }
+.nav-links a.active { color: #111; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+
+/* Page header */
+.page-kicker { font-size: 12px; font-weight: 600; color: #999; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+.page-title { font-family: 'Newsreader', serif; font-size: 40px; font-weight: 400; color: #111; margin-bottom: 32px; }
+
+/* Search input */
+.search-wrapper { position: relative; max-width: 560px; }
+.search-input {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  border: 1px solid #DDD;
+  border-radius: 6px;
+  outline: none;
+  color: #111;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: #999; }
+.search-input::placeholder { color: #BBB; }
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #BBB;
+  pointer-events: none;
+}
+
+/* Results */
+.results-meta { font-size: 13px; color: #999; margin-top: 12px; min-height: 20px; }
+
+.result-row {
+  display: block;
+  padding: 32px 0;
+  border-bottom: 1px solid #EEEEEE;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-decoration: none;
+  color: inherit;
+}
+.result-row:hover { background: #FAFAFA; margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; border-radius: 6px; }
+.result-row:last-child { border-bottom: none; }
+.result-kicker { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+.result-title { font-family: 'Newsreader', serif; font-size: 28px; color: #111; margin-bottom: 8px; line-height: 1.3; }
+.result-excerpt { font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 12px; max-width: 600px; }
+.result-excerpt mark { background: #FEF9C3; color: inherit; padding: 1px 2px; border-radius: 2px; }
+.result-meta { font-size: 13px; color: #AAA; }
+
+/* Empty state */
+.empty-state { padding: 64px 0; text-align: center; }
+.empty-state-icon { font-size: 32px; margin-bottom: 16px; color: #DDD; }
+.empty-state-title { font-family: 'Newsreader', serif; font-size: 24px; color: #999; margin-bottom: 8px; }
+.empty-state-desc { font-size: 15px; color: #BBB; }
+
+/* Initial state (no query yet) */
+.initial-state { padding: 48px 0; }
+.initial-hint { font-size: 15px; color: #999; }
+
+/* Footer */
+.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
+.footer-links a:hover { color: #111; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .nav, .page-header, .section, .footer { padding-left: 24px; padding-right: 24px; }
+  .page-title { font-size: 32px; }
+  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-links { gap: 16px; }
+  .nav-links { gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/#start-here">Tools</a>
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/pass/">Pass</a>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a href="/search/" class="active">Search</a>
+  </div>
+</nav>
+
+<hr class="divider">
+
+<!-- Page header -->
+<section class="page-header">
+  <div class="page-kicker">Find</div>
+  <h1 class="page-title">Search Essays</h1>
+  <div class="search-wrapper">
+    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input
+      type="search"
+      id="search-input"
+      class="search-input"
+      placeholder="acceptance, avoidance, dosage…"
+      autocomplete="off"
+      autofocus
+    >
+  </div>
+  <div class="results-meta" id="results-meta"></div>
+</section>
+
+<hr class="divider">
+
+<!-- Results -->
+<section class="section">
+  <div id="results-container">
+    <div class="initial-state">
+      <p class="initial-hint">Start typing to search across all essays.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-logo">Paradox of Acceptance</div>
+  <div class="footer-links">
+    <a href="/meditation-quiz/">Quiz</a>
+    <a href="/meditation-debates/">Debates</a>
+    <a href="/teacher-debates/">Teacher Map</a>
+    <a href="/meditation-recommender/">Recommender</a>
+    <a href="/mindfulness-essays/">Essays</a>
+    <a href="/mindfulness-pointers/">Pointers</a>
+    <a href="/mindfulness-wiki/">Wiki</a>
+    <a href="/pass/">Pass</a>
+    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+<script>
+(function () {
+  var INDEX_URL = '/search-index.json';
+  var fuse = null;
+  var essays = [];
+  var debounceTimer = null;
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function highlightMatches(text, indices) {
+    if (!indices || indices.length === 0) return escapeHtml(text);
+    var result = '';
+    var lastIndex = 0;
+    // indices is array of [start, end] pairs (inclusive)
+    for (var i = 0; i < indices.length; i++) {
+      var start = indices[i][0];
+      var end = indices[i][1] + 1;
+      result += escapeHtml(text.slice(lastIndex, start));
+      result += '<mark>' + escapeHtml(text.slice(start, end)) + '</mark>';
+      lastIndex = end;
+    }
+    result += escapeHtml(text.slice(lastIndex));
+    return result;
+  }
+
+  function getExcerptWithContext(body, indices, maxLength) {
+    maxLength = maxLength || 200;
+    if (!indices || indices.length === 0) {
+      return escapeHtml(body.slice(0, maxLength)) + (body.length > maxLength ? '…' : '');
+    }
+    // Find the first match and show context around it
+    var firstMatch = indices[0][0];
+    var start = Math.max(0, firstMatch - 80);
+    var end = Math.min(body.length, firstMatch + maxLength);
+    var slice = body.slice(start, end);
+    // Adjust indices relative to slice start
+    var adjustedIndices = indices
+      .filter(function(pair) { return pair[0] >= start && pair[1] < end; })
+      .map(function(pair) { return [pair[0] - start, pair[1] - start]; });
+    var prefix = start > 0 ? '…' : '';
+    var suffix = end < body.length ? '…' : '';
+    return prefix + highlightMatches(slice, adjustedIndices) + suffix;
+  }
+
+  function renderResults(results, query) {
+    var container = document.getElementById('results-container');
+    var meta = document.getElementById('results-meta');
+
+    if (results.length === 0) {
+      meta.textContent = '';
+      container.innerHTML = '<div class="empty-state">' +
+        '<div class="empty-state-icon">○</div>' +
+        '<div class="empty-state-title">No essays found</div>' +
+        '<div class="empty-state-desc">Try a different keyword — acceptance, avoidance, self, quit…</div>' +
+        '</div>';
+      return;
+    }
+
+    meta.textContent = results.length + ' essay' + (results.length === 1 ? '' : 's') + ' found';
+
+    var html = '';
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      var item = r.item;
+      var titleHtml = escapeHtml(item.title);
+      var excerptHtml = escapeHtml(item.excerpt);
+
+      // Apply highlights from fuse match data
+      if (r.matches) {
+        for (var j = 0; j < r.matches.length; j++) {
+          var m = r.matches[j];
+          if (m.key === 'title') {
+            titleHtml = highlightMatches(item.title, m.indices);
+          } else if (m.key === 'excerpt') {
+            excerptHtml = highlightMatches(item.excerpt, m.indices);
+          } else if (m.key === 'body') {
+            // Show excerpt with body match context
+            excerptHtml = getExcerptWithContext(item.body, m.indices, 220);
+          }
+        }
+      }
+
+      html += '<a href="' + escapeHtml(item.slug) + '" class="result-row">' +
+        '<div class="result-kicker">Essay · ' + escapeHtml(item.kicker) + '</div>' +
+        '<div class="result-title">' + titleHtml + '</div>' +
+        '<div class="result-excerpt">' + excerptHtml + '</div>' +
+        '<div class="result-meta">~' + escapeHtml(item.readTime) + '</div>' +
+        '</a>';
+    }
+    container.innerHTML = html;
+  }
+
+  function renderInitial() {
+    document.getElementById('results-meta').textContent = '';
+    document.getElementById('results-container').innerHTML =
+      '<div class="initial-state"><p class="initial-hint">Start typing to search across all essays.</p></div>';
+  }
+
+  function doSearch(query) {
+    if (!fuse || !query || query.trim().length === 0) {
+      renderInitial();
+      return;
+    }
+    var results = fuse.search(query.trim());
+    renderResults(results, query.trim());
+  }
+
+  function initFuse(data) {
+    essays = data;
+    fuse = new Fuse(essays, {
+      keys: [
+        { name: 'title', weight: 3 },
+        { name: 'excerpt', weight: 2 },
+        { name: 'tags', weight: 1.5 },
+        { name: 'body', weight: 1 }
+      ],
+      threshold: 0.35,
+      includeMatches: true,
+      minMatchCharLength: 2,
+      ignoreLocation: true
+    });
+
+    // Handle URL query param on load
+    var params = new URLSearchParams(window.location.search);
+    var q = params.get('q');
+    if (q) {
+      var input = document.getElementById('search-input');
+      input.value = q;
+      doSearch(q);
+    }
+  }
+
+  // Load index
+  fetch(INDEX_URL)
+    .then(function(r) { return r.json(); })
+    .then(initFuse)
+    .catch(function(err) {
+      console.error('Failed to load search index:', err);
+    });
+
+  // Wire up input
+  document.getElementById('search-input').addEventListener('input', function(e) {
+    var q = e.target.value;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function() {
+      // Update URL without reload
+      var url = new URL(window.location.href);
+      if (q.trim()) {
+        url.searchParams.set('q', q.trim());
+      } else {
+        url.searchParams.delete('q');
+      }
+      window.history.replaceState(null, '', url.toString());
+      doSearch(q);
+    }, 120);
+  });
+})();
+</script>
+</body>
+</html>
