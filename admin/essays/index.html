@@ -92,7 +92,7 @@ header {
 /* ─── Content ───────────────────────────────────────────────── */
 .content {
   padding: 28px 32px;
-  max-width: 1000px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -158,14 +158,46 @@ header {
   color: #999;
   border-bottom: 1px solid #f0f0f0;
   background: #fafafa;
+  white-space: nowrap;
 }
+.essay-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.essay-table th.sortable:hover { color: #555; }
+.essay-table th.sort-asc::after  { content: ' ↑'; color: #111; }
+.essay-table th.sort-desc::after { content: ' ↓'; color: #111; }
+.essay-table th.sort-asc,
+.essay-table th.sort-desc { color: #111; }
 .essay-table td {
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #f5f5f5;
   vertical-align: middle;
 }
 .essay-table tr:last-child td { border-bottom: none; }
 .essay-table tr:hover td { background: #fafafa; }
+
+/* ─── Row highlights ────────────────────────────────────────── */
+.essay-table tr.row-top td     { background: #f0faf0; }
+.essay-table tr.row-top:hover td { background: #e6f5e6; }
+.essay-table tr.row-warn td    { background: #fffbeb; }
+.essay-table tr.row-warn:hover td { background: #fef3c7; }
+
+/* ─── Summary row ───────────────────────────────────────────── */
+.essay-table tr.summary-row td {
+  background: #fafafa;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  padding: 8px 16px;
+}
+.essay-table tr.summary-row td:first-child { color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ─── Metric cells ──────────────────────────────────────────── */
+.metric-val { font-size: 13px; font-weight: 500; color: #111; }
+.metric-sub { font-size: 11px; color: #aaa; margin-top: 1px; }
+.metric-na  { font-size: 12px; color: #ccc; }
 
 /* ─── Title cell ────────────────────────────────────────────── */
 .essay-title-cell { max-width: 320px; }
@@ -525,11 +557,13 @@ header {
 }
 #new-essay-modal.open { display: flex; }
 
+@media (max-width: 900px) {
+  .essay-table th:nth-child(n+4):nth-child(-n+7),
+  .essay-table td:nth-child(n+4):nth-child(-n+7) { display: none; }
+}
 @media (max-width: 768px) {
   .content { padding: 20px 16px; }
   header { padding: 0 16px; }
-  .essay-table th:nth-child(3),
-  .essay-table td:nth-child(3) { display: none; }
   .cal-cell { min-height: 60px; }
   .cal-pill-title { max-width: 50px; }
 }
@@ -556,6 +590,8 @@ header {
       <a href="/admin/newsletter/">Newsletter</a>
       <a href="/admin/courses/">Courses</a>
       <a href="/admin/essays/" class="active">Essays</a>
+      <a href="/admin/gates/">Gates</a>
+      <a href="/admin/writing/">Writing</a>
       <a href="/admin/about/">About</a>
     </nav>
   </header>
@@ -589,14 +625,18 @@ header {
       <table class="essay-table">
         <thead>
           <tr>
-            <th>Essay</th>
-            <th>Status</th>
-            <th>Read time</th>
+            <th class="sortable" onclick="setSort('title')">Essay</th>
+            <th class="sortable" onclick="setSort('status')">Status</th>
+            <th class="sortable" onclick="setSort('views')" title="Total unique reads (30+ seconds)">Views</th>
+            <th class="sortable" onclick="setSort('avg_read')" title="Median read duration">Avg read</th>
+            <th class="sortable" onclick="setSort('completion')" title="% of readers who reached 80%+ scroll depth">Completion</th>
+            <th title="Share clicks (not yet tracked)">Shares</th>
+            <th title="Q&amp;A questions spawned (not yet tracked)">Q&amp;A</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="essay-tbody">
-          <tr class="loading-row"><td colspan="4">Loading…</td></tr>
+          <tr class="loading-row"><td colspan="8">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -664,8 +704,11 @@ header {
 
 let adminSecret = '';
 let allEssays = [];
+let essayMetrics = {}; // slug → { views, avg_read_seconds, completion_rate }
 let activeTab = 'all';
 let pendingSlug = null;
+let sortKey = 'published'; // current sort column
+let sortDir = 'desc';      // 'asc' | 'desc'
 
 // ─── Auth ─────────────────────────────────────────────────────
 
@@ -737,13 +780,17 @@ async function submitAuth() {
 // ─── Essay loading ─────────────────────────────────────────────
 
 async function loadEssays() {
-  const { ok, data } = await apiRequest('/api/admin/essays');
+  const [essayRes, metricsRes] = await Promise.all([
+    apiRequest('/api/admin/essays'),
+    apiRequest('/api/admin/essay-metrics'),
+  ]);
   const tbody = document.getElementById('essay-tbody');
-  if (!ok || !Array.isArray(data.essays)) {
-    tbody.innerHTML = '<tr class="loading-row"><td colspan="4" style="color:#dc2626">Failed to load essays.</td></tr>';
+  if (!essayRes.ok || !Array.isArray(essayRes.data.essays)) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="8" style="color:#dc2626">Failed to load essays.</td></tr>';
     return;
   }
-  allEssays = data.essays;
+  allEssays = essayRes.data.essays;
+  essayMetrics = (metricsRes.ok && metricsRes.data.metrics) ? metricsRes.data.metrics : {};
   updateCounts();
   if (activeTab === 'calendar') {
     renderCalendar();
@@ -785,30 +832,161 @@ function switchTab(tab) {
   }
 }
 
+// ─── Sorting ───────────────────────────────────────────────────
+
+function setSort(key) {
+  if (sortKey === key) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey = key;
+    sortDir = key === 'title' ? 'asc' : 'desc';
+  }
+  updateSortHeaders();
+  renderTable();
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('.essay-table th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    const onclick = th.getAttribute('onclick') || '';
+    const m = onclick.match(/setSort\('(\w+)'\)/);
+    if (m && m[1] === sortKey) {
+      th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+  });
+}
+
+function sortedEssays(essays) {
+  return [...essays].sort((a, b) => {
+    let av, bv;
+    const ma = essayMetrics[a.slug] || {};
+    const mb = essayMetrics[b.slug] || {};
+    switch (sortKey) {
+      case 'title':
+        av = (a.title || '').toLowerCase();
+        bv = (b.title || '').toLowerCase();
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      case 'status': {
+        const order = { published: 0, scheduled: 1, draft: 2 };
+        av = order[essayStatus(a)] ?? 3;
+        bv = order[essayStatus(b)] ?? 3;
+        break;
+      }
+      case 'published':
+        av = a.published_at ? new Date(a.published_at).getTime() : 0;
+        bv = b.published_at ? new Date(b.published_at).getTime() : 0;
+        break;
+      case 'views':
+        av = ma.views ?? -1;
+        bv = mb.views ?? -1;
+        break;
+      case 'avg_read':
+        av = ma.avg_read_seconds ?? -1;
+        bv = mb.avg_read_seconds ?? -1;
+        break;
+      case 'completion':
+        av = ma.completion_rate ?? -1;
+        bv = mb.completion_rate ?? -1;
+        break;
+      default:
+        return 0;
+    }
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
+}
+
+// ─── Row classification ─────────────────────────────────────────
+
+function rowClass(essay, medianViews) {
+  const m = essayMetrics[essay.slug];
+  if (!m || m.views === 0) return '';
+  if (m.completion_rate !== null && m.completion_rate >= 70) return 'row-top';
+  if (m.completion_rate !== null && m.completion_rate < 40 && m.views >= medianViews) return 'row-warn';
+  return '';
+}
+
+function computeMedianViews(essays) {
+  const views = essays.map(e => (essayMetrics[e.slug] || {}).views || 0).sort((a, b) => a - b);
+  if (!views.length) return 0;
+  const mid = Math.floor(views.length / 2);
+  return views.length % 2 === 0 ? Math.round((views[mid - 1] + views[mid]) / 2) : views[mid];
+}
+
+// ─── Summary row ────────────────────────────────────────────────
+
+function summaryRowHtml(essays) {
+  const published = essays.filter(e => essayStatus(e) === 'published');
+  const totalViews = published.reduce((s, e) => s + ((essayMetrics[e.slug] || {}).views || 0), 0);
+  const completions = published.map(e => (essayMetrics[e.slug] || {}).completion_rate).filter(v => v !== null && v !== undefined);
+  const avgCompletion = completions.length
+    ? Math.round(completions.reduce((s, v) => s + v, 0) / completions.length)
+    : null;
+  const readTimes = published.map(e => (essayMetrics[e.slug] || {}).avg_read_seconds).filter(v => v !== null && v !== undefined && v > 0);
+  const avgRead = readTimes.length ? Math.round(readTimes.reduce((s, v) => s + v, 0) / readTimes.length) : null;
+
+  return `<tr class="summary-row">
+    <td>Summary — ${published.length} published</td>
+    <td></td>
+    <td>${totalViews > 0 ? totalViews.toLocaleString() + ' total' : '—'}</td>
+    <td>${avgRead !== null ? fmtReadSeconds(avgRead) + ' avg' : '—'}</td>
+    <td>${avgCompletion !== null ? avgCompletion + '% avg' : '—'}</td>
+    <td>—</td>
+    <td>—</td>
+    <td></td>
+  </tr>`;
+}
+
 function renderTable() {
   const tbody = document.getElementById('essay-tbody');
   const essays = filteredEssays();
 
   if (essays.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">No essays in this category.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No essays in this category.</div></td></tr>';
     return;
   }
 
-  tbody.innerHTML = essays.map(essay => {
+  const medianViews = computeMedianViews(essays);
+  const sorted = sortedEssays(essays);
+
+  const rows = sorted.map(essay => {
     const status = essayStatus(essay);
     const badge = badgeHtml(status, essay.published_at);
-    const readTime = escHtml(essay.read_time ?? '—');
+    const m = essayMetrics[essay.slug] || {};
+    const viewsHtml = m.views != null
+      ? `<span class="metric-val">${m.views.toLocaleString()}</span>`
+      : `<span class="metric-na">—</span>`;
+    const readHtml = m.avg_read_seconds > 0
+      ? `<span class="metric-val">${fmtReadSeconds(m.avg_read_seconds)}</span>`
+      : `<span class="metric-na">—</span>`;
+    const compHtml = m.completion_rate != null
+      ? `<span class="metric-val">${m.completion_rate}%</span>`
+      : `<span class="metric-na">—</span>`;
+    const cls = rowClass(essay, medianViews);
     return `
-      <tr data-slug="${escAttr(essay.slug)}">
+      <tr class="${cls}" data-slug="${escAttr(essay.slug)}">
         <td class="essay-title-cell">
           <div class="essay-title-text">${escHtml(essay.title)}</div>
           ${essay.kicker ? `<div class="essay-kicker">${escHtml(essay.kicker)}</div>` : ''}
         </td>
         <td>${badge}</td>
-        <td><span style="color:#888;font-size:12px">${readTime}</span></td>
+        <td>${viewsHtml}</td>
+        <td>${readHtml}</td>
+        <td>${compHtml}</td>
+        <td><span class="metric-na">—</span></td>
+        <td><span class="metric-na">—</span></td>
         <td class="action-cell">${actionHtml(essay, status)}</td>
       </tr>`;
   }).join('');
+
+  tbody.innerHTML = summaryRowHtml(essays) + rows;
+  updateSortHeaders();
+}
+
+function fmtReadSeconds(sec) {
+  if (!sec || sec <= 0) return '—';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
 function badgeHtml(status, published_at) {

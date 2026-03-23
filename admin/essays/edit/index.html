@@ -901,6 +901,67 @@ header {
 .btn-publish { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; }
 .btn-publish:hover { background: #15803d !important; border-color: #15803d !important; }
 .btn-publish:disabled { background: #aaa !important; border-color: #aaa !important; cursor: not-allowed; }
+
+/* ─── Markdown toolbar ──────────────────────────────────────── */
+.md-editor-wrap {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.md-editor-wrap:focus-within { border-color: #111; }
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+.md-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  line-height: 1.6;
+  transition: background 0.1s, border-color 0.1s;
+  white-space: nowrap;
+  min-width: 28px;
+}
+.md-toolbar-btn:hover { background: #f0f0f0; border-color: #bbb; color: #111; }
+.md-toolbar-sep { width: 1px; height: 18px; background: #e8e8e8; margin: 0 4px; flex-shrink: 0; }
+.md-editor-wrap .form-textarea {
+  border: none;
+  border-top: 1px solid #f0f0f0;
+  border-radius: 0;
+  transition: none;
+}
+.md-editor-wrap .form-textarea:focus { border-color: #f0f0f0; }
+
+/* ─── Auto-filled badge ─────────────────────────────────────── */
+.auto-filled-badge {
+  display: none;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+.auto-filled-badge.visible { display: inline; }
 </style>
 </head>
 <body>
@@ -926,6 +987,8 @@ header {
       <a href="/admin/newsletter/">Newsletter</a>
       <a href="/admin/courses/">Courses</a>
       <a href="/admin/essays/" class="active">Essays</a>
+      <a href="/admin/gates/">Gates</a>
+      <a href="/admin/writing/">Writing</a>
       <a href="/admin/about/">About</a>
     </nav>
   </header>
@@ -970,8 +1033,11 @@ header {
         <input type="text" id="f-kicker" class="form-input" placeholder="e.g. Essay · Mindfulness & Motivation" oninput="markDirty()" />
       </div>
       <div class="form-row">
-        <label class="form-label" for="f-description">Description (excerpt)</label>
-        <textarea id="f-description" class="form-textarea" rows="2" placeholder="Excerpt shown in the index listing" oninput="markDirty()"></textarea>
+        <div class="form-label-row">
+          <label class="form-label" for="f-description" style="margin-bottom:0">Description (excerpt)</label>
+          <span id="auto-filled-badge" class="auto-filled-badge">Auto-filled</span>
+        </div>
+        <textarea id="f-description" class="form-textarea" rows="2" placeholder="Excerpt shown in the index listing" oninput="markDirty(); clearAutoFilled()" style="margin-top:6px"></textarea>
       </div>
       <div class="form-row">
         <label class="form-label" for="f-meta-description">Meta description</label>
@@ -994,7 +1060,20 @@ header {
     <div class="form-panel">
       <div class="form-section-label">Body (Markdown)</div>
       <div class="form-row">
-        <textarea id="f-body" class="form-textarea" rows="32" placeholder="Essay body in Markdown…" oninput="markDirty(); updateWordCount()"></textarea>
+        <div class="md-editor-wrap">
+          <div class="md-toolbar">
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('bold')" title="Bold (⌘B)"><b>B</b></button>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('italic')" title="Italic (⌘I)" style="font-style:italic;font-family:Georgia,serif">I</button>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('link')" title="Link (⌘K)">Link</button>
+            <div class="md-toolbar-sep"></div>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('h2')" title="Heading 2">H2</button>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('blockquote')" title="Blockquote">&ldquo;</button>
+            <div class="md-toolbar-sep"></div>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('code')" title="Inline code">`code`</button>
+            <button type="button" class="md-toolbar-btn" onclick="mdFormat('codeblock')" title="Code block">```</button>
+          </div>
+          <textarea id="f-body" class="form-textarea" rows="32" placeholder="Essay body in Markdown…" oninput="markDirty(); updateWordCount()"></textarea>
+        </div>
         <p class="form-hint" id="word-count-hint" style="margin-top:6px"></p>
       </div>
     </div>
@@ -2186,6 +2265,24 @@ function renderSeoPanel(checks) {
 
 async function confirmPublish() {
   if (!essaySlug) return;
+
+  // Auto-fill excerpt if empty, then abort and let user review
+  const descEl = document.getElementById('f-description');
+  if (!descEl.value.trim()) {
+    const excerpt = extractFirstSentence(document.getElementById('f-body').value);
+    if (excerpt) {
+      descEl.value = excerpt;
+      descEl.dataset.autoFilled = '1';
+      document.getElementById('auto-filled-badge').classList.add('visible');
+      markDirty();
+    }
+    closeSeoPanel();
+    showToast('Excerpt was empty \u2014 auto-filled. Review before publishing.');
+    descEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => descEl.focus(), 300);
+    return;
+  }
+
   const btn = document.getElementById('btn-confirm-publish');
   btn.disabled = true;
   btn.textContent = 'Publishing…';
@@ -2227,6 +2324,154 @@ async function confirmPublish() {
     btn.textContent = isPublished ? 'Republish' : 'Publish now';
   }
 }
+
+// ─── Auto-excerpt ───────────────────────────────────────────────
+
+function extractFirstSentence(markdown) {
+  if (!markdown) return '';
+
+  // Split into paragraph blocks, skip non-prose blocks
+  const blocks = markdown.split(/\n\n+/);
+  let textBlock = '';
+  for (const block of blocks) {
+    const t = block.trim();
+    if (!t) continue;
+    if (t.startsWith('#') || t.startsWith('```') || t.startsWith('>') ||
+        t.startsWith('- ') || t.startsWith('* ') || /^\d+\.\s/.test(t)) continue;
+    textBlock = t;
+    break;
+  }
+  if (!textBlock) return '';
+
+  // Strip inline markdown
+  let plain = textBlock
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')       // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')    // links → text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')           // bold
+    .replace(/\*([^*]+)\*/g, '$1')               // italic
+    .replace(/`([^`]+)`/g, '$1')                 // inline code
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Take up to the first sentence boundary (. ! ?)
+  const m = plain.match(/^(.+?[.!?])(?:\s|$)/);
+  if (m) plain = m[1];
+
+  // Cap at 160 chars
+  if (plain.length > 160) plain = plain.slice(0, 157) + '\u2026';
+  return plain;
+}
+
+function autoFillExcerpt() {
+  const descEl = document.getElementById('f-description');
+  if (descEl.value.trim()) return;  // don't overwrite existing content
+
+  const excerpt = extractFirstSentence(document.getElementById('f-body').value);
+  if (!excerpt) return;
+
+  descEl.value = excerpt;
+  descEl.dataset.autoFilled = '1';
+  document.getElementById('auto-filled-badge').classList.add('visible');
+  markDirty();
+}
+
+function clearAutoFilled() {
+  const descEl = document.getElementById('f-description');
+  if (descEl.dataset.autoFilled) {
+    delete descEl.dataset.autoFilled;
+    document.getElementById('auto-filled-badge').classList.remove('visible');
+  }
+}
+
+// Auto-fill excerpt when user leaves the body textarea
+document.getElementById('f-body').addEventListener('blur', autoFillExcerpt);
+
+// ─── Markdown toolbar ───────────────────────────────────────────
+
+function mdFormat(type) {
+  const ta = document.getElementById('f-body');
+  ta.focus();
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = ta.value.slice(start, end);
+
+  if (type === 'bold' || type === 'italic' || type === 'code') {
+    const wrap = type === 'bold' ? '**' : type === 'italic' ? '*' : '`';
+    const placeholder = type === 'bold' ? 'bold text' : type === 'italic' ? 'italic text' : 'code';
+    if (sel) {
+      const r = wrap + sel + wrap;
+      ta.setRangeText(r, start, end, 'end');
+      ta.selectionStart = start + wrap.length;
+      ta.selectionEnd   = start + wrap.length + sel.length;
+    } else {
+      const r = wrap + placeholder + wrap;
+      ta.setRangeText(r, start, end, 'end');
+      ta.selectionStart = start + wrap.length;
+      ta.selectionEnd   = start + wrap.length + placeholder.length;
+    }
+  } else if (type === 'codeblock') {
+    if (sel) {
+      ta.setRangeText('```\n' + sel + '\n```', start, end, 'end');
+    } else {
+      ta.setRangeText('```\n\n```', start, end, 'end');
+      ta.selectionStart = ta.selectionEnd = start + 4;
+    }
+  } else if (type === 'h2' || type === 'blockquote') {
+    const prefix = type === 'h2' ? '## ' : '> ';
+    mdFormatLines(ta, start, end, prefix);
+    return;
+  } else if (type === 'link') {
+    mdFormatLink(ta, start, end, sel);
+    return;
+  }
+
+  markDirty();
+  updateWordCount();
+}
+
+function mdFormatLines(ta, start, end, prefix) {
+  const val = ta.value;
+  const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+  const lineEnd   = val.indexOf('\n', end - 1);
+  const actualEnd = lineEnd === -1 ? val.length : lineEnd;
+
+  const block = val.slice(lineStart, actualEnd);
+  const lines  = block.split('\n');
+  const hasAll = lines.every(l => l.startsWith(prefix));
+  const newLines = hasAll
+    ? lines.map(l => l.slice(prefix.length))
+    : lines.map(l => prefix + l);
+  const replacement = newLines.join('\n');
+
+  ta.setRangeText(replacement, lineStart, actualEnd, 'end');
+  ta.selectionStart = lineStart;
+  ta.selectionEnd   = lineStart + replacement.length;
+  ta.focus();
+  markDirty();
+  updateWordCount();
+}
+
+function mdFormatLink(ta, start, end, sel) {
+  const href = prompt('URL:', 'https://');
+  if (href === null) { ta.focus(); return; }
+  const text = sel || 'link text';
+  const replacement = '[' + text + '](' + href + ')';
+  ta.setRangeText(replacement, start, end, 'end');
+  if (!sel) {
+    ta.selectionStart = start + 1;
+    ta.selectionEnd   = start + 1 + 'link text'.length;
+  }
+  ta.focus();
+  markDirty();
+}
+
+// Keyboard shortcuts: Cmd+B / Cmd+I / Cmd+K inside the body textarea
+document.getElementById('f-body').addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey)) return;
+  if (e.key === 'b' || e.key === 'B') { e.preventDefault(); mdFormat('bold'); }
+  else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); mdFormat('italic'); }
+  else if (e.key === 'k' || e.key === 'K') { e.preventDefault(); mdFormat('link'); }
+});
 
 // ─── Init ───────────────────────────────────────────────────────
 

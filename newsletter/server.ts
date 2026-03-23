@@ -68,6 +68,10 @@ const SITE_URL_SOCIAL = "https://paradoxofacceptance.xyz";
 const GOOGLE_SEARCH_CONSOLE_SITE_TOKEN = process.env.GOOGLE_SEARCH_CONSOLE_SITE_TOKEN;
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL;
 const PREVIEW_SECRET = process.env.PREVIEW_SECRET;
+const OBSIDIAN_DRAFTS_PATH = process.env.OBSIDIAN_DRAFTS_PATH ??
+  join(dirname(fileURLToPath(import.meta.url)), "../../../Obsidian/02_Objectives/02_Mindfulness/Drafts");
+const WAKING_UP_RESEARCH_PATH = process.env.WAKING_UP_RESEARCH_PATH ??
+  join(dirname(fileURLToPath(import.meta.url)), "../../../Obsidian/02_Objectives/02_Mindfulness/Research/Paradox of Acceptance - Research Notes.md");
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
 
@@ -7825,6 +7829,227 @@ app.get("/api/admin/email-health", requireAdminSecret, async (_req: Request, res
   } catch (err) {
     console.error("[email-health] DNS check failed:", err);
     res.status(500).json({ error: "DNS health check failed" });
+  }
+});
+
+// ─── AI Writing Assistant ─────────────────────────────────────────────────────
+
+type WritingMode = "draft" | "expand" | "refine" | "title-suggest";
+
+/** Load Waking Up research notes for RAG context (graceful — returns "" if missing). */
+function loadResearchContext(): string {
+  try {
+    if (existsSync(WAKING_UP_RESEARCH_PATH)) {
+      const raw = readFileSync(WAKING_UP_RESEARCH_PATH, "utf-8");
+      // Truncate to ~8000 chars to stay within prompt budget
+      return raw.length > 8000 ? raw.slice(0, 8000) + "\n[truncated]" : raw;
+    }
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+/** Fetch published essay bodies from Supabase for RAG context (up to 3 essays, 400 words each). */
+async function loadEssayContext(): Promise<string> {
+  if (!supabase) return "";
+  const { data, error } = await supabase
+    .from("essays")
+    .select("title, body_markdown")
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString())
+    .not("body_markdown", "is", null)
+    .order("published_at", { ascending: false })
+    .limit(3);
+  if (error || !data) return "";
+  return data
+    .map((e) => {
+      const words = (e.body_markdown as string).split(/\s+/).slice(0, 400).join(" ");
+      return `### ${e.title}\n${words}…`;
+    })
+    .join("\n\n");
+}
+
+function buildWritingSystemPrompt(mode: WritingMode, essayCtx: string, researchCtx: string): string {
+  const voice = `You are a philosophical essayist writing for paradoxofacceptance.xyz — a site exploring mindfulness, psychology, and everyday life. Essays are clear, honest, and intellectually precise. They explore genuine tensions without being preachy or self-help-y. Voice: contemplative, non-polemical, willing to sit with unresolved questions. First-person when appropriate.`;
+
+  const corpusBlock = essayCtx
+    ? `\n\n## PoA Essay Corpus (style and thematic reference)\n${essayCtx}`
+    : "";
+  const researchBlock = researchCtx
+    ? `\n\n## Waking Up Research Notes (transcript quotes and themes)\n${researchCtx}`
+    : "";
+
+  switch (mode) {
+    case "draft":
+      return `${voice}\n\nTask: given a topic, produce a ~600-word essay outline with 4–6 section headers (markdown ##) plus a complete first paragraph (~150 words) for the opening section. The outline should arc from a core tension → concrete observations/examples → a nuanced, unresolved conclusion.${corpusBlock}${researchBlock}`;
+    case "expand":
+      return `${voice}\n\nTask: expand the provided paragraph to roughly 3× its current length. Add examples, nuance, or additional dimensions. Preserve strong original phrasing; improve vague parts. Prose only — no headers or bullet points.${corpusBlock}`;
+    case "refine":
+      return `${voice}\n\nTask: refine the provided passage for clarity and flow. Improve sentence rhythm, eliminate redundancy, sharpen word choice, smooth transitions. Preserve the author's meaning and voice. Return only the refined passage, no commentary.${corpusBlock}`;
+    case "title-suggest":
+      return `${voice}\n\nTask: suggest exactly 5 compelling essay titles for the content provided. Each should be specific (not generic), capture a genuine tension or paradox, and feel at home on paradoxofacceptance.xyz. Return a numbered list, one title per line, no explanations.`;
+  }
+}
+
+/**
+ * OPTIONS /api/admin/writing/assist
+ * OPTIONS /api/admin/writing/save-draft
+ */
+app.options("/api/admin/writing/assist", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", SERVER_URL);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Secret");
+  res.sendStatus(204);
+});
+app.options("/api/admin/writing/save-draft", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", SERVER_URL);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Secret");
+  res.sendStatus(204);
+});
+
+/**
+ * POST /api/admin/writing/assist
+ *
+ * Streams an AI writing response for PoA essay work.
+ *
+ * Auth: X-Admin-Secret header.
+ * Body: { mode: WritingMode, content: string, context?: string }
+ * Response: text/event-stream (SSE)
+ *   data: <token>\n\n   — streamed tokens
+ *   data: [DONE]\n\n    — end of stream
+ *
+ * Modes:
+ *   draft        — given a topic in `content`, generate outline + first paragraph
+ *   expand       — expand `content` paragraph to ~3× length
+ *   refine       — improve clarity/flow of `content`
+ *   title-suggest — 5 title options for `content`
+ */
+app.post("/api/admin/writing/assist", requireAdminSecret, async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", SERVER_URL);
+
+  if (!openaiClient) {
+    res.status(503).json({ error: "OPENAI_API_KEY not configured" });
+    return;
+  }
+
+  const { mode, content, context } = req.body ?? {};
+
+  const validModes: WritingMode[] = ["draft", "expand", "refine", "title-suggest"];
+  if (!mode || !validModes.includes(mode)) {
+    res.status(400).json({ error: "mode must be one of: draft, expand, refine, title-suggest" });
+    return;
+  }
+  if (!content || typeof content !== "string" || content.trim().length < 3) {
+    res.status(400).json({ error: "content is required" });
+    return;
+  }
+
+  // Build RAG context (essay corpus + research notes)
+  const [essayCtx, researchCtx] = await Promise.all([
+    loadEssayContext(),
+    Promise.resolve(loadResearchContext()),
+  ]);
+
+  const systemPrompt = buildWritingSystemPrompt(mode as WritingMode, essayCtx, researchCtx);
+
+  const userMessage =
+    context?.trim()
+      ? `Topic/input:\n${content.trim()}\n\nAdditional context:\n${context.trim()}`
+      : content.trim();
+
+  // Set up SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  try {
+    const stream = openaiClient.chat.completions.stream({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: mode === "title-suggest" ? 0.9 : 0.75,
+      max_tokens: mode === "title-suggest" ? 200 : 1200,
+    });
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) {
+        res.write(`data: ${JSON.stringify(delta)}\n\n`);
+      }
+    }
+
+    // Log usage to Supabase
+    const final = await stream.finalChatCompletion();
+    if (supabase && final.usage) {
+      await supabase.from("openai_usage").insert({
+        model: "gpt-4o",
+        operation: `writing_assist_${mode}`,
+        prompt_tokens: final.usage.prompt_tokens,
+        completion_tokens: final.usage.completion_tokens,
+        total_tokens: final.usage.total_tokens,
+      });
+    }
+
+    res.write("data: [DONE]\n\n");
+  } catch (err) {
+    console.error("[writing/assist] OpenAI error:", err);
+    res.write(`data: ${JSON.stringify({ error: "Generation failed" })}\n\n`);
+  } finally {
+    res.end();
+  }
+});
+
+/**
+ * POST /api/admin/writing/save-draft
+ *
+ * Saves AI-generated content as an Obsidian-format markdown file in the Drafts folder.
+ *
+ * Auth: X-Admin-Secret header.
+ * Body: { title: string, content: string, mode: WritingMode }
+ * Response: { ok: true, path: string, filename: string }
+ */
+app.post("/api/admin/writing/save-draft", requireAdminSecret, async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", SERVER_URL);
+
+  const { title, content, mode } = req.body ?? {};
+  if (!title || typeof title !== "string" || title.trim().length < 1) {
+    res.status(400).json({ error: "title is required" });
+    return;
+  }
+  if (!content || typeof content !== "string" || content.trim().length < 1) {
+    res.status(400).json({ error: "content is required" });
+    return;
+  }
+
+  const safeTitle = title.trim().replace(/[/\\:*?"<>|]/g, "-").slice(0, 100);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = `${safeTitle}.md`;
+  const filePath = join(OBSIDIAN_DRAFTS_PATH, filename);
+
+  const frontmatter = [
+    "---",
+    `title: "${safeTitle}"`,
+    `date: ${dateStr}`,
+    `mode: ${mode ?? "draft"}`,
+    `tags: [poa-draft, ai-assisted]`,
+    "---",
+    "",
+  ].join("\n");
+
+  const markdown = `${frontmatter}# ${safeTitle}\n\n${content.trim()}\n`;
+
+  try {
+    writeFileSync(filePath, markdown, "utf-8");
+    console.log(`[writing/save-draft] Saved: ${filePath}`);
+    res.json({ ok: true, path: filePath, filename });
+  } catch (err) {
+    console.error("[writing/save-draft] Write error:", err);
+    res.status(500).json({ error: "Failed to save draft — check OBSIDIAN_DRAFTS_PATH" });
   }
 });
 

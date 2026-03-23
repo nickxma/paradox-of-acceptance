@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writing Assistant — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  padding: 28px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.page-header {
+  margin-bottom: 24px;
+}
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.page-desc { font-size: 13px; color: #888; margin-top: 4px; }
+
+/* ─── Two-column layout ─────────────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .workspace { grid-template-columns: 1fr; }
+}
+
+/* ─── Panel ─────────────────────────────────────────────────── */
+.panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.panel-body { padding: 16px; }
+
+/* ─── Mode selector ─────────────────────────────────────────── */
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.mode-btn {
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s;
+}
+.mode-btn:hover { border-color: #bbb; background: #fafafa; }
+.mode-btn.active { border-color: #111; background: #111; color: #fff; }
+.mode-btn .mode-name { font-weight: 600; display: block; margin-bottom: 2px; }
+.mode-btn .mode-desc { font-size: 11px; color: #888; }
+.mode-btn.active .mode-desc { color: #bbb; }
+
+/* ─── Form fields ───────────────────────────────────────────── */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.field textarea:focus { border-color: #111; }
+
+/* ─── Actions ───────────────────────────────────────────────── */
+.actions { display: flex; gap: 8px; align-items: center; }
+.btn {
+  padding: 9px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: all 0.12s;
+}
+.btn-dark { background: #111; color: #fff; }
+.btn-dark:hover { background: #333; }
+.btn-dark:disabled { background: #aaa; cursor: not-allowed; }
+.btn-outline {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ddd;
+}
+.btn-outline:hover { border-color: #aaa; background: #fafafa; }
+.btn-outline:disabled { color: #aaa; cursor: not-allowed; }
+
+/* ─── Output panel ──────────────────────────────────────────── */
+#output-panel { min-height: 400px; }
+#output-text {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #222;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 340px;
+}
+#output-text.placeholder { color: #bbb; font-style: italic; font-family: inherit; }
+.output-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#save-status { font-size: 12px; color: #666; }
+#save-status.success { color: #16a34a; }
+#save-status.error { color: #dc2626; }
+
+/* ─── Spinner ───────────────────────────────────────────────── */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ddd;
+  border-top-color: #555;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  display: none;
+}
+.spinner.visible { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Draft-only field ──────────────────────────────────────── */
+#context-field { transition: opacity 0.15s; }
+#context-field.hidden { display: none; }
+
+/* ─── Save title input ──────────────────────────────────────── */
+#save-row {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#save-row.visible { display: flex; }
+#save-title {
+  flex: 1;
+  min-width: 180px;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+#save-title:focus { border-color: #111; }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate" style="display:none">
+  <div class="auth-card">
+    <h1>Admin</h1>
+    <p>Enter your admin password to continue.</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Password" autocomplete="current-password">
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/email/import-csv/">CSV Import</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/essays/">Essays</a>
+      <a href="/admin/gates/">Gates</a>
+      <a href="/admin/writing/" class="active">Writing</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-title">Writing Assistant</div>
+      <div class="page-desc">AI-assisted essay drafting with PoA corpus and Waking Up transcript context.</div>
+    </div>
+
+    <div class="workspace">
+      <!-- Left: Input -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Input</span></div>
+        <div class="panel-body">
+
+          <!-- Mode selector -->
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:12px;font-weight:600;color:#666;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.4px">Mode</label>
+            <div class="mode-grid">
+              <button class="mode-btn active" data-mode="draft">
+                <span class="mode-name">Draft</span>
+                <span class="mode-desc">Outline + first paragraph from topic</span>
+              </button>
+              <button class="mode-btn" data-mode="expand">
+                <span class="mode-name">Expand</span>
+                <span class="mode-desc">Expand a paragraph to 3× length</span>
+              </button>
+              <button class="mode-btn" data-mode="refine">
+                <span class="mode-name">Refine</span>
+                <span class="mode-desc">Improve clarity and flow</span>
+              </button>
+              <button class="mode-btn" data-mode="title-suggest">
+                <span class="mode-name">Title Suggest</span>
+                <span class="mode-desc">5 title options from content</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Content field -->
+          <div class="field">
+            <label id="content-label">Topic</label>
+            <textarea id="content" rows="8" placeholder="Enter the essay topic or argument you want to explore…"></textarea>
+          </div>
+
+          <!-- Context field (draft mode only) -->
+          <div class="field" id="context-field">
+            <label>Additional Context <span style="font-weight:400;color:#aaa">(optional)</span></label>
+            <textarea id="context" rows="3" placeholder="Any specific angles, tensions, or references to include…"></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-dark" id="generate-btn">Generate</button>
+            <div class="spinner" id="spinner"></div>
+            <span id="gen-status" style="font-size:12px;color:#888"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Output -->
+      <div class="panel" id="output-panel">
+        <div class="panel-header">
+          <span class="panel-title">Output</span>
+          <button class="btn btn-outline" id="copy-btn" style="padding:5px 10px;font-size:12px" disabled>Copy</button>
+        </div>
+        <div class="panel-body">
+          <div id="output-text" class="placeholder">Output will appear here…</div>
+
+          <div class="output-footer">
+            <!-- Save row -->
+            <div id="save-row">
+              <input type="text" id="save-title" placeholder="Draft title for filename…">
+              <button class="btn btn-outline" id="save-btn">Save to Obsidian</button>
+            </div>
+            <span id="save-status"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+let currentMode = 'draft';
+let generatedContent = '';
+
+// ─── Auth ─────────────────────────────────────────────────────
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+async function tryAuth(secret) {
+  const { ok } = await fetch('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  }).then(r => ({ ok: r.ok })).catch(() => ({ ok: false }));
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Mode selector ─────────────────────────────────────────────
+
+const CONTENT_LABELS = {
+  draft: 'Topic',
+  expand: 'Paragraph to Expand',
+  refine: 'Passage to Refine',
+  'title-suggest': 'Essay Content',
+};
+const CONTENT_PLACEHOLDERS = {
+  draft: 'Enter the essay topic or argument you want to explore…',
+  expand: 'Paste the paragraph you want to expand…',
+  refine: 'Paste the passage you want to refine…',
+  'title-suggest': 'Paste the essay content to generate titles for…',
+};
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    document.getElementById('content-label').textContent = CONTENT_LABELS[currentMode];
+    document.getElementById('content').placeholder = CONTENT_PLACEHOLDERS[currentMode];
+    const ctxField = document.getElementById('context-field');
+    if (currentMode === 'draft') {
+      ctxField.classList.remove('hidden');
+    } else {
+      ctxField.classList.add('hidden');
+    }
+  });
+});
+
+// ─── Generate (streaming SSE) ──────────────────────────────────
+
+const generateBtn = document.getElementById('generate-btn');
+const spinner = document.getElementById('spinner');
+const genStatus = document.getElementById('gen-status');
+const outputEl = document.getElementById('output-text');
+const copyBtn = document.getElementById('copy-btn');
+const saveRow = document.getElementById('save-row');
+
+generateBtn.addEventListener('click', generate);
+
+async function generate() {
+  const content = document.getElementById('content').value.trim();
+  if (!content) {
+    genStatus.textContent = 'Please enter content.';
+    return;
+  }
+
+  const context = currentMode === 'draft' ? document.getElementById('context').value.trim() : '';
+
+  // Reset UI
+  outputEl.textContent = '';
+  outputEl.classList.remove('placeholder');
+  copyBtn.disabled = true;
+  saveRow.classList.remove('visible');
+  document.getElementById('save-status').textContent = '';
+  generateBtn.disabled = true;
+  spinner.classList.add('visible');
+  genStatus.textContent = 'Generating…';
+  generatedContent = '';
+
+  try {
+    const res = await fetch('/api/admin/writing/assist', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': adminSecret,
+      },
+      body: JSON.stringify({ mode: currentMode, content, context: context || undefined }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') continue;
+        try {
+          const token = JSON.parse(payload);
+          if (typeof token === 'string') {
+            generatedContent += token;
+            outputEl.textContent = generatedContent;
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+
+    genStatus.textContent = '';
+    if (generatedContent) {
+      copyBtn.disabled = false;
+      if (currentMode !== 'title-suggest') {
+        saveRow.classList.add('visible');
+        // Pre-fill save title from content
+        const topic = document.getElementById('content').value.trim();
+        document.getElementById('save-title').value = topic.split('\n')[0].slice(0, 80);
+      }
+    }
+  } catch (err) {
+    genStatus.textContent = 'Error: ' + err.message;
+    outputEl.textContent = '';
+    outputEl.classList.add('placeholder');
+    outputEl.textContent = 'Output will appear here…';
+  } finally {
+    generateBtn.disabled = false;
+    spinner.classList.remove('visible');
+  }
+}
+
+// ─── Copy ──────────────────────────────────────────────────────
+
+copyBtn.addEventListener('click', () => {
+  if (!generatedContent) return;
+  navigator.clipboard.writeText(generatedContent).then(() => {
+    const orig = copyBtn.textContent;
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = orig; }, 1500);
+  });
+});
+
+// ─── Save to Obsidian ──────────────────────────────────────────
+
+document.getElementById('save-btn').addEventListener('click', saveDraft);
+
+async function saveDraft() {
+  const title = document.getElementById('save-title').value.trim();
+  const saveStatus = document.getElementById('save-status');
+  if (!title) {
+    saveStatus.textContent = 'Enter a title first.';
+    saveStatus.className = 'error';
+    return;
+  }
+  if (!generatedContent) return;
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  saveStatus.textContent = '';
+
+  const { ok, data } = await apiRequest('/api/admin/writing/save-draft', {
+    method: 'POST',
+    body: JSON.stringify({ title, content: generatedContent, mode: currentMode }),
+  });
+
+  if (ok) {
+    saveStatus.textContent = `Saved: ${data.filename}`;
+    saveStatus.className = 'success';
+    btn.textContent = 'Saved ✓';
+  } else {
+    saveStatus.textContent = data.error || 'Save failed.';
+    saveStatus.className = 'error';
+    btn.disabled = false;
+    btn.textContent = 'Save to Obsidian';
+  }
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+
+initAuth();
+</script>
+</body>
+</html>
