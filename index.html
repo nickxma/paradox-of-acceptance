@@ -3,145 +3,207 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Paradox of Acceptance — Tools for the questions practice raises</title>
-<meta name="description" content="Interactive tools, essays, and guided practices for meditators navigating what mindfulness actually does to a person.">
-<meta property="og:title" content="Paradox of Acceptance — Tools for the questions practice raises" />
-<meta property="og:description" content="Interactive tools, essays, and guided practices for meditators navigating what mindfulness actually does to a person." />
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://paradoxofacceptance.xyz/" />
-<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
-<link rel="alternate" type="application/json" href="/feed.json">
+<title>Paradox of Acceptance</title>
+<meta name="description" content="The better you get at accepting the present moment, the less threatening the future becomes. That's the point. It's also the problem. Tools, essays, and guided practices for serious practitioners.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script>if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="/shared/design-tokens.css">
-<link rel="stylesheet" href="/shared/theme-mono.css">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+
+:root {
+  --bg: #FFFFFF;
+  --bg-hover: #FAFAFA;
+  --bg-input: #FFFFFF;
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+  --text-faint: #666666;
+  --border: #EEEEEE;
+  --border-mid: #DDDDDD;
+  --border-strong: #CCCCCC;
+  --btn-bg: #111111;
+  --btn-text: #FFFFFF;
+  --btn-bg-hover: #333333;
+}
+[data-theme="dark"] {
+  --bg: #111111;
+  --bg-hover: #1A1A1A;
+  --bg-input: #1C1C1C;
+  --text-primary: #EEEEEE;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+  --text-faint: #777777;
+  --border: #222222;
+  --border-mid: #2A2A2A;
+  --border-strong: #333333;
+  --btn-bg: #EEEEEE;
+  --btn-text: #111111;
+  --btn-bg-hover: #CCCCCC;
+}
+
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-primary); transition: background 0.2s, color 0.2s; }
 a { color: inherit; text-decoration: none; }
 
-/* Layout */
-.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 280px; }
-.hero { padding: 64px 280px 48px; }
-.section { padding: 48px 280px; }
-.subscribe-section { padding: 80px 280px; }
-.footer { padding: 48px 280px; }
-
 /* Nav */
-.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
-.nav-links { display: flex; align-items: center; gap: 36px; }
-.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
-.nav-links a:hover { color: #111; }
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 64px; gap: 16px; }
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: var(--text-primary); }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+
+/* Theme toggle */
+.theme-toggle { background: none; border: none; cursor: pointer; padding: 2px; display: flex; align-items: center; gap: 6px; }
+.toggle-track { width: 40px; height: 22px; background: #DDDDDD; border-radius: 11px; position: relative; transition: background 0.25s; display: block; flex-shrink: 0; }
+[data-theme="dark"] .toggle-track { background: #555555; }
+.toggle-knob { width: 16px; height: 16px; background: #FFFFFF; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+[data-theme="dark"] .toggle-knob { transform: translateX(18px); background: #EEEEEE; }
+.moon-icon { color: #CCCCCC; flex-shrink: 0; transition: color 0.25s; display: block; }
+[data-theme="dark"] .moon-icon { color: #DDDDDD; }
 
 /* Auth */
 .auth-area { display: none; }
 .auth-prompt { display: flex; align-items: center; gap: 8px; }
-.auth-link { font-size: 13px; font-weight: 500; color: #666; cursor: pointer; background: none; border: none; font-family: inherit; transition: color 0.15s; }
-.auth-link:hover { color: #111; }
+.auth-link { font-size: 13px; font-weight: 500; color: var(--text-faint); cursor: pointer; background: none; border: none; font-family: inherit; transition: color 0.15s; }
+.auth-link:hover { color: var(--text-primary); }
 .auth-form { display: none; align-items: center; gap: 8px; }
-.auth-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid #DDD; border-radius: 4px; outline: none; width: 160px; }
-.auth-input:focus { border-color: #999; }
-.auth-submit-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 6px 14px; background: #111; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-.auth-submit-btn:hover { background: #333; }
-.auth-toggle-btn { font-size: 12px; color: #999; cursor: pointer; background: none; border: none; font-family: inherit; }
-.auth-toggle-btn:hover { color: #666; }
+.auth-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid var(--border-mid); border-radius: 4px; outline: none; width: 160px; background: var(--bg-input); color: var(--text-primary); }
+.auth-input:focus { border-color: var(--text-muted); }
+.auth-submit-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 6px 14px; background: var(--btn-bg); color: var(--btn-text); border: none; border-radius: 4px; cursor: pointer; }
+.auth-submit-btn:hover { background: var(--btn-bg-hover); }
+.auth-toggle-btn { font-size: 12px; color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: inherit; }
+.auth-toggle-btn:hover { color: var(--text-faint); }
 .auth-error { font-size: 12px; color: #DC2626; }
 .auth-user { display: none; align-items: center; gap: 12px; }
-.user-email { font-size: 13px; color: #666; }
-.sign-out-btn { font-size: 12px; color: #999; cursor: pointer; background: none; border: none; font-family: inherit; }
-.sign-out-btn:hover { color: #666; text-decoration: underline; }
-
-/* Hero */
-.hero-headline { font-family: 'Newsreader', serif; font-size: 44px; font-weight: 400; color: #111; line-height: 1.2; text-align: center; max-width: 600px; margin: 0 auto 32px; }
-.hero-card { border: 1px solid #E0E0E0; border-radius: 6px; background: #FAFAFA; padding: 24px 28px; max-width: 640px; margin: 0 auto; }
-.hero-card-label { font-size: 10px; font-weight: 600; color: #999; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
-.hero-card-text { font-size: 15px; color: #444; line-height: 1.65; }
+.user-email { font-size: 13px; color: var(--text-faint); }
+.sign-out-btn { font-size: 12px; color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: inherit; }
+.sign-out-btn:hover { color: var(--text-faint); text-decoration: underline; }
 
 /* Divider */
-.divider { border: none; border-top: 1px solid #EEEEEE; margin: 0; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+/* Body layout */
+.body-layout { display: flex; padding: 48px 64px; gap: 0; }
+
+/* Sidebar */
+.sidebar { width: 200px; flex-shrink: 0; position: sticky; top: 48px; align-self: flex-start; }
+.sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
+.sidebar-nav { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.sidebar-nav a { font-size: 14px; color: var(--text-faint); transition: color 0.15s; display: block; }
+.sidebar-nav a:hover { color: var(--text-primary); }
+.sidebar-nav a.active { color: var(--text-primary); font-weight: 500; }
+
+/* Content */
+.content { flex: 1; min-width: 0; }
+.content-sections { display: flex; flex-direction: column; gap: 56px; }
+
+/* About */
+.about-headline { font-family: 'Newsreader', serif; font-size: 40px; font-weight: 400; color: var(--text-primary); line-height: 1.2; margin-bottom: 20px; }
+.about-text { font-size: 15px; color: var(--text-secondary); line-height: 1.7; }
+.about-text p { margin-bottom: 12px; }
+.about-text p:last-child { margin-bottom: 0; }
 
 /* Section label */
-.section-label { font-size: 12px; font-weight: 600; color: #999; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
 
-/* Tool rows */
-.tool-row { display: block; padding: 20px 0; border-bottom: 1px solid #EEEEEE; cursor: pointer; transition: background 0.1s; text-decoration: none; color: inherit; }
-.tool-row:hover { background: #FAFAFA; margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; border-radius: 6px; }
-.tool-row:last-child { border-bottom: none; }
-
-/* Tool rows */
-.tool-info { flex: 1; min-width: 0; }
-.tool-title { font-family: 'Newsreader', serif; font-size: 24px; color: #111; margin-bottom: 4px; line-height: 1.3; }
-.tool-meta { font-size: 13px; color: #999; margin-bottom: 8px; }
-.tool-desc { font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 8px; }
+/* Tools grid */
+.tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+.tool-card { display: block; padding: 16px 0; text-decoration: none; color: inherit; transition: background 0.1s; border-radius: 6px; }
+.tool-card:hover { background: var(--bg-hover); margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
+.tool-title { font-family: 'Newsreader', serif; font-size: 20px; color: var(--text-primary); margin-bottom: 4px; line-height: 1.3; }
+.tool-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.tool-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
 
 /* Status tag */
-.status-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; border: 1px solid #DDDDDD; font-size: 11px; font-weight: 500; color: #AAAAAA; }
+.status-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 12px; border: 1px solid var(--border-mid); font-size: 11px; font-weight: 500; color: var(--text-muted); }
 .status-tag svg { display: none; }
-.tool-row.completed .status-tag { background: #ECFDF5; border-color: #ECFDF5; color: #22C55E; }
-.tool-row.completed .status-tag svg { display: block; }
+.tool-card.completed .status-tag { background: #ECFDF5; border-color: #ECFDF5; color: #22C55E; }
+.tool-card.completed .status-tag svg { display: block; }
 .status-tag-text::after { content: 'Not started'; }
-.tool-row.completed .status-tag-text::after { content: 'Completed'; }
-.restart-btn { display: none; font-family: 'Inter', sans-serif; font-size: 12px; color: #999; background: none; border: none; cursor: pointer; margin-left: 8px; padding: 0; }
-.restart-btn:hover { text-decoration: underline; color: #666; }
-.tool-row.completed .restart-btn { display: inline; }
+.tool-card.completed .status-tag-text::after { content: 'Completed'; }
+.restart-btn { display: none; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-muted); background: none; border: none; cursor: pointer; margin-left: 8px; padding: 0; }
+.restart-btn:hover { text-decoration: underline; color: var(--text-faint); }
+.tool-card.completed .restart-btn { display: inline; }
+
+/* More cards */
+.more-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.more-card { display: block; padding: 20px; border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: inherit; transition: border-color 0.15s, background 0.15s; }
+.more-card:hover { border-color: var(--border-mid); background: var(--bg-hover); }
+.more-card-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+.more-card-title { font-family: 'Newsreader', serif; font-size: 22px; color: var(--text-primary); margin-bottom: 8px; }
+.more-card-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; }
+.more-card-link { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+/* Entry paths */
+.start-paths { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; }
+.start-path { padding: 20px 0; border-top: 1px solid var(--border); padding-right: 32px; }
+.start-path-label { font-family: 'Newsreader', serif; font-size: 17px; color: var(--text-primary); margin-bottom: 6px; }
+.start-path-desc { font-size: 13px; color: var(--text-faint); line-height: 1.5; margin-bottom: 12px; }
+.start-path-links { display: flex; gap: 12px; flex-wrap: wrap; }
+.start-path-links a { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-mid); transition: color 0.15s, text-decoration-color 0.15s; }
+.start-path-links a:hover { color: var(--text-primary); text-decoration-color: var(--text-primary); }
 
 /* Subscribe */
-.subscribe-section { text-align: center; }
-.subscribe-headline { font-family: 'Newsreader', serif; font-size: 32px; color: #111; margin-bottom: 12px; }
-.subscribe-sub { font-size: 16px; color: #666; margin-bottom: 28px; }
-.subscribe-form { display: inline-flex; border: 1px solid #DDD; border-radius: 4px; overflow: hidden; }
-.subscribe-input { font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 16px; border: none; outline: none; width: 320px; }
-.subscribe-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; padding: 12px 24px; background: #111; color: #fff; border: none; cursor: pointer; transition: background 0.15s; }
-.subscribe-btn:hover { background: #333; }
-.subscribe-btn:disabled { background: #666; cursor: default; }
+.subscribe-section { padding: 64px 280px; text-align: center; }
+.subscribe-headline { font-family: 'Newsreader', serif; font-size: 28px; color: var(--text-primary); margin-bottom: 12px; }
+.subscribe-sub { font-size: 15px; color: var(--text-faint); margin-bottom: 28px; }
+.subscribe-form { display: inline-flex; border: 1px solid var(--border-mid); border-radius: 4px; overflow: hidden; }
+.subscribe-input { font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 16px; border: none; outline: none; width: 280px; background: var(--bg-input); color: var(--text-primary); }
+.subscribe-btn { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; padding: 12px 24px; background: var(--btn-bg); color: var(--btn-text); border: none; cursor: pointer; transition: background 0.15s; }
+.subscribe-btn:hover { background: var(--btn-bg-hover); }
+.subscribe-btn:disabled { background: var(--text-muted); cursor: default; }
 .subscribe-msg { font-size: 13px; margin-top: 12px; min-height: 20px; }
 .subscribe-msg.success { color: #22C55E; }
 .subscribe-msg.error { color: #DC2626; }
 
 /* Footer */
-.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
-.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
+.footer { display: flex; align-items: center; justify-content: space-between; padding: 24px 64px; border-top: 1px solid var(--border); }
+.footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: var(--text-primary); }
 .footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
-.footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
-.footer-links a:hover { color: #111; }
+.footer-links a { font-size: 13px; color: var(--text-faint); transition: color 0.15s; }
+.footer-links a:hover { color: var(--text-primary); }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .nav, .hero, .section, .subscribe-section, .footer { padding-left: 24px; padding-right: 24px; }
-  .hero-headline { font-size: 32px; }
+  .nav { padding: 20px 24px; }
+  .body-layout { padding: 32px 24px; flex-direction: column; gap: 32px; }
+  .sidebar { width: 100%; position: static; border-bottom: 1px solid #EEE; padding-bottom: 24px; }
+  .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 4px 16px; }
+  .sidebar-label { display: none; }
+  .about-headline { font-size: 30px; }
+  .tools-grid { grid-template-columns: 1fr; }
+  .more-cards { grid-template-columns: 1fr; }
+  .start-paths { grid-template-columns: 1fr; }
+  .start-path { padding-right: 0; }
+  .subscribe-section { padding: 48px 24px; }
   .subscribe-form { flex-direction: column; width: 100%; }
   .subscribe-input { width: 100%; }
   .subscribe-btn { width: 100%; }
-  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer { flex-direction: column; gap: 16px; padding: 24px; align-items: flex-start; }
   .footer-links { gap: 16px; }
-  .tool-title { font-size: 20px; }
-  .nav-links { gap: 20px; }
+}
+@media (max-width: 480px) {
+  .nav { padding: 16px 20px; }
+  .nav-logo { font-size: 18px; }
+  .about-headline { font-size: 26px; }
+  .tool-title { font-size: 18px; }
+  .auth-area { width: 100%; }
+  .auth-user { justify-content: flex-start; }
+  .user-email { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 </style>
-    <!-- Sentry error monitoring (https://sentry.io) -->
-    <script src="https://browser.sentry-cdn.com/9.0.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
-    <script src="/shared/sentry-init.js"></script>
-<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 
 <!-- Nav -->
 <nav class="nav">
-  <div style="display:flex;align-items:center;gap:48px;">
-    <a href="/" class="nav-logo">Paradox of Acceptance</a>
-    <div class="nav-links">
-      <a href="#start-here">Tools</a>
-      <a href="/mindfulness-essays/">Essays</a>
-      <a href="/reading-lists/">Reading Lists</a>
-      <a href="/mindfulness-wiki/">Wiki</a>
-      <a href="/newsletter/">Newsletter</a>
-      <a href="/pass/">Pass</a>
-      <a href="/search/">Search</a>
-    </div>
-  </div>
+  <a href="/" class="nav-logo">Paradox of Acceptance</a>
+  <div class="nav-right">
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+    <span class="toggle-track"><span class="toggle-knob"></span></span>
+    <svg class="moon-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
   <div class="auth-area" id="auth-area">
     <div class="auth-prompt" id="auth-prompt">
       <button class="auth-link" onclick="showAuthForm()">Sign in</button>
@@ -158,136 +220,190 @@ a { color: inherit; text-decoration: none; }
       <button class="sign-out-btn" onclick="doSignOut()">Sign out</button>
     </div>
   </div>
+  </div>
 </nav>
 
 <hr class="divider">
 
-<!-- Hero -->
-<section class="hero">
-  <h1 class="hero-headline">Tools for the questions practice raises.</h1>
-  <div class="hero-card">
-    <div class="hero-card-label">ABOUT THIS PROJECT</div>
-    <p class="hero-card-text">A collection of interactive tools, essays, and guided practices for meditators navigating what mindfulness actually does to a person.</p>
-  </div>
-</section>
+<!-- Body: sidebar + content -->
+<div class="body-layout">
 
-<hr class="divider">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Navigation</div>
+    <ul class="sidebar-nav">
+      <li><a href="#about" class="active">About</a></li>
+      <li><a href="#start">Where to start</a></li>
+      <li><a href="#tools">Interactive Tools</a></li>
+      <li><a href="#paradoxes">Paradoxes</a></li>
+      <li><a href="#more">More</a></li>
+      <li><a href="/pass/">Pass</a></li>
+    </ul>
+  </aside>
 
-<!-- START HERE -->
-<section class="section" id="start-here">
-  <div class="section-label">Start Here</div>
+  <!-- Content -->
+  <main class="content">
+    <div class="content-sections">
 
-  <a href="/meditation-quiz/" class="tool-row" data-tool="meditation-quiz">
-    <div class="tool-info">
-      <div class="tool-title">What Kind of Meditator Are You?</div>
-      <div class="tool-meta">Quiz &middot; 7 questions</div>
-      <div class="tool-desc">Seven questions about how you practice — not how you think you should. Get matched to one of six practitioner profiles.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-quiz')">Restart</button></div>
+      <!-- About -->
+      <section id="about">
+        <h1 class="about-headline">The better you get at accepting the present moment, the less threatening the future becomes. That's the point. It's also the problem.</h1>
+        <div class="about-text">
+          <p>For the in-between. When you're past the basics but not done, where practice starts to change you, tensions show up, and some questions don't resolve cleanly.</p>
+        </div>
+      </section>
+
+      <!-- Where to start -->
+      <section id="start">
+        <div class="section-label">Where to start</div>
+        <div class="start-paths">
+          <div class="start-path">
+            <div class="start-path-label">Curious but skeptical</div>
+            <div class="start-path-desc">You want to know what you're getting into before you commit.</div>
+            <div class="start-path-links">
+              <a href="/mindfulness-fit/">Practice Fit</a>
+              <a href="/meditation-debates/">5 Debates</a>
+            </div>
+          </div>
+          <div class="start-path">
+            <div class="start-path-label">Already practicing</div>
+            <div class="start-path-desc">You've been at it long enough to notice the edges. Something isn't adding up.</div>
+            <div class="start-path-links">
+              <a href="/meditation-quiz/">Meditator Quiz</a>
+              <a href="/meditation-recommender/">Recommender</a>
+            </div>
+          </div>
+          <div class="start-path">
+            <div class="start-path-label">Something shifted</div>
+            <div class="start-path-desc">Something happened and you don't know what it was. Or you do know, and you're not sure whether to keep going.</div>
+            <div class="start-path-links">
+              <a href="/essays/paradox-of-acceptance/">The Paradox</a>
+              <a href="/mindfulness-essays/">Paradoxes</a>
+              <a href="/concept-explorer/">Concept Explorer</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Tools -->
+      <section id="tools">
+        <div class="section-label">Interactive Tools</div>
+        <div class="tools-grid">
+
+          <a href="/meditation-quiz/" class="tool-card" data-tool="meditation-quiz">
+            <div class="tool-title">What Kind of Meditator Are You?</div>
+            <div class="tool-meta">Quiz &middot; 7 questions</div>
+            <div class="tool-desc">Seven questions about how you practice — not how you think you should. Get matched to one of six practitioner profiles.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-quiz')">Restart</button></div>
+          </a>
+
+          <a href="/meditation-debates/" class="tool-card" data-tool="meditation-debates">
+            <div class="tool-title">5 Debates the Field Can't Settle</div>
+            <div class="tool-meta">Interactive &middot; 5 debates</div>
+            <div class="tool-desc">Five questions with no consensus. Serious practitioners land in different places. Pick a side and see where you sit.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-debates')">Restart</button></div>
+          </a>
+
+          <a href="/teacher-debates/" class="tool-card" data-tool="teacher-debates">
+            <div class="tool-title">26 Teachers, Mapped</div>
+            <div class="tool-meta">Interactive &middot; 26 teachers</div>
+            <div class="tool-desc">Where 26 teachers land on the questions they can't agree on. The map matters because the disagreements are real.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('teacher-debates')">Restart</button></div>
+          </a>
+
+          <a href="/concept-explorer/" class="tool-card" data-tool="concept-explorer">
+            <div class="tool-title">The Nature of Experience</div>
+            <div class="tool-meta">Interactive &middot; 3 concepts</div>
+            <div class="tool-desc">Three concepts that make sense on paper and get tangled the moment you look closely. Awareness, appearances, the sense of a watcher. They're not as separate as they seem.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('concept-explorer')">Restart</button></div>
+          </a>
+
+          <a href="/meditation-recommender/" class="tool-card" data-tool="meditation-recommender">
+            <div class="tool-title">What Should I Practice Next?</div>
+            <div class="tool-meta">Interactive</div>
+            <div class="tool-desc">What you're looking for, what you've tried, where you get stuck. One concrete recommendation.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-recommender')">Restart</button></div>
+          </a>
+
+          <a href="/mindfulness-fit/" class="tool-card" data-tool="mindfulness-fit">
+            <div class="tool-title">Should You Get Into Mindfulness?</div>
+            <div class="tool-meta">Assessment</div>
+            <div class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't.</div>
+            <div><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('mindfulness-fit')">Restart</button></div>
+          </a>
+
+        </div>
+      </section>
+
+      <!-- Paradoxes -->
+      <section id="paradoxes">
+        <div class="section-label">Paradoxes</div>
+        <div class="more-cards">
+
+          <a href="/essays/paradox-of-acceptance/" class="more-card">
+            <div class="more-card-label">Featured Paradox</div>
+            <div class="more-card-title">The Paradox of Acceptance</div>
+            <div class="more-card-desc">The better you get at meeting whatever comes, the less obvious it becomes why you should sacrifice now for a future you expect to be able to accept. The core tension. No clean resolution.</div>
+            <div class="more-card-link">Read &rarr;</div>
+          </a>
+
+          <a href="/essays/should-you-meditate/" class="more-card">
+            <div class="more-card-label">Paradox</div>
+            <div class="more-card-title">Should You Get Into Mindfulness?</div>
+            <div class="more-card-desc">Medicine has dosage. Physical training has enough. Mindfulness, somehow, does not. The case for calibration.</div>
+            <div class="more-card-link">Read &rarr;</div>
+          </a>
+
+          <a href="/essays/cherry-picking/" class="more-card">
+            <div class="more-card-label">Paradox</div>
+            <div class="more-card-title">The Cherry-Picking Problem</div>
+            <div class="more-card-desc">You can't dissolve the neurotic self while keeping the motivated self. They're the same part.</div>
+            <div class="more-card-link">Read &rarr;</div>
+          </a>
+
+        </div>
+      </section>
+
+      <!-- More: Practices, Paradoxes, Wiki -->
+      <section id="more">
+        <div class="section-label">More</div>
+        <div class="more-cards">
+
+          <a href="/mindfulness-pointers/" class="more-card" data-tool="mindfulness-pointers">
+            <div class="more-card-label">Guided Practices</div>
+            <div class="more-card-title">Pointers</div>
+            <div class="more-card-desc">Six contemplative pointers — each with a guided practice.</div>
+            <div class="more-card-link">6 practices &rarr;</div>
+          </a>
+
+          <a href="/mindfulness-essays/" class="more-card" data-tool="mindfulness-essays">
+            <div class="more-card-label">Writing</div>
+            <div class="more-card-title">Paradoxes</div>
+            <div class="more-card-desc">What mindfulness does to a person — the tensions, the beliefs that dissolve.</div>
+            <div class="more-card-link">6 pieces &rarr;</div>
+          </a>
+
+          <a href="/mindfulness-wiki/" class="more-card" data-tool="mindfulness-wiki">
+            <div class="more-card-label">Reference</div>
+            <div class="more-card-title">Wiki</div>
+            <div class="more-card-desc">Contemplative concepts — what each term means, and why the distinctions matter.</div>
+            <div class="more-card-link">9 entries &rarr;</div>
+          </a>
+
+        </div>
+      </section>
+
     </div>
-  </a>
+  </main>
 
-  <a href="/meditation-debates/" class="tool-row" data-tool="meditation-debates">
-    <div class="tool-info">
-      <div class="tool-title">5 Debates the Field Can't Settle</div>
-      <div class="tool-meta">Interactive &middot; 5 debates</div>
-      <div class="tool-desc">Five questions where serious practitioners land on different sides.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-debates')">Restart</button></div>
-    </div>
-  </a>
-</section>
-
-<hr class="divider">
-
-<!-- EXPLORE -->
-<section class="section">
-  <div class="section-label">Explore</div>
-
-  <a href="/concept-explorer/" class="tool-row" data-tool="concept-explorer">
-    <div class="tool-info">
-      <div class="tool-title">The Nature of Experience</div>
-      <div class="tool-meta">Interactive &middot; 3 concepts</div>
-      <div class="tool-desc">Awareness, appearances, and the observer — three concepts easy to understand separately, easy to confuse in practice.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('concept-explorer')">Restart</button></div>
-    </div>
-  </a>
-
-  <a href="/teacher-debates/" class="tool-row" data-tool="teacher-debates">
-    <div class="tool-info">
-      <div class="tool-title">26 Teachers, Mapped</div>
-      <div class="tool-meta">Interactive &middot; 26 teachers</div>
-      <div class="tool-desc">Where 26 contemplative teachers land on the hardest questions in practice.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('teacher-debates')">Restart</button></div>
-    </div>
-  </a>
-
-  <a href="/mindfulness-wiki/" class="tool-row" data-tool="mindfulness-wiki">
-    <div class="tool-info">
-      <div class="tool-title">Wiki</div>
-      <div class="tool-meta">Reference &middot; 9 entries</div>
-      <div class="tool-desc">Nine contemplative concepts — what each term means, and why the distinctions matter.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('mindfulness-wiki')">Restart</button></div>
-    </div>
-  </a>
-</section>
-
-<hr class="divider">
-
-<!-- PERSONALIZE -->
-<section class="section">
-  <div class="section-label">Personalize</div>
-
-  <a href="/meditation-recommender/" class="tool-row" data-tool="meditation-recommender">
-    <div class="tool-info">
-      <div class="tool-title">What Should I Practice Next?</div>
-      <div class="tool-meta">Interactive</div>
-      <div class="tool-desc">What you're looking for, what you've tried, where you get stuck. One concrete recommendation.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('meditation-recommender')">Restart</button></div>
-    </div>
-  </a>
-
-  <a href="/mindfulness-fit/" class="tool-row" data-tool="mindfulness-fit">
-    <div class="tool-info">
-      <div class="tool-title">Should You Get Into Mindfulness?</div>
-      <div class="tool-meta">Assessment</div>
-      <div class="tool-desc">Most mindfulness content assumes the answer is yes. This tool doesn't.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('mindfulness-fit')">Restart</button></div>
-    </div>
-  </a>
-</section>
-
-<hr class="divider">
-
-<!-- REFLECT -->
-<section class="section">
-  <div class="section-label">Reflect</div>
-
-  <a href="/mindfulness-pointers/" class="tool-row" data-tool="mindfulness-pointers">
-    <div class="tool-info">
-      <div class="tool-title">Pointers</div>
-      <div class="tool-meta">Guided &middot; 6 practices</div>
-      <div class="tool-desc">Six contemplative pointers — each with a guided practice. Some instructions only make sense when you follow them.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('mindfulness-pointers')">Restart</button></div>
-    </div>
-  </a>
-
-  <a href="/mindfulness-essays/" class="tool-row" data-tool="mindfulness-essays">
-    <div class="tool-info">
-      <div class="tool-title">Essays</div>
-      <div class="tool-meta">Long-form</div>
-      <div class="tool-desc">Longer-form writing on what mindfulness does to a person — the structural tensions, the beliefs that dissolve, and the questions worth sitting with.</div>
-      <div class="tool-status"><span class="status-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span class="status-tag-text"></span></span><button class="restart-btn" onclick="event.preventDefault();event.stopPropagation();restartTool('mindfulness-essays')">Restart</button></div>
-    </div>
-  </a>
-</section>
-
-<hr class="divider">
+</div>
 
 <!-- Acceptance Pass CTA -->
-<section class="section" style="text-align:center;padding-top:64px;padding-bottom:64px;">
-  <div style="font-size:12px;font-weight:600;color:#999;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">Membership</div>
-  <div style="font-family:'Newsreader',serif;font-size:28px;color:#111;margin-bottom:12px;">Acceptance Pass</div>
-  <p style="font-size:15px;color:#666;line-height:1.65;max-width:440px;margin:0 auto 24px;">A free membership credential on Ethereum. Unlock members-only practices and deeper material.</p>
-  <a href="/pass/" style="display:inline-block;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;padding:12px 28px;background:#111;color:#fff;border-radius:6px;transition:background 0.15s;">Get your Acceptance Pass</a>
+<section style="text-align:center;padding:64px 24px;">
+  <div style="font-size:12px;font-weight:600;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">Membership</div>
+  <div style="font-family:'Newsreader',serif;font-size:28px;color:var(--text-primary);margin-bottom:12px;">Acceptance Pass</div>
+  <p style="font-size:15px;color:var(--text-secondary);line-height:1.65;max-width:440px;margin:0 auto 24px;">A free membership credential on Ethereum. Unlock members-only practices and deeper material.</p>
+  <a href="/pass/" style="display:inline-block;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;padding:12px 28px;background:var(--btn-bg);color:var(--btn-text);border-radius:6px;transition:background 0.15s;">Get your Acceptance Pass</a>
 </section>
 
 <hr class="divider">
@@ -310,21 +426,54 @@ a { color: inherit; text-decoration: none; }
     <a href="/meditation-quiz/">Quiz</a>
     <a href="/meditation-debates/">Debates</a>
     <a href="/teacher-debates/">Teacher Map</a>
+    <a href="/concept-explorer/">Concepts</a>
     <a href="/meditation-recommender/">Recommender</a>
-    <a href="/mindfulness-essays/">Essays</a>
-      <a href="/reading-lists/">Reading Lists</a>
-    <a href="/mindfulness-pointers/">Pointers</a>
+    <a href="/mindfulness-fit/">Practice Fit</a>
+    <a href="/mindfulness-essays/">Paradoxes</a>
+    <a href="/mindfulness-pointers/">Guided Practices</a>
     <a href="/mindfulness-wiki/">Wiki</a>
-    <a href="/newsletter/">Newsletter</a>
     <a href="/pass/">Pass</a>
-    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
-    <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
-    <a href="/privacy/">Privacy</a>
-    <a href="/terms/">Terms</a>
+    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">@quiet_drift on X</a>
   </div>
 </footer>
 
 <script>
+/* Theme toggle */
+(function() {
+  var root = document.documentElement;
+  var saved = localStorage.getItem('theme');
+  if (saved === 'dark') root.setAttribute('data-theme', 'dark');
+  document.getElementById('theme-toggle').addEventListener('click', function() {
+    var isDark = root.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      root.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+    } else {
+      root.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    }
+  });
+})();
+
+/* Sidebar active state on scroll */
+(function() {
+  var links = document.querySelectorAll('.sidebar-nav a');
+  var sections = ['about', 'start', 'tools', 'essays', 'more'];
+  function updateActive() {
+    var scrollY = window.scrollY + 100;
+    var current = 'about';
+    sections.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && el.offsetTop <= scrollY) current = id;
+    });
+    links.forEach(function(a) {
+      var href = a.getAttribute('href');
+      a.classList.toggle('active', href === '#' + current || (current === 'more' && href === '#more'));
+    });
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+})();
+
 /* Click-outside to close auth form */
 document.addEventListener('click', function(e) {
   var form = document.getElementById('auth-form');
@@ -377,7 +526,7 @@ document.addEventListener('click', function(e) {
     authPrompt.style.display = 'block';
     authFormEl.style.display = 'none';
     authUser.style.display = 'none';
-    document.querySelectorAll('.tool-row').forEach(function(r) {
+    document.querySelectorAll('.tool-card').forEach(function(r) {
       r.classList.remove('completed');
     });
   }
@@ -418,7 +567,7 @@ document.addEventListener('click', function(e) {
       .eq('user_id', userId)
       .then(function(res) {
         if (!res.data) return;
-        document.querySelectorAll('.tool-row').forEach(function(r) {
+        document.querySelectorAll('.tool-card').forEach(function(r) {
           r.classList.remove('completed');
         });
         res.data.forEach(function(p) {
@@ -440,7 +589,7 @@ document.addEventListener('click', function(e) {
       });
   };
 
-  // SWAP: Replace sb.rpc call below with email platform API (Resend or Buttondown) once backend IC (OLU-109) completes setup
+  /* Subscribe */
   window.handleSubscribe = function(e) {
     e.preventDefault();
     var email = document.getElementById('subscribe-email').value.trim();
@@ -461,7 +610,6 @@ document.addEventListener('click', function(e) {
         msg.textContent = "You're already subscribed.";
         msg.className = 'subscribe-msg success';
       } else {
-        window.plausible && window.plausible('Subscribe');
         msg.textContent = "You're in. Welcome.";
         msg.className = 'subscribe-msg success';
         document.getElementById('subscribe-email').value = '';
