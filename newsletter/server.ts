@@ -120,6 +120,31 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
+// ─── Audit log helper ─────────────────────────────────────────────────────────
+
+/**
+ * Write one row to audit_log. Fire-and-forget — never throws.
+ */
+async function writeAuditLog(
+  table_name: string,
+  row_id: string,
+  action: string,
+  changes?: Record<string, unknown>
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.from("audit_log").insert({
+      table_name,
+      row_id,
+      action,
+      actor: "admin",
+      changes: changes ?? null,
+    });
+  } catch (err) {
+    console.warn(`[audit_log] write failed (${table_name}/${action}):`, err);
+  }
+}
+
 // ─── OpenAI (optional — for essay embeddings) ────────────────────────────────
 
 let openaiClient: OpenAI | null = null;
@@ -8409,18 +8434,36 @@ app.post("/api/poa/lessons/:id/complete", async (req: Request, res: Response) =>
 
 // ─── Admin: PoA Course CRUD ───────────────────────────────────────────────────
 
-// GET /api/admin/poa/courses — full list inc unpublished
+// GET /api/admin/poa/courses — full list inc unpublished, with lesson_count and enrolled_count
 app.get("/api/admin/poa/courses", requireAdminSecret, async (_req: Request, res: Response) => {
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
   const { data, error } = await supabase
     .from("poa_courses")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (error) { res.status(500).json({ error: "Failed to fetch courses" }); return; }
-  res.json({ courses: data ?? [] });
+  const courses = data ?? [];
+  if (courses.length === 0) { res.json({ courses: [] }); return; }
+  const courseIds = courses.map((c) => c.id as string);
+  const [{ data: lessons }, { data: enrollments }] = await Promise.all([
+    supabase.from("poa_lessons").select("course_id").in("course_id", courseIds),
+    supabase.from("course_enrollments").select("course_id").in("course_id", courseIds),
+  ]);
+  const lessonCounts: Record<string, number> = {};
+  const enrollCounts: Record<string, number> = {};
+  for (const l of lessons ?? []) lessonCounts[l.course_id] = (lessonCounts[l.course_id] ?? 0) + 1;
+  for (const e of enrollments ?? []) enrollCounts[e.course_id] = (enrollCounts[e.course_id] ?? 0) + 1;
+  res.json({
+    courses: courses.map((c) => ({
+      ...c,
+      lesson_count: lessonCounts[c.id] ?? 0,
+      enrolled_count: enrollCounts[c.id] ?? 0,
+    })),
+  });
 });
 
-// POST /api/admin/poa/courses — create
+// POST /api/admin/poa/courses — create (always draft: published=false)
 app.post("/api/admin/poa/courses", requireAdminSecret, async (req: Request, res: Response) => {
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
   const { title, description, slug, published, cover_image_url } = req.body as {
@@ -8447,6 +8490,7 @@ app.post("/api/admin/poa/courses", requireAdminSecret, async (req: Request, res:
     const status = error.code === "23505" ? 409 : 500;
     res.status(status).json({ error: error.message }); return;
   }
+  void writeAuditLog("poa_courses", data.id, "create", { title: data.title, slug: data.slug });
   res.status(201).json({ course: data });
 });
 
@@ -8457,6 +8501,7 @@ app.get("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, r
     .from("poa_courses")
     .select("*")
     .eq("id", req.params.id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (error) { res.status(500).json({ error: "Failed to fetch course" }); return; }
   if (!data) { res.status(404).json({ error: "Course not found" }); return; }
@@ -8480,20 +8525,85 @@ app.patch("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request,
     .from("poa_courses")
     .update(patch)
     .eq("id", req.params.id)
+    .is("deleted_at", null)
     .select()
     .maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  void writeAuditLog("poa_courses", req.params.id, "update", patch);
   res.json({ course: data });
 });
 
-// DELETE /api/admin/poa/courses/:id — delete (cascades to lessons, enrollments, completions)
+// DELETE /api/admin/poa/courses/:id — soft delete (sets deleted_at; hard cascade via DB if needed)
 app.delete("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
-  const { error } = await supabase.from("poa_courses").delete().eq("id", req.params.id);
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .update({ deleted_at: new Date().toISOString(), published: false })
+    .eq("id", req.params.id)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  void writeAuditLog("poa_courses", req.params.id, "delete");
   res.json({ status: "deleted" });
 });
+
+// POST /api/admin/poa/courses/:id/duplicate — copy course + its lessons as draft
+app.post("/api/admin/poa/courses/:id/duplicate", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data: src, error: srcErr } = await supabase
+    .from("poa_courses").select("*").eq("id", req.params.id).is("deleted_at", null).maybeSingle();
+  if (srcErr) { res.status(500).json({ error: srcErr.message }); return; }
+  if (!src) { res.status(404).json({ error: "Course not found" }); return; }
+  const newSlug = `${src.slug}-copy-${Date.now().toString(36)}`;
+  const { data: newCourse, error: insertErr } = await supabase
+    .from("poa_courses")
+    .insert({ title: `${src.title} (Copy)`, description: src.description, slug: newSlug, published: false, cover_image_url: src.cover_image_url })
+    .select().single();
+  if (insertErr) { res.status(500).json({ error: insertErr.message }); return; }
+  const { data: lessons } = await supabase
+    .from("poa_lessons").select("*").eq("course_id", req.params.id).order("position");
+  if (lessons && lessons.length > 0) {
+    await supabase.from("poa_lessons").insert(
+      lessons.map(({ id: _id, course_id: _cid, created_at: _ca, ...rest }) => ({ ...rest, course_id: newCourse.id, published_at: null }))
+    );
+  }
+  void writeAuditLog("poa_courses", newCourse.id, "duplicate", { source_id: req.params.id });
+  res.status(201).json({ course: newCourse });
+});
+
+// POST /api/admin/poa/courses/:id/cover-image — upload cover image to Supabase Storage
+const coverImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are accepted"));
+  },
+});
+
+app.post(
+  "/api/admin/poa/courses/:id/cover-image",
+  requireAdminSecret,
+  coverImageUpload.single("image"),
+  async (req: Request, res: Response) => {
+    if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+    if (!req.file) { res.status(400).json({ error: "No image file provided" }); return; }
+    const ext = (req.file.originalname.split(".").pop() ?? "jpg").toLowerCase();
+    const filePath = `${req.params.id}/cover.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("course-covers")
+      .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+    if (uploadError) { res.status(500).json({ error: uploadError.message }); return; }
+    const { data: urlData } = supabase.storage.from("course-covers").getPublicUrl(filePath);
+    const cover_image_url = urlData.publicUrl;
+    await supabase.from("poa_courses").update({ cover_image_url }).eq("id", req.params.id);
+    void writeAuditLog("poa_courses", req.params.id, "cover_upload", { cover_image_url });
+    res.json({ cover_image_url });
+  }
+);
 
 // ─── Admin: PoA Lesson CRUD ───────────────────────────────────────────────────
 
@@ -8529,6 +8639,7 @@ app.post("/api/admin/poa/courses/:id/lessons", requireAdminSecret, async (req: R
     .select()
     .single();
   if (error) { res.status(500).json({ error: error.message }); return; }
+  void writeAuditLog("poa_lessons", data.id, "create", { title: data.title, course_id: req.params.id });
   res.status(201).json({ lesson: data });
 });
 
@@ -8556,6 +8667,7 @@ app.patch("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request,
     .maybeSingle();
   if (error) { res.status(500).json({ error: error.message }); return; }
   if (!data) { res.status(404).json({ error: "Lesson not found" }); return; }
+  void writeAuditLog("poa_lessons", req.params.id, "update", patch);
   res.json({ lesson: data });
 });
 
@@ -8564,7 +8676,71 @@ app.delete("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
   const { error } = await supabase.from("poa_lessons").delete().eq("id", req.params.id);
   if (error) { res.status(500).json({ error: error.message }); return; }
+  void writeAuditLog("poa_lessons", req.params.id, "delete");
   res.json({ status: "deleted" });
+});
+
+// ─── Admin: PoA Course publish / unpublish ────────────────────────────────────
+
+// POST /api/admin/poa/courses/:id/publish — set published=true
+app.post("/api/admin/poa/courses/:id/publish", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .update({ published: true })
+    .eq("id", req.params.id)
+    .is("deleted_at", null)
+    .select()
+    .maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  void writeAuditLog("poa_courses", req.params.id, "publish");
+  res.json({ course: data });
+});
+
+// POST /api/admin/poa/courses/:id/unpublish — set published=false
+app.post("/api/admin/poa/courses/:id/unpublish", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .update({ published: false })
+    .eq("id", req.params.id)
+    .is("deleted_at", null)
+    .select()
+    .maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  void writeAuditLog("poa_courses", req.params.id, "unpublish");
+  res.json({ course: data });
+});
+
+// ─── Admin: PoA Lesson reorder ────────────────────────────────────────────────
+
+// POST /api/admin/poa/lessons/reorder — batch update positions
+// Body: { items: [{ id: string, position: number }, ...] }
+app.post("/api/admin/poa/lessons/reorder", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { items } = req.body as { items?: unknown };
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: "items must be a non-empty array of {id, position}" }); return;
+  }
+  for (const item of items) {
+    const i = item as Record<string, unknown>;
+    if (typeof i.id !== "string" || typeof i.position !== "number") {
+      res.status(400).json({ error: "Each item must have string id and number position" }); return;
+    }
+  }
+  const updates = await Promise.all(
+    (items as Array<{ id: string; position: number }>).map(({ id, position }) =>
+      supabase!.from("poa_lessons").update({ position }).eq("id", id)
+    )
+  );
+  const failed = updates.filter((r) => r.error);
+  if (failed.length > 0) {
+    res.status(500).json({ error: "Some position updates failed", count: failed.length }); return;
+  }
+  void writeAuditLog("poa_lessons", "batch", "reorder", { count: items.length });
+  res.json({ status: "reordered", count: items.length });
 });
 
 // ─── POST /api/admin/poa/publish ─────────────────────────────────────────────
