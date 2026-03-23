@@ -365,6 +365,24 @@ header {
         <label for="lesson-minutes">Est. minutes</label>
         <input type="number" id="lesson-minutes" placeholder="e.g. 15" min="1" max="600" style="max-width:160px">
       </div>
+      <div class="field">
+        <label for="lesson-video-url">Video URL <span style="color:#888;font-weight:400">(YouTube or Vimeo — optional)</span></label>
+        <input type="url" id="lesson-video-url" placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/…">
+      </div>
+      <div class="field" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;">
+          <label for="lesson-video-position">Video position</label>
+          <select id="lesson-video-position" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:5px;font-size:14px;font-family:inherit;background:#fff;color:#111;outline:none;">
+            <option value="top">Top (above content)</option>
+            <option value="bottom">Bottom (below content)</option>
+            <option value="inline">Inline (at ::video:: marker)</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <label for="lesson-video-duration">Video duration (min)</label>
+          <input type="number" id="lesson-video-duration" placeholder="e.g. 8" min="1" max="300" style="max-width:120px;">
+        </div>
+      </div>
       <div class="md-editor-wrap">
         <div class="md-toolbar">
           <div class="md-toggle">
@@ -898,6 +916,9 @@ function openNewLesson() {
   document.getElementById('lesson-minutes').value = '';
   document.getElementById('lesson-body').value = '';
   document.getElementById('lesson-published').checked = false;
+  document.getElementById('lesson-video-url').value = '';
+  document.getElementById('lesson-video-position').value = 'top';
+  document.getElementById('lesson-video-duration').value = '';
   document.getElementById('lesson-error').textContent = '';
   setEditorMode('write');
   document.getElementById('lesson-modal').classList.remove('hidden');
@@ -913,6 +934,9 @@ function openEditLesson(id) {
   document.getElementById('lesson-minutes').value = lesson.estimated_minutes ?? '';
   document.getElementById('lesson-body').value = lesson.body ?? '';
   document.getElementById('lesson-published').checked = !!lesson.published_at;
+  document.getElementById('lesson-video-url').value = lesson.video_url ?? '';
+  document.getElementById('lesson-video-position').value = lesson.video_position ?? 'top';
+  document.getElementById('lesson-video-duration').value = lesson.video_duration_min ?? '';
   document.getElementById('lesson-error').textContent = '';
   setEditorMode('write');
   document.getElementById('lesson-modal').classList.remove('hidden');
@@ -935,11 +959,18 @@ async function saveLesson() {
   errEl.textContent = '';
   btn.disabled = true; btn.textContent = 'Saving…';
 
+  const videoUrl = document.getElementById('lesson-video-url').value.trim();
+  const videoPosition = document.getElementById('lesson-video-position').value;
+  const videoDurationMin = parseInt(document.getElementById('lesson-video-duration').value, 10);
+
   const payload = {
     title,
     body: body || null,
     estimated_minutes: isNaN(minutes) ? null : minutes,
     published_at: published ? new Date().toISOString() : null,
+    video_url: videoUrl || null,
+    video_position: videoUrl ? videoPosition : null,
+    video_duration_min: videoUrl && !isNaN(videoDurationMin) ? videoDurationMin : null,
   };
 
   let ok, data;
