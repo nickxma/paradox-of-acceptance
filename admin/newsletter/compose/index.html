@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compose Newsletter — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────────── */
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 48px;
+  width: 360px;
+  text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%;
+  padding: 10px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main layout ───────────────────────────────────────────── */
+#main { height: 100vh; display: none; flex-direction: column; }
+
+header {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 24px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav a {
+  font-size: 13px;
+  color: #888;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.1s, color 0.1s;
+}
+.header-nav a:hover { background: #f0f0f0; color: #111; }
+#subscriber-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f0f0;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
+#subscriber-badge .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+/* ─── Content ───────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  padding: 20px 24px;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+/* ─── Fields card ───────────────────────────────────────────── */
+.fields-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 10px;
+}
+.field-row:last-child { border-bottom: none; }
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #bbb;
+  white-space: nowrap;
+  width: 80px;
+  flex-shrink: 0;
+}
+.field-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 13px 0;
+  color: #111;
+  background: transparent;
+}
+.field-input::placeholder { color: #ccc; }
+#subject { font-size: 16px; font-weight: 500; }
+
+/* ─── Editor card ───────────────────────────────────────────── */
+.editor-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 42px;
+}
+.toolbar-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.toolbar-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+  font-family: inherit;
+}
+.toolbar-btn:hover { background: #f0f0f0; color: #111; }
+.toolbar-btn.is-active { background: #111; color: #fff; }
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: #e8e8e8;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.mode-tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 5px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.tab-btn.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+.tab-btn:not(.active):hover { background: #f5f5f5; color: #333; }
+
+/* ─── Tiptap editor ─────────────────────────────────────────── */
+#write-pane {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.tiptap-editor {
+  min-height: 100%;
+  padding: 20px 24px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #222;
+}
+.tiptap-editor p { margin-bottom: 0.9em; }
+.tiptap-editor p:last-child { margin-bottom: 0; }
+.tiptap-editor h1 { font-size: 24px; font-weight: 700; margin: 0.8em 0 0.4em; letter-spacing: -0.3px; }
+.tiptap-editor h2 { font-size: 20px; font-weight: 700; margin: 0.8em 0 0.4em; letter-spacing: -0.2px; }
+.tiptap-editor h3 { font-size: 17px; font-weight: 600; margin: 0.7em 0 0.3em; }
+.tiptap-editor ul, .tiptap-editor ol { padding-left: 24px; margin-bottom: 0.9em; }
+.tiptap-editor li { margin-bottom: 0.25em; }
+.tiptap-editor blockquote {
+  border-left: 3px solid #d0d0d0;
+  padding-left: 16px;
+  margin: 0.8em 0;
+  color: #666;
+  font-style: italic;
+}
+.tiptap-editor a { color: #7d8c6e; text-decoration: underline; }
+.tiptap-editor hr { border: none; border-top: 1px solid #e0e0e0; margin: 1.5em 0; }
+.tiptap-editor code {
+  background: #f3f3f3;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.tiptap-editor pre {
+  background: #f3f3f3;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 0.9em;
+  overflow-x: auto;
+}
+.tiptap-editor pre code { background: none; padding: 0; font-size: 13px; }
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #ccc;
+  pointer-events: none;
+  height: 0;
+}
+
+/* ─── Preview pane ──────────────────────────────────────────── */
+#preview-pane { flex: 1; min-height: 0; display: none; }
+#preview-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ─── Send bar ──────────────────────────────────────────────── */
+.send-bar {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 12px;
+}
+.send-bar-left { display: flex; align-items: center; gap: 12px; }
+#save-status { font-size: 12px; color: #aaa; }
+#save-status.saving { color: #888; }
+#save-status.saved { color: #22c55e; }
+#save-status.error { color: #dc2626; }
+.send-actions { display: flex; gap: 8px; }
+.btn-test {
+  padding: 8px 16px;
+  background: #fff;
+  color: #111;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-test:hover { background: #f5f5f5; border-color: #bbb; }
+.btn-test:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-send {
+  padding: 8px 18px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-send:hover { background: #333; }
+.btn-send:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Segment select ─────────────────────────────────────────── */
+.segment-select {
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  max-width: 200px;
+}
+.segment-select:focus { border-color: #888; }
+.segment-select option .seg-count { color: #aaa; }
+
+/* ─── Confirm modal ─────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-backdrop.hidden { display: none; }
+.modal-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 32px 36px;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+}
+.modal-card h2 { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
+.modal-card p { font-size: 14px; color: #555; line-height: 1.5; margin-bottom: 24px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 9px 18px;
+  background: #fff;
+  color: #555;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-cancel:hover { background: #f5f5f5; }
+.btn-confirm {
+  padding: 9px 20px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-confirm:hover { background: #333; }
+.btn-confirm:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Link input modal ──────────────────────────────────────── */
+#link-modal.hidden { display: none; }
+#link-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 16px;
+}
+#link-input:focus { border-color: #111; }
+
+/* ─── Template selector ─────────────────────────────────────── */
+.tpl-picker {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+.tpl-thumb {
+  flex: 1;
+  border: 2px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 8px 6px 6px;
+  cursor: pointer;
+  background: #fafafa;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+.tpl-thumb:hover { border-color: #aaa; background: #f5f5f5; }
+.tpl-thumb.active { border-color: #111; background: #fff; }
+.tpl-thumb svg { display: block; }
+.tpl-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #888;
+  white-space: nowrap;
+}
+.tpl-thumb.active .tpl-label { color: #111; }
+#article-url-row { display: none; }
+#article-url-row.visible { display: flex; }
+
+/* ─── Toast ─────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 999;
+}
+.toast {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #111;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  animation: slideIn 0.2s ease;
+}
+.toast-error { background: #dc2626; }
+.toast-success { background: #16a34a; }
+@keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+</head>
+<body>
+
+<!-- ─── Auth gate ──────────────────────────────────────────────── -->
+<div id="auth-gate" style="display:none">
+  <div class="auth-card">
+    <h1>Newsletter Composer</h1>
+    <p>Enter your admin password to continue.</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password">
+    <button class="btn-primary" id="auth-submit">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ─── Main ───────────────────────────────────────────────────── -->
+<div id="main">
+  <header>
+    <div class="header-left">
+      <span class="header-title">Compose</span>
+      <nav class="header-nav">
+        <a href="/admin/newsletter/">← All Sends</a>
+      </nav>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div id="subscriber-badge">
+        <span class="dot"></span>
+        <span id="subscriber-count">Loading…</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+    <!-- Subject + preview text -->
+    <div class="fields-card">
+      <div class="field-row">
+        <span class="field-label">Subject</span>
+        <input type="text" id="subject" class="field-input" placeholder="What's this issue about?" autocomplete="off">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Preview</span>
+        <input type="text" id="preview-text" class="field-input" placeholder="Inbox preview text (shows before opening)" autocomplete="off">
+      </div>
+      <div class="field-row" style="padding:10px 16px;align-items:center;">
+        <span class="field-label">Template</span>
+        <div class="tpl-picker" id="template-picker">
+          <button class="tpl-thumb active" data-tpl="text-only" title="Text-only — pure prose, minimal styling">
+            <svg width="48" height="36" viewBox="0 0 48 36" fill="none">
+              <rect x="4" y="6" width="40" height="3" rx="1.5" fill="#ccc"/>
+              <rect x="4" y="13" width="36" height="3" rx="1.5" fill="#ccc"/>
+              <rect x="4" y="20" width="40" height="3" rx="1.5" fill="#ccc"/>
+              <rect x="4" y="27" width="28" height="3" rx="1.5" fill="#ccc"/>
+            </svg>
+            <span class="tpl-label">Text-only</span>
+          </button>
+          <button class="tpl-thumb" data-tpl="classic" title="Classic — header, dividers, social footer">
+            <svg width="48" height="36" viewBox="0 0 48 36" fill="none">
+              <rect x="0" y="0" width="48" height="9" rx="1" fill="#555"/>
+              <rect x="4" y="13" width="40" height="2.5" rx="1.25" fill="#ccc"/>
+              <rect x="4" y="18.5" width="36" height="2.5" rx="1.25" fill="#ccc"/>
+              <rect x="4" y="24" width="32" height="2.5" rx="1.25" fill="#ccc"/>
+              <rect x="0" y="30" width="48" height="6" rx="1" fill="#e8e8e8"/>
+            </svg>
+            <span class="tpl-label">Classic</span>
+          </button>
+          <button class="tpl-thumb" data-tpl="card" title="Card — hero title, excerpt, CTA button">
+            <svg width="48" height="36" viewBox="0 0 48 36" fill="none">
+              <rect x="0" y="0" width="48" height="13" rx="1" fill="#ddd"/>
+              <rect x="4" y="16" width="38" height="3.5" rx="1.75" fill="#555"/>
+              <rect x="4" y="22" width="28" height="2.5" rx="1.25" fill="#ccc"/>
+              <rect x="4" y="28" width="14" height="5" rx="2" fill="#333"/>
+            </svg>
+            <span class="tpl-label">Card</span>
+          </button>
+        </div>
+      </div>
+      <div class="field-row" id="article-url-row">
+        <span class="field-label">Article URL</span>
+        <input type="url" id="article-url" class="field-input" placeholder="https://paradoxofacceptance.xyz/essays/…" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor-card">
+      <div class="editor-topbar">
+        <div class="toolbar-buttons" id="toolbar">
+          <button class="toolbar-btn" data-cmd="bold" title="Bold (⌘B)"><strong>B</strong></button>
+          <button class="toolbar-btn" data-cmd="italic" title="Italic (⌘I)"><em>I</em></button>
+          <div class="toolbar-sep"></div>
+          <button class="toolbar-btn" data-cmd="h2" title="Heading 2">H2</button>
+          <button class="toolbar-btn" data-cmd="h3" title="Heading 3">H3</button>
+          <div class="toolbar-sep"></div>
+          <button class="toolbar-btn" data-cmd="bulletList" title="Bullet list">&#8226;&#8212;</button>
+          <button class="toolbar-btn" data-cmd="orderedList" title="Ordered list">1&#8212;</button>
+          <div class="toolbar-sep"></div>
+          <button class="toolbar-btn" data-cmd="blockquote" title="Blockquote">&#8220;&#8221;</button>
+          <button class="toolbar-btn" data-cmd="link" title="Link">&#128279;</button>
+          <button class="toolbar-btn" data-cmd="horizontalRule" title="Divider">&#8212;</button>
+        </div>
+        <div class="mode-tabs">
+          <button class="tab-btn active" id="tab-write">Write</button>
+          <button class="tab-btn" id="tab-preview">Preview</button>
+        </div>
+      </div>
+
+      <!-- Tiptap editor -->
+      <div id="write-pane">
+        <div id="editor" class="tiptap-editor"></div>
+      </div>
+
+      <!-- Email preview -->
+      <div id="preview-pane">
+        <iframe id="preview-frame" title="Email preview" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+
+    <!-- Send bar -->
+    <div class="send-bar">
+      <div class="send-bar-left">
+        <span id="save-status">—</span>
+        <button class="btn-test" id="new-draft-btn" style="font-size:12px;padding:5px 10px;">New draft</button>
+      </div>
+      <div class="send-actions">
+        <button class="btn-test" id="test-send-btn">Send Test</button>
+        <select class="segment-select" id="segment-select" title="Send to…">
+          <option value="">All subscribers</option>
+          <option value="active">Active only</option>
+          <option value="active_warm">Active + Warm</option>
+          <option value="warm">Warm only</option>
+          <option value="cold">Cold (re-engagement)</option>
+          <option value="new">New (last 7 days)</option>
+        </select>
+        <button class="btn-send" id="send-all-btn">Send &rarr;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Confirm send modal ─────────────────────────────────────── -->
+<div id="confirm-modal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h2 id="confirm-title">Send newsletter?</h2>
+    <p id="confirm-body">This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-confirm" id="modal-confirm">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Link modal ────────────────────────────────────────────── -->
+<div id="link-modal" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <h2>Insert link</h2>
+    <input type="url" id="link-input" placeholder="https://…">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="link-cancel">Cancel</button>
+      <button class="btn-confirm" id="link-apply">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toast container ───────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<script type="module">
+import { Editor } from 'https://esm.sh/@tiptap/core@2';
+import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';
+import Link from 'https://esm.sh/@tiptap/extension-link@2';
+import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2';
+
+'use strict';
+
+// ─── State ────────────────────────────────────────────────────
+let adminSecret = '';
+let subscriberCount = null;
+let segmentStats = null;
+let draftId = null;
+let editor = null;
+let isDirty = false;
+let isSaving = false;
+let lastSaved = null;
+let autoSaveInterval = null;
+let saveStatusTimer = null;
+let activeTemplate = localStorage.getItem('newsletter_template') || 'text-only';
+
+// ─── Helpers ──────────────────────────────────────────────────
+function toast(message, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function htmlToText(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+}
+
+function timeSince(date) {
+  const secs = Math.floor((Date.now() - date) / 1000);
+  if (secs < 10) return 'just now';
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
+async function apiRequest(path, opts = {}) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': adminSecret,
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+// ─── Email templates ──────────────────────────────────────────
+
+const FOOTER_SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const BRAND_GREEN = "#7d8c6e";
+const BRAND_BG    = "#faf8f4";
+const BRAND_TEXT  = "#2c2c2c";
+const BRAND_RULE  = "#e2ddd6";
+
+function sharedFooter() {
+  return `<p style="font-family:${FOOTER_SANS};font-size:12px;color:#999;line-height:1.6;margin:0;">
+      You're receiving this because you subscribed to Paradox of Acceptance.<br/>
+      <a href="{{manage_preferences}}" style="color:${BRAND_GREEN};">Manage preferences</a> &nbsp;&middot;&nbsp;
+      <a href="{{unsubscribe}}" style="color:${BRAND_GREEN};">Unsubscribe</a> &nbsp;&middot;&nbsp;
+      <a href="https://paradoxofacceptance.xyz/newsletter/" style="color:${BRAND_GREEN};">View in browser</a>
+    </p>`;
+}
+
+function preheader(text) {
+  if (!text) return '';
+  const safe = escapeHtml(text);
+  // Hidden preheader trick — padding fills inbox preview space
+  return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${safe}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>`;
+}
+
+/** Template 1: Text-only — pure prose, Georgia serif, 600px, minimal. */
+function tplTextOnly(bodyHtml, subject, previewText) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject || 'Paradox of Acceptance')}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND_BG};">
+  ${preheader(previewText)}
+  <div style="max-width:600px;margin:0 auto;padding:48px 24px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.85;color:${BRAND_TEXT};">
+      ${bodyHtml}
+    </div>
+    <hr style="margin:40px 0;border:none;border-top:1px solid ${BRAND_RULE};" />
+    ${sharedFooter()}
+  </div>
+</body>
+</html>`;
+}
+
+/** Template 2: Classic — dark header banner, body content, social footer. */
+function tplClassic(bodyHtml, subject, previewText) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject || 'Paradox of Acceptance')}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND_BG};">
+  ${preheader(previewText)}
+  <!-- Header banner -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${BRAND_TEXT};">
+    <tr>
+      <td align="center" style="padding:20px 24px;">
+        <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:13px;letter-spacing:0.15em;text-transform:uppercase;color:#faf8f4;">
+          Paradox of Acceptance
+        </p>
+      </td>
+    </tr>
+  </table>
+  <!-- Body -->
+  <div style="max-width:640px;margin:0 auto;padding:40px 24px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.8;color:${BRAND_TEXT};">
+      ${bodyHtml}
+    </div>
+    <!-- Social links -->
+    <hr style="margin:40px 0 24px;border:none;border-top:1px solid ${BRAND_RULE};" />
+    <p style="font-family:${FOOTER_SANS};font-size:12px;color:#bbb;text-align:center;margin:0 0 16px;">
+      <a href="https://twitter.com/nickhudkins" style="color:${BRAND_GREEN};text-decoration:none;">Twitter / X</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://paradoxofacceptance.xyz/" style="color:${BRAND_GREEN};text-decoration:none;">Website</a>
+    </p>
+    ${sharedFooter()}
+  </div>
+</body>
+</html>`;
+}
+
+/** Template 3: Card — large title, optional excerpt, CTA button, then body. */
+function tplCard(bodyHtml, subject, previewText, articleUrl) {
+  const titleHtml = subject
+    ? `<h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:bold;line-height:1.3;color:${BRAND_TEXT};">${escapeHtml(subject)}</h1>`
+    : '';
+  const excerptHtml = previewText
+    ? `<p style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.65;color:#666;">${escapeHtml(previewText)}</p>`
+    : '';
+  const ctaHtml = articleUrl
+    ? `<a href="${escapeHtml(articleUrl)}" style="display:inline-block;margin-bottom:32px;padding:11px 22px;background:${BRAND_TEXT};color:#fff;font-family:${FOOTER_SANS};font-size:14px;font-weight:600;text-decoration:none;border-radius:5px;">Read the full essay &rarr;</a>`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject || 'Paradox of Acceptance')}</title>
+</head>
+<body style="margin:0;padding:0;background:${BRAND_BG};">
+  ${preheader(previewText)}
+  <div style="max-width:640px;margin:0 auto;">
+    <!-- Card header -->
+    <div style="background:#ede9e3;padding:36px 32px 32px;border-bottom:2px solid ${BRAND_RULE};">
+      ${titleHtml}
+      ${excerptHtml}
+      ${ctaHtml}
+    </div>
+    <!-- Body content -->
+    <div style="padding:36px 32px 0;">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.8;color:${BRAND_TEXT};">
+        ${bodyHtml}
+      </div>
+    </div>
+    <!-- Footer -->
+    <div style="padding:32px 32px 40px;">
+      <hr style="margin:0 0 24px;border:none;border-top:1px solid ${BRAND_RULE};" />
+      ${sharedFooter()}
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/** Dispatch to the active template. */
+function buildEmailHtml() {
+  if (!editor) return '';
+  const bodyHtml  = editor.getHTML();
+  const subject   = document.getElementById('subject').value.trim();
+  const preview   = document.getElementById('preview-text').value.trim();
+  const articleUrl = document.getElementById('article-url')?.value.trim() || '';
+  switch (activeTemplate) {
+    case 'classic':  return tplClassic(bodyHtml, subject, preview);
+    case 'card':     return tplCard(bodyHtml, subject, preview, articleUrl);
+    default:         return tplTextOnly(bodyHtml, subject, preview);
+  }
+}
+
+// ─── Auth ─────────────────────────────────────────────────────
+async function tryAuth(secret) {
+  const { ok } = await apiRequest('/api/newsletter/stats', {
+    headers: { 'X-Admin-Secret': secret },
+  });
+  return ok;
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const ok = await tryAuth(stored);
+    if (ok) {
+      adminSecret = stored;
+      await showMain();
+      return;
+    }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitAuth();
+});
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  errEl.textContent = '';
+  const ok = await tryAuth(secret);
+  if (ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    document.getElementById('auth-gate').style.display = 'none';
+    await showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Main init ────────────────────────────────────────────────
+async function showMain() {
+  const main = document.getElementById('main');
+  main.style.display = 'flex';
+  initEditor();
+  initTemplateSelector();
+  loadStats();
+  await loadOrCreateDraft();
+  startAutoSave();
+}
+
+// ─── Stats ────────────────────────────────────────────────────
+async function loadStats() {
+  const { ok, data } = await apiRequest('/api/newsletter/stats');
+  const el = document.getElementById('subscriber-count');
+  if (ok) {
+    subscriberCount = data.subscriberCount;
+    el.textContent = `${subscriberCount} subscriber${subscriberCount !== 1 ? 's' : ''}`;
+  } else {
+    el.textContent = 'Stats unavailable';
+  }
+  // Load segment counts to annotate the dropdown options
+  const { ok: segOk, data: segData } = await apiRequest('/api/newsletter/segment-stats');
+  if (segOk && segData?.segments) {
+    segmentStats = segData.segments;
+    updateSegmentOptions();
+  }
+}
+
+function updateSegmentOptions() {
+  if (!segmentStats) return;
+  const s = segmentStats;
+  const select = document.getElementById('segment-select');
+  const labels = {
+    '':            `All subscribers (${s.all ?? '?'})`,
+    'active':      `Active only (${s.active ?? '?'})`,
+    'active_warm': `Active + Warm (${(s.active ?? 0) + (s.warm ?? 0)})`,
+    'warm':        `Warm only (${s.warm ?? '?'})`,
+    'cold':        `Cold — re-engagement (${s.cold ?? '?'})`,
+    'new':         `New — last 7 days (${s.new ?? '?'})`,
+  };
+  Array.from(select.options).forEach(opt => {
+    if (opt.value in labels) opt.text = labels[opt.value];
+  });
+}
+
+/** Returns the recipient count for the currently selected segment. */
+function selectedSegmentCount() {
+  if (!segmentStats) return subscriberCount;
+  const val = document.getElementById('segment-select').value;
+  const s = segmentStats;
+  if (!val) return s.all ?? subscriberCount;
+  if (val === 'active') return s.active ?? '?';
+  if (val === 'active_warm') return (s.active ?? 0) + (s.warm ?? 0);
+  if (val === 'warm') return s.warm ?? '?';
+  if (val === 'cold') return s.cold ?? '?';
+  if (val === 'new') return s.new ?? '?';
+  return subscriberCount;
+}
+
+/** Human-readable label for the selected segment. */
+function selectedSegmentLabel() {
+  const val = document.getElementById('segment-select').value;
+  if (!val) return 'all subscribers';
+  const map = {
+    active: 'Active subscribers',
+    active_warm: 'Active + Warm subscribers',
+    warm: 'Warm subscribers',
+    cold: 'Cold subscribers',
+    new: 'New subscribers (last 7 days)',
+  };
+  return map[val] || 'subscribers';
+}
+
+// ─── Tiptap Editor ────────────────────────────────────────────
+function initEditor() {
+  editor = new Editor({
+    element: document.getElementById('editor'),
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener' } }),
+      Placeholder.configure({ placeholder: 'Start writing your newsletter…' }),
+    ],
+    content: '',
+    onUpdate() {
+      markDirty();
+      if (document.getElementById('preview-pane').style.display !== 'none') {
+        updatePreview();
+      }
+    },
+    onSelectionUpdate() {
+      updateToolbarState();
+    },
+    onTransaction() {
+      updateToolbarState();
+    },
+  });
+
+  // Toolbar commands
+  document.getElementById('toolbar').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    const cmd = btn.dataset.cmd;
+    handleToolbarCmd(cmd);
+  });
+}
+
+function handleToolbarCmd(cmd) {
+  if (!editor) return;
+  switch (cmd) {
+    case 'bold': editor.chain().focus().toggleBold().run(); break;
+    case 'italic': editor.chain().focus().toggleItalic().run(); break;
+    case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break;
+    case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break;
+    case 'bulletList': editor.chain().focus().toggleBulletList().run(); break;
+    case 'orderedList': editor.chain().focus().toggleOrderedList().run(); break;
+    case 'blockquote': editor.chain().focus().toggleBlockquote().run(); break;
+    case 'horizontalRule': editor.chain().focus().setHorizontalRule().run(); break;
+    case 'link': openLinkModal(); break;
+  }
+  updateToolbarState();
+}
+
+function updateToolbarState() {
+  if (!editor) return;
+  const checks = {
+    bold: () => editor.isActive('bold'),
+    italic: () => editor.isActive('italic'),
+    h2: () => editor.isActive('heading', { level: 2 }),
+    h3: () => editor.isActive('heading', { level: 3 }),
+    bulletList: () => editor.isActive('bulletList'),
+    orderedList: () => editor.isActive('orderedList'),
+    blockquote: () => editor.isActive('blockquote'),
+    link: () => editor.isActive('link'),
+  };
+  document.querySelectorAll('[data-cmd]').forEach((btn) => {
+    const cmd = btn.dataset.cmd;
+    if (checks[cmd]) {
+      btn.classList.toggle('is-active', checks[cmd]());
+    }
+  });
+}
+
+// ─── Link modal ───────────────────────────────────────────────
+function openLinkModal() {
+  const existing = editor.getAttributes('link').href || '';
+  document.getElementById('link-input').value = existing;
+  document.getElementById('link-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('link-input').focus(), 50);
+}
+
+document.getElementById('link-cancel').addEventListener('click', () => {
+  document.getElementById('link-modal').classList.add('hidden');
+  editor?.chain().focus().run();
+});
+
+document.getElementById('link-apply').addEventListener('click', applyLink);
+document.getElementById('link-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyLink();
+  if (e.key === 'Escape') document.getElementById('link-modal').classList.add('hidden');
+});
+
+function applyLink() {
+  const href = document.getElementById('link-input').value.trim();
+  document.getElementById('link-modal').classList.add('hidden');
+  if (!editor) return;
+  if (!href) {
+    editor.chain().focus().unsetLink().run();
+  } else {
+    editor.chain().focus().setLink({ href }).run();
+  }
+}
+
+// ─── Mode toggle (Write / Preview) ────────────────────────────
+document.getElementById('tab-write').addEventListener('click', () => setMode('write'));
+document.getElementById('tab-preview').addEventListener('click', () => { setMode('preview'); updatePreview(); });
+
+function setMode(mode) {
+  const isWrite = mode === 'write';
+  document.getElementById('write-pane').style.display = isWrite ? 'block' : 'none';
+  document.getElementById('preview-pane').style.display = isWrite ? 'none' : 'block';
+  document.getElementById('tab-write').classList.toggle('active', isWrite);
+  document.getElementById('tab-preview').classList.toggle('active', !isWrite);
+  document.getElementById('toolbar').style.opacity = isWrite ? '1' : '0.4';
+  document.getElementById('toolbar').style.pointerEvents = isWrite ? '' : 'none';
+}
+
+function updatePreview() {
+  if (!editor) return;
+  const frame = document.getElementById('preview-frame');
+  frame.srcdoc = buildEmailHtml();
+}
+
+// ─── Template selector ────────────────────────────────────────
+function setTemplate(tpl) {
+  activeTemplate = tpl;
+  document.querySelectorAll('[data-tpl]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tpl === tpl);
+  });
+  const urlRow = document.getElementById('article-url-row');
+  urlRow.classList.toggle('visible', tpl === 'card');
+  if (document.getElementById('preview-pane').style.display !== 'none') {
+    updatePreview();
+  }
+}
+
+function initTemplateSelector() {
+  setTemplate(activeTemplate);
+  document.getElementById('template-picker').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tpl]');
+    if (!btn) return;
+    const tpl = btn.dataset.tpl;
+    setTemplate(tpl);
+    localStorage.setItem('newsletter_template', tpl);
+    markDirty();
+  });
+  document.getElementById('article-url').addEventListener('input', () => {
+    localStorage.setItem('newsletter_article_url', document.getElementById('article-url').value.trim());
+    markDirty();
+    if (document.getElementById('preview-pane').style.display !== 'none') updatePreview();
+  });
+  // Restore article URL from localStorage
+  const savedUrl = localStorage.getItem('newsletter_article_url');
+  if (savedUrl) document.getElementById('article-url').value = savedUrl;
+}
+
+// ─── Draft management ─────────────────────────────────────────
+async function loadOrCreateDraft() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('draft');
+  if (id) {
+    const { ok, data } = await apiRequest(`/api/newsletter/drafts/${id}`);
+    if (ok && data.draft) {
+      applyDraft(data.draft);
+      return;
+    }
+  }
+  // No draft param — start fresh (will create on first save)
+  setSaveStatus('—');
+}
+
+function applyDraft(draft) {
+  draftId = draft.id;
+  document.getElementById('subject').value = draft.subject || '';
+  document.getElementById('preview-text').value = draft.preview_text || '';
+  if (editor && draft.html_body) {
+    editor.commands.setContent(draft.html_body, false);
+  }
+  lastSaved = new Date();
+  setSaveStatus('Saved');
+  isDirty = false;
+  // Update URL without reload
+  const url = new URL(window.location.href);
+  url.searchParams.set('draft', draftId);
+  window.history.replaceState({}, '', url);
+}
+
+function markDirty() {
+  isDirty = true;
+  setSaveStatus('Unsaved changes');
+}
+
+function setSaveStatus(msg, type = '') {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.className = type ? type : '';
+}
+
+async function saveDraft() {
+  if (!isDirty || isSaving || !editor) return;
+  isSaving = true;
+  setSaveStatus('Saving…', 'saving');
+
+  const subject = document.getElementById('subject').value.trim();
+  const previewText = document.getElementById('preview-text').value.trim();
+  const htmlBody = editor.getHTML();
+
+  if (!draftId) {
+    // Create new draft
+    const { ok, data } = await apiRequest('/api/newsletter/drafts', {
+      method: 'POST',
+      body: JSON.stringify({ subject, previewText, htmlBody }),
+    });
+    if (ok && data.draft) {
+      draftId = data.draft.id;
+      const url = new URL(window.location.href);
+      url.searchParams.set('draft', draftId);
+      window.history.replaceState({}, '', url);
+      lastSaved = new Date();
+      isDirty = false;
+      setSaveStatus(`Saved`, 'saved');
+    } else {
+      setSaveStatus('Save failed', 'error');
+    }
+  } else {
+    // Update existing draft
+    const { ok } = await apiRequest(`/api/newsletter/drafts/${draftId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ subject, previewText, htmlBody }),
+    });
+    if (ok) {
+      lastSaved = new Date();
+      isDirty = false;
+      setSaveStatus('Saved', 'saved');
+    } else {
+      setSaveStatus('Save failed', 'error');
+    }
+  }
+
+  isSaving = false;
+  // Reset status to time display after a moment
+  clearTimeout(saveStatusTimer);
+  saveStatusTimer = setTimeout(() => {
+    if (!isDirty) setSaveStatus(lastSaved ? `Saved ${timeSince(lastSaved)}` : '—');
+  }, 3000);
+}
+
+function startAutoSave() {
+  // Auto-save every 30 seconds
+  autoSaveInterval = setInterval(saveDraft, 30_000);
+
+  // Tick the "saved X ago" display every minute
+  setInterval(() => {
+    if (!isDirty && lastSaved) {
+      setSaveStatus(`Saved ${timeSince(lastSaved)}`);
+    }
+  }, 60_000);
+
+  // Save on subject/preview text change
+  ['subject', 'preview-text'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', markDirty);
+  });
+}
+
+// ─── New draft ────────────────────────────────────────────────
+document.getElementById('new-draft-btn').addEventListener('click', async () => {
+  if (isDirty) await saveDraft();
+  draftId = null;
+  isDirty = false;
+  lastSaved = null;
+  document.getElementById('subject').value = '';
+  document.getElementById('preview-text').value = '';
+  editor?.commands.clearContent();
+  setSaveStatus('—');
+  const url = new URL(window.location.href);
+  url.searchParams.delete('draft');
+  window.history.replaceState({}, '', url);
+  setMode('write');
+  editor?.commands.focus();
+});
+
+// ─── Validation ───────────────────────────────────────────────
+function validate() {
+  const subject = document.getElementById('subject').value.trim();
+  if (!subject) { toast('Enter a subject line.', 'error'); return false; }
+  if (!editor || editor.isEmpty) { toast('Write some content before sending.', 'error'); return false; }
+  return true;
+}
+
+// ─── Test send ────────────────────────────────────────────────
+document.getElementById('test-send-btn').addEventListener('click', async () => {
+  if (!validate()) return;
+  await saveDraft();
+  const btn = document.getElementById('test-send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const { ok, data } = await apiRequest('/api/newsletter/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: document.getElementById('subject').value.trim(),
+      previewText: document.getElementById('preview-text').value.trim() || undefined,
+      htmlBody: buildEmailHtml(),
+      textBody: htmlToText(editor.getHTML()),
+      testMode: true,
+    }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Send Test';
+
+  if (ok) {
+    toast(`Test sent to ${data.to || 'your test address'}.`, 'success');
+  } else {
+    toast(data.error || 'Test send failed.', 'error');
+  }
+});
+
+// ─── Send to all ──────────────────────────────────────────────
+document.getElementById('send-all-btn').addEventListener('click', () => {
+  if (!validate()) return;
+  const subject = document.getElementById('subject').value.trim();
+  const count = selectedSegmentCount();
+  const segLabel = selectedSegmentLabel();
+  document.getElementById('confirm-title').textContent = 'Send newsletter?';
+  document.getElementById('confirm-body').innerHTML =
+    `Send <strong>${escapeHtml(subject)}</strong> to <strong>${count} ${segLabel}</strong>? This cannot be undone.`;
+  document.getElementById('confirm-modal').classList.remove('hidden');
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-modal').classList.add('hidden');
+});
+
+document.getElementById('confirm-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('confirm-modal')) {
+    document.getElementById('confirm-modal').classList.add('hidden');
+  }
+});
+
+document.getElementById('modal-confirm').addEventListener('click', async () => {
+  await saveDraft();
+  const confirmBtn = document.getElementById('modal-confirm');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Sending…';
+
+  const segFilter = document.getElementById('segment-select').value || undefined;
+  const { ok, data } = await apiRequest('/api/newsletter/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: document.getElementById('subject').value.trim(),
+      previewText: document.getElementById('preview-text').value.trim() || undefined,
+      htmlBody: buildEmailHtml(),
+      textBody: htmlToText(editor.getHTML()),
+      testMode: false,
+      includeInArchive: true,
+      segmentFilter: segFilter,
+    }),
+  });
+
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = 'Send';
+  document.getElementById('confirm-modal').classList.add('hidden');
+
+  if (ok) {
+    const sendId = data.id || data.sendId;
+    toast(`Sent to ${data.sent ?? data.recipientCount ?? '?'} subscribers.`, 'success');
+    // Redirect to main newsletter admin to see analytics
+    const dest = sendId
+      ? `/admin/newsletter/?highlight=${sendId}`
+      : '/admin/newsletter/';
+    setTimeout(() => { window.location.href = dest; }, 1500);
+  } else {
+    toast(data.error || 'Broadcast failed.', 'error');
+  }
+});
+
+// ─── Boot ─────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>
