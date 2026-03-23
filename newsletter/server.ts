@@ -8053,6 +8053,806 @@ app.post("/api/admin/writing/save-draft", requireAdminSecret, async (req: Reques
   }
 });
 
+// ─── PoA Course Platform API ──────────────────────────────────────────────────
+//
+// Public endpoints (no auth required):
+//   GET  /api/poa/courses                        — list published courses
+//   GET  /api/poa/courses/:slug                  — course detail + lesson list (no body)
+//   GET  /api/poa/courses/:slug/lessons/:id      — full lesson with markdown body
+//
+// Authenticated endpoints (Supabase JWT via Authorization: Bearer <token>):
+//   POST /api/poa/courses/:slug/enroll           — enroll current user
+//   POST /api/poa/lessons/:id/complete           — mark lesson complete; +5 rep; course badge
+//
+// Admin endpoints (X-Admin-Secret header):
+//   GET    /api/admin/poa/courses                — full list (inc unpublished)
+//   POST   /api/admin/poa/courses                — create course
+//   GET    /api/admin/poa/courses/:id            — get one course
+//   PATCH  /api/admin/poa/courses/:id            — update course
+//   DELETE /api/admin/poa/courses/:id            — delete course
+//   POST   /api/admin/poa/courses/:id/lessons    — create lesson
+//   GET    /api/admin/poa/courses/:id/lessons    — list all lessons (inc unpublished)
+//   PATCH  /api/admin/poa/lessons/:id            — update lesson
+//   DELETE /api/admin/poa/lessons/:id            — delete lesson
+
+// ─── CORS pre-flight for PoA course endpoints (called from static pages) ──────
+
+const POA_COURSE_CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Secret",
+};
+
+function setPoaCors(res: Response): void {
+  for (const [k, v] of Object.entries(POA_COURSE_CORS_HEADERS)) res.setHeader(k, v);
+}
+
+app.options(/^\/api\/poa\//, (_req: Request, res: Response) => {
+  setPoaCors(res);
+  res.sendStatus(204);
+});
+
+// ─── GET /api/poa/courses ─────────────────────────────────────────────────────
+//
+// Returns all published courses with lesson count.
+// If a valid Supabase JWT is provided, each course also includes
+// is_enrolled and completed_lesson_count for the calling user.
+
+app.get("/api/poa/courses", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const { data: courses, error } = await supabase
+    .from("poa_courses")
+    .select("id, title, description, slug, cover_image_url, created_at")
+    .eq("published", true)
+    .order("created_at", { ascending: true });
+
+  if (error) { res.status(500).json({ error: "Failed to fetch courses" }); return; }
+
+  const courseIds = (courses ?? []).map((c) => c.id);
+
+  // Lesson counts per course (published only for public view)
+  const lessonCountByCourse: Record<string, number> = {};
+  if (courseIds.length > 0) {
+    const { data: lessons } = await supabase
+      .from("poa_lessons")
+      .select("course_id")
+      .in("course_id", courseIds)
+      .lte("published_at", new Date().toISOString());
+    for (const l of lessons ?? []) {
+      lessonCountByCourse[l.course_id] = (lessonCountByCourse[l.course_id] ?? 0) + 1;
+    }
+  }
+
+  // Per-user enrollment + completion data (optional)
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  const enrolledSet = new Set<string>();
+  const completionCountByCourse: Record<string, number> = {};
+
+  if (userId && courseIds.length > 0) {
+    const [enrollRes, complRes] = await Promise.all([
+      supabase.from("course_enrollments").select("course_id").eq("user_id", userId).in("course_id", courseIds),
+      supabase
+        .from("lesson_completions")
+        .select("lesson_id, poa_lessons!inner(course_id)")
+        .eq("user_id", userId),
+    ]);
+    for (const e of enrollRes.data ?? []) enrolledSet.add(e.course_id);
+    for (const c of complRes.data ?? []) {
+      const cid = (c as { poa_lessons: { course_id: string } }).poa_lessons?.course_id;
+      if (cid) completionCountByCourse[cid] = (completionCountByCourse[cid] ?? 0) + 1;
+    }
+  }
+
+  const result = (courses ?? []).map((c) => ({
+    ...c,
+    lesson_count: lessonCountByCourse[c.id] ?? 0,
+    ...(userId !== null
+      ? {
+          is_enrolled: enrolledSet.has(c.id),
+          completed_lesson_count: completionCountByCourse[c.id] ?? 0,
+        }
+      : {}),
+  }));
+
+  res.json({ courses: result });
+});
+
+// ─── GET /api/poa/courses/:slug ───────────────────────────────────────────────
+//
+// Returns course metadata plus ordered lesson list (title, position, estimated_minutes,
+// published_at — no markdown body). Includes per-user completion flags when authed.
+
+app.get("/api/poa/courses/:slug", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const { slug } = req.params;
+
+  const { data: course, error: courseErr } = await supabase
+    .from("poa_courses")
+    .select("id, title, description, slug, cover_image_url, created_at")
+    .eq("slug", slug)
+    .eq("published", true)
+    .maybeSingle();
+
+  if (courseErr) { res.status(500).json({ error: "Failed to fetch course" }); return; }
+  if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+
+  const { data: lessons, error: lessonsErr } = await supabase
+    .from("poa_lessons")
+    .select("id, title, position, estimated_minutes, published_at")
+    .eq("course_id", course.id)
+    .lte("published_at", new Date().toISOString())
+    .order("position", { ascending: true });
+
+  if (lessonsErr) { res.status(500).json({ error: "Failed to fetch lessons" }); return; }
+
+  // Per-user completion flags (optional)
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  const completedSet = new Set<string>();
+  let isEnrolled = false;
+
+  if (userId) {
+    const lessonIds = (lessons ?? []).map((l) => l.id);
+    const [enrollRes, complRes] = await Promise.all([
+      supabase
+        .from("course_enrollments")
+        .select("course_id")
+        .eq("user_id", userId)
+        .eq("course_id", course.id)
+        .maybeSingle(),
+      lessonIds.length > 0
+        ? supabase
+            .from("lesson_completions")
+            .select("lesson_id")
+            .eq("user_id", userId)
+            .in("lesson_id", lessonIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+    isEnrolled = !!enrollRes.data;
+    for (const c of complRes.data ?? []) completedSet.add(c.lesson_id);
+  }
+
+  const enrichedLessons = (lessons ?? []).map((l) => ({
+    ...l,
+    ...(userId !== null ? { completed: completedSet.has(l.id) } : {}),
+  }));
+
+  res.json({
+    course: {
+      ...course,
+      ...(userId !== null ? { is_enrolled: isEnrolled } : {}),
+    },
+    lessons: enrichedLessons,
+  });
+});
+
+// ─── GET /api/poa/courses/:slug/lessons/:id ───────────────────────────────────
+//
+// Returns the full lesson including markdown body.
+
+app.get("/api/poa/courses/:slug/lessons/:id", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const { slug, id } = req.params;
+
+  // Verify course exists and is published
+  const { data: course, error: courseErr } = await supabase
+    .from("poa_courses")
+    .select("id")
+    .eq("slug", slug)
+    .eq("published", true)
+    .maybeSingle();
+
+  if (courseErr) { res.status(500).json({ error: "Failed to fetch course" }); return; }
+  if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+
+  const { data: lesson, error: lessonErr } = await supabase
+    .from("poa_lessons")
+    .select("id, title, body, position, estimated_minutes, published_at, created_at")
+    .eq("id", id)
+    .eq("course_id", course.id)
+    .lte("published_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (lessonErr) { res.status(500).json({ error: "Failed to fetch lesson" }); return; }
+  if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  // Per-user completion flag (optional)
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  let completed = false;
+  if (userId) {
+    const { data: comp } = await supabase
+      .from("lesson_completions")
+      .select("lesson_id")
+      .eq("user_id", userId)
+      .eq("lesson_id", lesson.id)
+      .maybeSingle();
+    completed = !!comp;
+  }
+
+  res.json({ lesson: { ...lesson, ...(userId !== null ? { completed } : {}) } });
+});
+
+// ─── POST /api/poa/courses/:slug/enroll ──────────────────────────────────────
+//
+// Enrolls the authenticated user in a course. Idempotent.
+// Requires Authorization: Bearer <supabase-jwt>.
+
+app.post("/api/poa/courses/:slug/enroll", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const { slug } = req.params;
+  const { data: course, error: courseErr } = await supabase
+    .from("poa_courses")
+    .select("id")
+    .eq("slug", slug)
+    .eq("published", true)
+    .maybeSingle();
+
+  if (courseErr) { res.status(500).json({ error: "Failed to fetch course" }); return; }
+  if (!course) { res.status(404).json({ error: "Course not found" }); return; }
+
+  const { error } = await supabase
+    .from("course_enrollments")
+    .upsert({ user_id: userId, course_id: course.id }, { onConflict: "user_id,course_id" });
+
+  if (error) { res.status(500).json({ error: "Failed to enroll" }); return; }
+  res.json({ status: "enrolled", courseId: course.id });
+});
+
+// ─── POST /api/poa/lessons/:id/complete ──────────────────────────────────────
+//
+// Marks a lesson complete for the authenticated user. Idempotent.
+// On first completion:
+//   - Awards +5 reputation points (upserts user_reputation row)
+//   - Checks if all lessons in the course are now done; if so, awards
+//     a 'course_complete:{slug}' badge via user_badges
+// Requires Authorization: Bearer <supabase-jwt>.
+
+app.post("/api/poa/lessons/:id/complete", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const { id: lessonId } = req.params;
+
+  // Verify lesson exists
+  const { data: lesson, error: lessonErr } = await supabase
+    .from("poa_lessons")
+    .select("id, course_id, poa_courses!inner(slug, published)")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (lessonErr) { res.status(500).json({ error: "Failed to fetch lesson" }); return; }
+  if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  const courseSlug = (lesson as { poa_courses: { slug: string; published: boolean } }).poa_courses?.slug;
+  const coursePublished = (lesson as { poa_courses: { slug: string; published: boolean } }).poa_courses?.published;
+  if (!coursePublished) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  // Check if already completed (idempotent — return early without double-awarding)
+  const { data: existing } = await supabase
+    .from("lesson_completions")
+    .select("lesson_id")
+    .eq("user_id", userId)
+    .eq("lesson_id", lessonId)
+    .maybeSingle();
+
+  if (existing) {
+    res.json({ status: "already_completed", lessonId, points_awarded: 0 });
+    return;
+  }
+
+  // Record completion
+  const { error: compErr } = await supabase
+    .from("lesson_completions")
+    .insert({ user_id: userId, lesson_id: lessonId });
+
+  if (compErr) { res.status(500).json({ error: "Failed to record completion" }); return; }
+
+  // Award +5 reputation (upsert: add to existing total)
+  const LESSON_REP_POINTS = 5;
+  const { data: repRow } = await supabase
+    .from("user_reputation")
+    .select("points")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const newPoints = (repRow?.points ?? 0) + LESSON_REP_POINTS;
+  await supabase
+    .from("user_reputation")
+    .upsert({ user_id: userId, points: newPoints, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+
+  // Check for course completion badge
+  let badgeEarned: string | null = null;
+  const courseId = lesson.course_id;
+
+  const [{ count: totalLessons }, { count: completedCount }] = await Promise.all([
+    supabase
+      .from("poa_lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("course_id", courseId)
+      .lte("published_at", new Date().toISOString()),
+    supabase
+      .from("lesson_completions")
+      .select("lesson_id, poa_lessons!inner(course_id)", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("poa_lessons.course_id", courseId),
+  ]);
+
+  if (typeof totalLessons === "number" && typeof completedCount === "number" && completedCount >= totalLessons) {
+    const badgeKey = `course_complete:${courseSlug}`;
+    const { error: badgeErr } = await supabase
+      .from("user_badges")
+      .upsert({ user_id: userId, badge_key: badgeKey }, { onConflict: "user_id,badge_key" });
+    if (!badgeErr) badgeEarned = badgeKey;
+  }
+
+  res.json({
+    status: "completed",
+    lessonId,
+    points_awarded: LESSON_REP_POINTS,
+    total_points: newPoints,
+    ...(badgeEarned ? { badge_earned: badgeEarned } : {}),
+  });
+});
+
+// ─── Admin: PoA Course CRUD ───────────────────────────────────────────────────
+
+// GET /api/admin/poa/courses — full list inc unpublished
+app.get("/api/admin/poa/courses", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) { res.status(500).json({ error: "Failed to fetch courses" }); return; }
+  res.json({ courses: data ?? [] });
+});
+
+// POST /api/admin/poa/courses — create
+app.post("/api/admin/poa/courses", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { title, description, slug, published, cover_image_url } = req.body as {
+    title?: unknown; description?: unknown; slug?: unknown; published?: unknown; cover_image_url?: unknown;
+  };
+  if (typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" }); return;
+  }
+  if (typeof slug !== "string" || !slug.trim()) {
+    res.status(400).json({ error: "slug is required" }); return;
+  }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .insert({
+      title: title.trim(),
+      description: typeof description === "string" ? description.trim() || null : null,
+      slug: slug.trim(),
+      published: published === true,
+      cover_image_url: typeof cover_image_url === "string" ? cover_image_url.trim() || null : null,
+    })
+    .select()
+    .single();
+  if (error) {
+    const status = error.code === "23505" ? 409 : 500;
+    res.status(status).json({ error: error.message }); return;
+  }
+  res.status(201).json({ course: data });
+});
+
+// GET /api/admin/poa/courses/:id — get one
+app.get("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .select("*")
+    .eq("id", req.params.id)
+    .maybeSingle();
+  if (error) { res.status(500).json({ error: "Failed to fetch course" }); return; }
+  if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  res.json({ course: data });
+});
+
+// PATCH /api/admin/poa/courses/:id — update
+app.patch("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { title, description, slug, published, cover_image_url } = req.body as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  if (typeof title === "string") patch.title = title.trim();
+  if (typeof description === "string") patch.description = description.trim() || null;
+  if (typeof slug === "string") patch.slug = slug.trim();
+  if (typeof published === "boolean") patch.published = published;
+  if (typeof cover_image_url === "string") patch.cover_image_url = cover_image_url.trim() || null;
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No updatable fields provided" }); return;
+  }
+  const { data, error } = await supabase
+    .from("poa_courses")
+    .update(patch)
+    .eq("id", req.params.id)
+    .select()
+    .maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+  res.json({ course: data });
+});
+
+// DELETE /api/admin/poa/courses/:id — delete (cascades to lessons, enrollments, completions)
+app.delete("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { error } = await supabase.from("poa_courses").delete().eq("id", req.params.id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ status: "deleted" });
+});
+
+// ─── Admin: PoA Lesson CRUD ───────────────────────────────────────────────────
+
+// GET /api/admin/poa/courses/:id/lessons — list all lessons inc unpublished
+app.get("/api/admin/poa/courses/:id/lessons", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { data, error } = await supabase
+    .from("poa_lessons")
+    .select("*")
+    .eq("course_id", req.params.id)
+    .order("position", { ascending: true });
+  if (error) { res.status(500).json({ error: "Failed to fetch lessons" }); return; }
+  res.json({ lessons: data ?? [] });
+});
+
+// POST /api/admin/poa/courses/:id/lessons — create lesson
+app.post("/api/admin/poa/courses/:id/lessons", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { title, body, position, estimated_minutes, published_at } = req.body as Record<string, unknown>;
+  if (typeof title !== "string" || !title.trim()) {
+    res.status(400).json({ error: "title is required" }); return;
+  }
+  const { data, error } = await supabase
+    .from("poa_lessons")
+    .insert({
+      course_id: req.params.id,
+      title: title.trim(),
+      body: typeof body === "string" ? body : null,
+      position: typeof position === "number" ? position : 0,
+      estimated_minutes: typeof estimated_minutes === "number" ? estimated_minutes : null,
+      published_at: typeof published_at === "string" ? published_at : null,
+    })
+    .select()
+    .single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.status(201).json({ lesson: data });
+});
+
+// PATCH /api/admin/poa/lessons/:id — update lesson
+app.patch("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { title, body, position, estimated_minutes, published_at } = req.body as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  if (typeof title === "string") patch.title = title.trim();
+  if (typeof body === "string") patch.body = body;
+  if (body === null) patch.body = null;
+  if (typeof position === "number") patch.position = position;
+  if (typeof estimated_minutes === "number") patch.estimated_minutes = estimated_minutes;
+  if (estimated_minutes === null) patch.estimated_minutes = null;
+  if (typeof published_at === "string") patch.published_at = published_at;
+  if (published_at === null) patch.published_at = null;
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No updatable fields provided" }); return;
+  }
+  const { data, error } = await supabase
+    .from("poa_lessons")
+    .update(patch)
+    .eq("id", req.params.id)
+    .select()
+    .maybeSingle();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  if (!data) { res.status(404).json({ error: "Lesson not found" }); return; }
+  res.json({ lesson: data });
+});
+
+// DELETE /api/admin/poa/lessons/:id — delete lesson (cascades to completions)
+app.delete("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { error } = await supabase.from("poa_lessons").delete().eq("id", req.params.id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ status: "deleted" });
+});
+
+// ─── POST /api/admin/poa/publish ─────────────────────────────────────────────
+
+/**
+ * POST /api/admin/poa/publish
+ *
+ * Publishes an Obsidian note to paradoxofacceptance.xyz.
+ * Called by the local obsidian-publish watcher script.
+ *
+ * For type "essay" (default): upserts a row in the `essays` table and
+ * triggers async embedding generation.
+ *
+ * For type "lesson": looks up the course by course_slug, then upserts a
+ * lesson in `poa_lessons` matched by (course_id, title).
+ *
+ * Auth: X-Admin-Secret header.
+ *
+ * Required body fields: slug, title
+ * Optional body fields:
+ *   body_markdown, kicker, description, read_time, tags,
+ *   published_at (ISO string; defaults to now()),
+ *   post_to_twitter (boolean; default false),
+ *   type ("essay" | "lesson"; default "essay"),
+ *   course_slug (required when type="lesson")
+ */
+app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const {
+    slug,
+    title,
+    body_markdown,
+    kicker,
+    description,
+    read_time,
+    tags,
+    published_at,
+    post_to_twitter = false,
+    type = "essay",
+    course_slug,
+  } = req.body as {
+    slug?: string;
+    title?: string;
+    body_markdown?: string;
+    kicker?: string;
+    description?: string;
+    read_time?: string;
+    tags?: string[];
+    published_at?: string;
+    post_to_twitter?: boolean;
+    type?: "essay" | "lesson";
+    course_slug?: string;
+  };
+
+  if (!slug || !title) {
+    return res.status(400).json({ error: "slug and title are required" });
+  }
+
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return res.status(400).json({ error: "slug must be lowercase alphanumeric with hyphens" });
+  }
+
+  const publishedAt = published_at ?? new Date().toISOString();
+
+  // ─── Essay ───────────────────────────────────────────────────────────────
+
+  if (type === "essay") {
+    const path = `/mindfulness-essays/${slug}/`;
+
+    // Check if essay already exists
+    const { data: existing } = await supabase
+      .from("essays")
+      .select("slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    let action: "created" | "updated";
+    let essay: unknown;
+
+    if (existing) {
+      // Update existing essay — clear deployed_at so cron re-deploys
+      const update: Record<string, unknown> = {
+        title,
+        published_at: publishedAt,
+        deployed_at: null,
+        post_to_twitter,
+      };
+      if (body_markdown !== undefined) update.body_markdown = body_markdown;
+      if (kicker !== undefined) update.kicker = kicker;
+      if (description !== undefined) update.description = description;
+      if (read_time !== undefined) update.read_time = read_time;
+      if (tags !== undefined) update.tags = tags;
+
+      const { data, error } = await supabase
+        .from("essays")
+        .update(update)
+        .eq("slug", slug)
+        .select("slug, title, kicker, description, read_time, body_markdown, path, published_at, deployed_at, post_to_twitter, tags")
+        .single();
+
+      if (error) {
+        console.error("[poa/publish] essay update error:", error);
+        return res.status(500).json({ error: "Failed to update essay" });
+      }
+      action = "updated";
+      essay = data;
+    } else {
+      // Insert new essay
+      const { data, error } = await supabase
+        .from("essays")
+        .insert({
+          slug,
+          title,
+          path,
+          kicker: kicker ?? null,
+          description: description ?? null,
+          read_time: read_time ?? null,
+          body_markdown: body_markdown ?? null,
+          tags: tags ?? [],
+          published_at: publishedAt,
+          post_to_twitter,
+        })
+        .select("slug, title, kicker, description, read_time, body_markdown, path, published_at, deployed_at, post_to_twitter, tags")
+        .single();
+
+      if (error) {
+        if (error.code === "23505") {
+          return res.status(409).json({ error: "Essay with that slug already exists" });
+        }
+        console.error("[poa/publish] essay insert error:", error);
+        return res.status(500).json({ error: "Failed to create essay" });
+      }
+      action = "created";
+      essay = data;
+    }
+
+    // Async embedding — don't wait
+    if (body_markdown) {
+      upsertEssayEmbedding(slug, body_markdown).catch((err) =>
+        console.error("[poa/publish] embedding error:", err)
+      );
+    }
+
+    console.log(`[poa/publish] essay ${action}: ${slug}`);
+    return res.status(action === "created" ? 201 : 200).json({ essay, action });
+  }
+
+  // ─── Course lesson ────────────────────────────────────────────────────────
+
+  if (type === "lesson") {
+    if (!course_slug) {
+      return res.status(400).json({ error: "course_slug is required when type is lesson" });
+    }
+
+    // Look up course
+    const { data: course, error: courseErr } = await supabase
+      .from("poa_courses")
+      .select("id, slug, title")
+      .eq("slug", course_slug)
+      .maybeSingle();
+
+    if (courseErr) {
+      console.error("[poa/publish] course lookup error:", courseErr);
+      return res.status(500).json({ error: "Failed to look up course" });
+    }
+    if (!course) {
+      return res.status(404).json({ error: `Course not found: ${course_slug}` });
+    }
+
+    // Try to find existing lesson by title (within this course)
+    const { data: existingLesson } = await supabase
+      .from("poa_lessons")
+      .select("id, position")
+      .eq("course_id", course.id)
+      .eq("title", title)
+      .maybeSingle();
+
+    let action: "created" | "updated";
+    let lesson: unknown;
+
+    if (existingLesson) {
+      const { data, error } = await supabase
+        .from("poa_lessons")
+        .update({
+          body: body_markdown ?? null,
+          published_at: publishedAt,
+          ...(read_time ? { estimated_minutes: parseInt(read_time) || null } : {}),
+        })
+        .eq("id", existingLesson.id)
+        .select("id, course_id, title, body, position, estimated_minutes, published_at")
+        .single();
+
+      if (error) {
+        console.error("[poa/publish] lesson update error:", error);
+        return res.status(500).json({ error: "Failed to update lesson" });
+      }
+      action = "updated";
+      lesson = data;
+    } else {
+      // Determine next position
+      const { data: maxPos } = await supabase
+        .from("poa_lessons")
+        .select("position")
+        .eq("course_id", course.id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const position = (maxPos?.position ?? -1) + 1;
+
+      const { data, error } = await supabase
+        .from("poa_lessons")
+        .insert({
+          course_id: course.id,
+          title,
+          body: body_markdown ?? null,
+          position,
+          published_at: publishedAt,
+        })
+        .select("id, course_id, title, body, position, estimated_minutes, published_at")
+        .single();
+
+      if (error) {
+        console.error("[poa/publish] lesson insert error:", error);
+        return res.status(500).json({ error: "Failed to create lesson" });
+      }
+      action = "created";
+      lesson = data;
+    }
+
+    console.log(`[poa/publish] lesson ${action}: ${title} in course ${course_slug}`);
+    return res.status(action === "created" ? 201 : 200).json({ lesson, course: { id: course.id, slug: course.slug }, action });
+  }
+
+  return res.status(400).json({ error: `Unknown type: ${type}` });
+});
+
+// ─── POST /api/corpus/proposals ──────────────────────────────────────────────
+
+/**
+ * POST /api/corpus/proposals
+ *
+ * Submit content to the Knowledge Commons corpus.
+ * When auto_approve is true (default for admin callers), the embedding is
+ * generated immediately and stored in essay_embeddings.
+ *
+ * Auth: X-Admin-Secret header.
+ *
+ * Body: { slug, title, body_markdown, tags?, auto_approve? }
+ */
+app.post("/api/corpus/proposals", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase not configured" });
+  }
+
+  const { slug, title, body_markdown, auto_approve = true } = req.body as {
+    slug?: string;
+    title?: string;
+    body_markdown?: string;
+    auto_approve?: boolean;
+  };
+
+  if (!slug || !title || !body_markdown) {
+    return res.status(400).json({ error: "slug, title, and body_markdown are required" });
+  }
+
+  if (!auto_approve) {
+    // Future: store in a proposals table for manual review
+    return res.status(501).json({ error: "Manual approval workflow not yet implemented" });
+  }
+
+  // Auto-approved: generate embedding immediately
+  let embeddingGenerated = false;
+  try {
+    await upsertEssayEmbedding(slug, body_markdown);
+    embeddingGenerated = true;
+  } catch (err) {
+    console.warn(`[corpus/proposals] embedding failed for ${slug}:`, err);
+    // Non-fatal — embedding can be generated later
+  }
+
+  console.log(`[corpus/proposals] ingested: ${slug} (embedding_generated=${embeddingGenerated})`);
+  return res.status(201).json({ ok: true, slug, title, status: "approved", embedding_generated: embeddingGenerated });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 validateConfig();

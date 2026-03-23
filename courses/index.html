@@ -295,6 +295,7 @@ footer {
     <a href="/#start-here">Tools</a>
     <a href="/mindfulness-essays/">Essays</a>
     <a href="/courses/" class="active">Courses</a>
+    <a href="/about/">About</a>
     <a href="/pass/">Pass</a>
     <a href="/search/">Search</a>
   </div>
@@ -378,100 +379,37 @@ function renderCourses(courses) {
     return;
   }
 
-  // Build a slug→course map for prerequisite tooltips
-  var byId = {};
-  courses.forEach(function(c) { byId[c.id] = c; });
-
   var html = '';
   courses.forEach(function(course) {
-    var isUnlocked = course.is_unlocked;
-    var prereqs = Array.isArray(course.prerequisites) ? course.prerequisites : [];
+    var lessonCount = course.lesson_count || 0;
+    var isEnrolled = course.is_enrolled || false;
+    var completedCount = course.completed_lesson_count || 0;
+    var allDone = lessonCount > 0 && completedCount >= lessonCount;
+    var inProgress = completedCount > 0 && !allDone;
+    var href = '/courses/' + escHtml(course.slug) + '/';
 
-    // Determine local state
-    var localComplete = isCourseCompleteLocally(course.slug, course.sessions_total);
-    var sessionsDone = localSessionsCompletedCount(course.slug, course.sessions_total);
-    var inProgress = sessionsDone > 0 && !localComplete;
-
-    // Prerequisite tooltip text
-    var tooltipText = '';
-    if (!isUnlocked && prereqs.length > 0) {
-      var prereqNames = prereqs.map(function(pid) {
-        return byId[pid] ? byId[pid].title : 'a prerequisite course';
-      });
-      tooltipText = 'Complete \u201c' + prereqNames.join('\u201d and \u201c') + '\u201d first';
-    }
-
-    // Badge
     var badge = '';
-    if (!isUnlocked) {
-      badge = '<span class="badge-locked">Locked</span>';
-    } else if (localComplete) {
+    if (allDone) {
       badge = '<span class="badge-complete">\u2713 Complete</span>';
     } else if (inProgress) {
-      badge = '<span class="badge-inprogress">' + sessionsDone + ' / ' + course.sessions_total + ' sessions</span>';
-    } else if (course.is_free) {
-      badge = '<span class="badge-free">Free</span>';
+      badge = '<span class="badge-inprogress">' + completedCount + ' / ' + lessonCount + ' lessons</span>';
+    } else if (isEnrolled) {
+      badge = '<span class="badge-free">Enrolled</span>';
     }
 
-    // Card — locked cards navigate to the prerequisite course page instead
-    var href = isUnlocked
-      ? '/courses/' + escHtml(course.slug) + '/'
-      : (prereqs.length > 0 && byId[prereqs[0]] ? '/courses/' + escHtml(byId[prereqs[0]].slug) + '/' : '#');
-
-    var tag = isUnlocked ? 'a' : 'div';
-    var hrefAttr = isUnlocked ? ' href="' + href + '"' : '';
-    var lockedAttr = isUnlocked ? '' : ' data-locked="true" data-prereq-href="' + href + '"';
-
-    html += '<' + tag + hrefAttr + ' class="course-card' + (isUnlocked ? '' : ' locked') + '"' + lockedAttr + '>';
+    html += '<a href="' + href + '" class="course-card">';
     html += '<div class="course-body">';
-    html += '<div class="course-meta">Course &middot; ' + course.sessions_total + ' sessions</div>';
+    html += '<div class="course-meta">Course &middot; ' + lessonCount + ' lesson' + (lessonCount !== 1 ? 's' : '') + '</div>';
     html += '<div class="course-title">' + escHtml(course.title) + '</div>';
-    html += '<div class="course-desc">' + escHtml(course.description) + '</div>';
-    // Star rating — only show when review_count >= 3
-    if (course.review_count >= 3 && course.avg_rating != null) {
-      var avgR = parseFloat(course.avg_rating);
-      var fullStars = Math.round(avgR);
-      var starsHtml = '';
-      for (var s = 0; s < 5; s++) starsHtml += s < fullStars ? '\u2605' : '\u2606';
-      html += '<div class="course-rating">';
-      html += '<span class="course-rating-stars">' + starsHtml + '</span>';
-      html += '<span class="course-rating-score">' + avgR.toFixed(1) + '</span>';
-      html += '<span class="course-rating-count">(' + course.review_count + ')</span>';
-      html += '</div>';
+    if (course.description) {
+      html += '<div class="course-desc">' + escHtml(course.description) + '</div>';
     }
     if (badge) html += '<div class="course-status">' + badge + '</div>';
     html += '</div>'; // .course-body
-
-    // Lock overlay (visible only when locked)
-    if (!isUnlocked) {
-      html += '<div class="lock-overlay">';
-      html += '<div class="lock-icon-wrap">';
-      if (tooltipText) {
-        html += '<span class="lock-tooltip">' + escHtml(tooltipText) + '</span>';
-      }
-      html += '<svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
-      html += '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>';
-      html += '<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>';
-      html += '</svg>';
-      html += '</div>';
-      html += '</div>';
-    }
-
-    html += '</' + tag + '>';
+    html += '</a>';
   });
 
   list.innerHTML = html;
-
-  // Locked card click → navigate to prerequisite
-  list.querySelectorAll('.course-card[data-locked]').forEach(function(card) {
-    card.addEventListener('click', function() {
-      var href = card.getAttribute('data-prereq-href');
-      if (href && href !== '#') window.location.href = href;
-    });
-    card.style.cursor = card.getAttribute('data-prereq-href') && card.getAttribute('data-prereq-href') !== '#'
-      ? 'pointer'
-      : 'default';
-  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -489,7 +427,7 @@ async function init() {
   } catch (e) { /* not logged in — proceed without auth */ }
 
   try {
-    var res = await fetch('/api/courses', { headers: headers });
+    var res = await fetch('/api/poa/courses', { headers: headers });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
     renderCourses(data.courses);
