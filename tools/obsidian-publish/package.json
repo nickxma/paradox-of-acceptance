@@ -1,0 +1,13 @@
+{
+  "name": "obsidian-publish",
+  "version": "1.0.0",
+  "description": "Publish Obsidian notes to paradoxofacceptance.xyz",
+  "type": "module",
+  "scripts": {
+    "publish": "node publish.mjs",
+    "dry-run": "DRY_RUN=1 node publish.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
