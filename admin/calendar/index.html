@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Calendar — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5; color: #111; font-size: 14px; min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────────── */
+#auth-gate {
+  position: fixed; inset: 0; background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.auth-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 40px 48px; width: 360px; text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%; padding: 10px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main ──────────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px; color: #888; text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+.content { padding: 28px 32px; max-width: 1200px; margin: 0 auto; }
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.page-sub { font-size: 13px; color: #888; margin-top: 3px; }
+
+/* ─── Calendar controls ─────────────────────────────────── */
+.cal-controls {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.cal-month-label {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.2px; min-width: 160px;
+}
+.btn-nav {
+  background: #fff; border: 1px solid #ddd; border-radius: 6px;
+  padding: 6px 12px; font-size: 13px; color: #444; cursor: pointer;
+  font-family: inherit; transition: background 0.1s;
+}
+.btn-nav:hover { background: #f5f5f5; }
+
+/* ─── Calendar grid ─────────────────────────────────────── */
+.cal-wrap {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+}
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid #f0f0f0;
+}
+.cal-dow {
+  padding: 8px 0; text-align: center;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.7px; color: #999;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.cal-day {
+  min-height: 90px; padding: 8px; border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0; cursor: default; position: relative;
+  transition: background 0.1s;
+}
+.cal-day:nth-child(7n) { border-right: none; }
+.cal-day.other-month .day-num { color: #ccc; }
+.cal-day.today { background: #fafff8; }
+.cal-day.today .day-num { font-weight: 700; color: #16a34a; }
+.cal-day.has-content { cursor: pointer; }
+.cal-day.has-content:hover { background: #f9f9f9; }
+.cal-day.selected { background: #f0f5ff; }
+.day-num {
+  font-size: 12px; font-weight: 500; color: #666; margin-bottom: 4px;
+}
+.day-dots {
+  display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px;
+}
+.dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.dot-course { background: #6366f1; }
+.dot-lesson { background: #0ea5e9; }
+.dot-essay  { background: #f59e0b; }
+
+/* ─── Day detail panel ──────────────────────────────────── */
+.detail-panel {
+  display: none; margin-top: 20px;
+}
+.detail-panel.visible { display: block; }
+.detail-header {
+  font-size: 13px; font-weight: 600; color: #888;
+  text-transform: uppercase; letter-spacing: 0.7px;
+  margin-bottom: 12px;
+}
+.item-list { display: flex; flex-direction: column; gap: 10px; }
+.item-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px;
+  cursor: grab;
+}
+.item-card:active { cursor: grabbing; }
+.item-card.drag-over { border-color: #6366f1; background: #f0f0ff; }
+.item-type-pill {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 2px 7px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+}
+.pill-course { background: #eef0ff; color: #4f46e5; }
+.pill-lesson { background: #e0f2fe; color: #0369a1; }
+.pill-essay  { background: #fef3c7; color: #92400e; }
+.item-info { flex: 1; }
+.item-title { font-size: 14px; font-weight: 500; }
+.item-meta { font-size: 12px; color: #888; margin-top: 2px; }
+.item-actions { display: flex; gap: 8px; align-items: center; }
+.btn-reschedule {
+  font-size: 12px; color: #888; background: none; border: none; cursor: pointer;
+  padding: 3px 6px; border-radius: 4px; font-family: inherit;
+}
+.btn-reschedule:hover { background: #f0f0f0; color: #111; }
+.btn-edit-link {
+  font-size: 12px; color: #888; text-decoration: none;
+  padding: 3px 6px; border-radius: 4px;
+}
+.btn-edit-link:hover { background: #f0f0f0; color: #111; }
+
+/* ─── Legend ────────────────────────────────────────────── */
+.legend {
+  display: flex; gap: 18px; margin-bottom: 16px;
+  font-size: 12px; color: #666;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+
+/* ─── Toast ─────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; z-index: 200; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.toast.show { opacity: 1; pointer-events: auto; }
+.toast.error { background: #dc2626; }
+
+/* ─── Reschedule modal ──────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 150;
+}
+.modal-backdrop.hidden { display: none; }
+.modal-box {
+  background: #fff; border-radius: 10px; padding: 28px 32px;
+  width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.modal-box h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.modal-box p { font-size: 13px; color: #666; margin-bottom: 18px; }
+.field label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
+.field input[type="date"] {
+  width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none;
+}
+.field input[type="date"]:focus { border-color: #111; }
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;
+}
+.btn-cancel {
+  padding: 8px 18px; background: #f5f5f5; border: 1px solid #ddd;
+  border-radius: 6px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.btn-cancel:hover { background: #eee; }
+.btn-save {
+  padding: 8px 18px; background: #111; color: #fff; border: none;
+  border-radius: 6px; font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;
+}
+.btn-save:hover { background: #333; }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin</h1>
+    <p>Paradox of Acceptance</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password">
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <span class="header-title">Paradox of Acceptance</span>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/gates/">Gates</a>
+      <a href="/admin/writing/">Writing</a>
+      <a href="/admin/calendar/" class="active">Calendar</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Content Calendar</div>
+        <div class="page-sub">Scheduled courses, lessons, and essays. Drag to reschedule.</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="dot dot-course"></span> Course</div>
+      <div class="legend-item"><span class="dot dot-lesson"></span> Lesson</div>
+      <div class="legend-item"><span class="dot dot-essay"></span> Essay</div>
+    </div>
+
+    <div class="cal-controls">
+      <button class="btn-nav" id="btn-prev">‹</button>
+      <div class="cal-month-label" id="month-label"></div>
+      <button class="btn-nav" id="btn-next">›</button>
+      <button class="btn-nav" id="btn-today" style="margin-left:6px">Today</button>
+    </div>
+
+    <div class="cal-wrap">
+      <div class="cal-grid" id="cal-dow-row"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-header" id="detail-header"></div>
+      <div class="item-list" id="item-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Reschedule modal -->
+<div class="modal-backdrop hidden" id="reschedule-modal">
+  <div class="modal-box">
+    <h2>Reschedule</h2>
+    <p id="reschedule-item-title" style="font-size:14px;font-weight:500;color:#111;margin-bottom:4px"></p>
+    <p id="reschedule-item-meta"></p>
+    <div class="field">
+      <label for="reschedule-date">New publish date</label>
+      <input type="date" id="reschedule-date">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeReschedule()">Cancel</button>
+      <button class="btn-save" id="btn-reschedule-save" onclick="saveReschedule()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const API_BASE = window.location.origin;
+let adminSecret = '';
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+const stored = sessionStorage.getItem('poa_admin_secret');
+if (stored) { adminSecret = stored; bootstrap(); }
+
+document.getElementById('admin-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryAuth();
+});
+document.getElementById('auth-submit').addEventListener('click', tryAuth);
+
+async function tryAuth() {
+  const pw = document.getElementById('admin-password').value.trim();
+  if (!pw) return;
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true; btn.textContent = '…';
+  const res = await fetch(`${API_BASE}/api/admin/poa/courses`, {
+    headers: { 'X-Admin-Secret': pw }
+  });
+  if (res.ok) {
+    adminSecret = pw;
+    sessionStorage.setItem('poa_admin_secret', pw);
+    bootstrap();
+  } else {
+    document.getElementById('auth-error').textContent = 'Invalid password';
+    btn.disabled = false; btn.textContent = 'Unlock';
+  }
+}
+
+function bootstrap() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = '';
+  initCalendar();
+}
+
+// ─── API helper ───────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': adminSecret },
+    ...opts,
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, data };
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+let toastTimer;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+}
+
+// ─── Calendar state ───────────────────────────────────────────────────────────
+
+let byDate = {};          // { "2026-04-01": [...items] }
+let currentYear, currentMonth;
+let selectedDate = null;
+let pendingReschedule = null;  // { type, id, title, meta }
+const dragItem = { data: null };
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+async function initCalendar() {
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+
+  renderDowRow();
+  await loadCalendarData();
+  renderMonth();
+
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderMonth();
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderMonth();
+  });
+  document.getElementById('btn-today').addEventListener('click', () => {
+    const n = new Date();
+    currentYear = n.getFullYear(); currentMonth = n.getMonth();
+    renderMonth();
+  });
+}
+
+async function loadCalendarData() {
+  const { ok, data } = await api('/api/admin/poa/calendar');
+  if (ok) byDate = data.byDate ?? {};
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function renderDowRow() {
+  const row = document.getElementById('cal-dow-row');
+  row.innerHTML = DOW.map(d => `<div class="cal-dow">${d}</div>`).join('');
+}
+
+function toLocalDateStr(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function renderMonth() {
+  const label = new Date(currentYear, currentMonth, 1)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  document.getElementById('month-label').textContent = label;
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const today = toLocalDateStr(new Date());
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
+
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-day';
+
+    let dateStr;
+    if (i < startOffset) {
+      const d = prevMonthDays - startOffset + i + 1;
+      const m = currentMonth === 0 ? 12 : currentMonth;
+      const y = currentMonth === 0 ? currentYear - 1 : currentYear;
+      dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      cell.classList.add('other-month');
+    } else if (i < startOffset + daysInMonth) {
+      const d = i - startOffset + 1;
+      dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    } else {
+      const d = i - startOffset - daysInMonth + 1;
+      const m = currentMonth === 11 ? 1 : currentMonth + 2;
+      const y = currentMonth === 11 ? currentYear + 1 : currentYear;
+      dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      cell.classList.add('other-month');
+    }
+
+    if (dateStr === today) cell.classList.add('today');
+    if (dateStr === selectedDate) cell.classList.add('selected');
+
+    const dayNum = parseInt(dateStr.split('-')[2], 10);
+    const items = byDate[dateStr] ?? [];
+
+    const dots = items.map(item => {
+      const cls = item.type === 'course' ? 'dot-course'
+                : item.type === 'lesson' ? 'dot-lesson'
+                : 'dot-essay';
+      return `<span class="dot ${cls}" title="${esc(item.title)}"></span>`;
+    }).join('');
+
+    cell.innerHTML = `<div class="day-num">${dayNum}</div><div class="day-dots">${dots}</div>`;
+    cell.dataset.date = dateStr;
+
+    if (items.length > 0) {
+      cell.classList.add('has-content');
+      cell.addEventListener('click', () => selectDay(dateStr));
+    }
+
+    // Drag-drop target
+    cell.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      cell.style.background = '#f0f5ff';
+    });
+    cell.addEventListener('dragleave', () => {
+      cell.style.background = '';
+    });
+    cell.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      cell.style.background = '';
+      if (!dragItem.data) return;
+      await doReschedule(dragItem.data, dateStr);
+      dragItem.data = null;
+    });
+
+    grid.appendChild(cell);
+  }
+}
+
+// ─── Day detail ───────────────────────────────────────────────────────────────
+
+function selectDay(dateStr) {
+  selectedDate = dateStr;
+  renderMonth();
+
+  const items = byDate[dateStr] ?? [];
+  const panel = document.getElementById('detail-panel');
+  const header = document.getElementById('detail-header');
+  const list = document.getElementById('item-list');
+
+  const d = new Date(dateStr + 'T00:00:00');
+  header.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  list.innerHTML = items.map(item => renderItemCard(item, dateStr)).join('');
+  panel.classList.add('visible');
+
+  // Wire up drag on newly-rendered cards
+  panel.querySelectorAll('.item-card[draggable]').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      dragItem.data = JSON.parse(card.dataset.item);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => { dragItem.data = null; });
+  });
+}
+
+function renderItemCard(item, dateStr) {
+  const pillClass = item.type === 'course' ? 'pill-course'
+                  : item.type === 'lesson' ? 'pill-lesson'
+                  : 'pill-essay';
+  const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
+
+  let meta = '';
+  if (item.type === 'lesson' && item.course_slug) meta = `in <strong>${esc(item.course_slug)}</strong>`;
+  else if (item.type === 'essay') meta = `slug: <code>${esc(item.slug)}</code>`;
+  else if (item.type === 'course') meta = `slug: <code>${esc(item.slug)}</code>`;
+
+  let editHref = '#';
+  if (item.type === 'course') editHref = `/admin/courses/edit/?id=${esc(item.id)}`;
+  else if (item.type === 'lesson') editHref = `/admin/courses/edit/?id=${esc(item.course_id)}`;
+  else if (item.type === 'essay') editHref = `/admin/writing/`;
+
+  const itemData = JSON.stringify(item).replace(/"/g, '&quot;');
+
+  return `
+    <div class="item-card" draggable="true" data-item="${itemData}" data-id="${esc(item.id)}">
+      <span class="item-type-pill ${pillClass}">${esc(typeLabel)}</span>
+      <div class="item-info">
+        <div class="item-title">${esc(item.title)}</div>
+        <div class="item-meta">${meta}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn-reschedule" onclick="openReschedule(${itemData}, '${dateStr}')">Reschedule</button>
+        <a class="btn-edit-link" href="${editHref}">Edit ↗</a>
+      </div>
+    </div>`;
+}
+
+// ─── Reschedule ───────────────────────────────────────────────────────────────
+
+function openReschedule(item, currentDateStr) {
+  pendingReschedule = item;
+  document.getElementById('reschedule-item-title').textContent = item.title;
+  document.getElementById('reschedule-item-meta').textContent =
+    item.type === 'lesson' ? `Lesson in ${item.course_slug ?? ''}` : item.type.charAt(0).toUpperCase() + item.type.slice(1);
+  document.getElementById('reschedule-date').value = currentDateStr;
+  document.getElementById('reschedule-modal').classList.remove('hidden');
+}
+
+function closeReschedule() {
+  pendingReschedule = null;
+  document.getElementById('reschedule-modal').classList.add('hidden');
+}
+
+async function saveReschedule() {
+  if (!pendingReschedule) return;
+  const dateVal = document.getElementById('reschedule-date').value;
+  if (!dateVal) { showToast('Pick a date first', true); return; }
+  const newDateIso = `${dateVal}T00:00:00.000Z`;
+  const btn = document.getElementById('btn-reschedule-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  await doReschedule(pendingReschedule, dateVal);
+  btn.disabled = false; btn.textContent = 'Save';
+  closeReschedule();
+}
+
+async function doReschedule(item, newDateStr) {
+  const newIso = `${newDateStr}T00:00:00.000Z`;
+  const { ok, data } = await api('/api/admin/poa/calendar/reschedule', {
+    method: 'PATCH',
+    body: JSON.stringify({ type: item.type, id: item.id, scheduled_publish_at: newIso }),
+  });
+  if (!ok) { showToast(data.error ?? 'Reschedule failed', true); return; }
+
+  // Update local state
+  const oldDate = item.type === 'essay'
+    ? (item.publish_date ?? '').slice(0, 10)
+    : (item.scheduled_publish_at ?? '').slice(0, 10);
+
+  if (oldDate && byDate[oldDate]) {
+    byDate[oldDate] = byDate[oldDate].filter(i => i.id !== item.id);
+    if (byDate[oldDate].length === 0) delete byDate[oldDate];
+  }
+  const updatedItem = { ...item };
+  if (item.type === 'essay') updatedItem.publish_date = newIso;
+  else updatedItem.scheduled_publish_at = newIso;
+
+  if (!byDate[newDateStr]) byDate[newDateStr] = [];
+  byDate[newDateStr].push(updatedItem);
+
+  renderMonth();
+  if (selectedDate) selectDay(selectedDate);
+  showToast('Rescheduled');
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

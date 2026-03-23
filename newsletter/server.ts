@@ -8511,13 +8511,15 @@ app.get("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, r
 // PATCH /api/admin/poa/courses/:id — update
 app.patch("/api/admin/poa/courses/:id", requireAdminSecret, async (req: Request, res: Response) => {
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
-  const { title, description, slug, published, cover_image_url } = req.body as Record<string, unknown>;
+  const { title, description, slug, published, cover_image_url, scheduled_publish_at } = req.body as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
   if (typeof title === "string") patch.title = title.trim();
   if (typeof description === "string") patch.description = description.trim() || null;
   if (typeof slug === "string") patch.slug = slug.trim();
   if (typeof published === "boolean") patch.published = published;
   if (typeof cover_image_url === "string") patch.cover_image_url = cover_image_url.trim() || null;
+  if (typeof scheduled_publish_at === "string") patch.scheduled_publish_at = scheduled_publish_at;
+  if (scheduled_publish_at === null) patch.scheduled_publish_at = null;
   if (Object.keys(patch).length === 0) {
     res.status(400).json({ error: "No updatable fields provided" }); return;
   }
@@ -8646,7 +8648,7 @@ app.post("/api/admin/poa/courses/:id/lessons", requireAdminSecret, async (req: R
 // PATCH /api/admin/poa/lessons/:id — update lesson
 app.patch("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request, res: Response) => {
   if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
-  const { title, body, position, estimated_minutes, published_at } = req.body as Record<string, unknown>;
+  const { title, body, position, estimated_minutes, published_at, scheduled_publish_at } = req.body as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
   if (typeof title === "string") patch.title = title.trim();
   if (typeof body === "string") patch.body = body;
@@ -8656,6 +8658,8 @@ app.patch("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request,
   if (estimated_minutes === null) patch.estimated_minutes = null;
   if (typeof published_at === "string") patch.published_at = published_at;
   if (published_at === null) patch.published_at = null;
+  if (typeof scheduled_publish_at === "string") patch.scheduled_publish_at = scheduled_publish_at;
+  if (scheduled_publish_at === null) patch.scheduled_publish_at = null;
   if (Object.keys(patch).length === 0) {
     res.status(400).json({ error: "No updatable fields provided" }); return;
   }
@@ -8781,6 +8785,7 @@ app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res:
     read_time,
     tags,
     published_at,
+    scheduled_publish_at,
     post_to_twitter = false,
     type = "essay",
     course_slug,
@@ -8793,6 +8798,7 @@ app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res:
     read_time?: string;
     tags?: string[];
     published_at?: string;
+    scheduled_publish_at?: string;
     post_to_twitter?: boolean;
     type?: "essay" | "lesson";
     course_slug?: string;
@@ -8806,7 +8812,9 @@ app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res:
     return res.status(400).json({ error: "slug must be lowercase alphanumeric with hyphens" });
   }
 
-  const publishedAt = published_at ?? new Date().toISOString();
+  // If scheduled_publish_at is provided, use it as published_at for essays.
+  // For lessons, it populates the dedicated scheduled_publish_at column instead.
+  const publishedAt = published_at ?? scheduled_publish_at ?? new Date().toISOString();
 
   // ─── Essay ───────────────────────────────────────────────────────────────
 
@@ -8924,16 +8932,22 @@ app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res:
     let action: "created" | "updated";
     let lesson: unknown;
 
+    // When scheduled_publish_at is provided, store it separately and keep published_at null
+    // so the 15-min cron publishes it at the right time.
+    const lessonPublishedAt = scheduled_publish_at ? null : publishedAt;
+    const lessonScheduledAt = scheduled_publish_at ?? null;
+
     if (existingLesson) {
       const { data, error } = await supabase
         .from("poa_lessons")
         .update({
           body: body_markdown ?? null,
-          published_at: publishedAt,
+          published_at: lessonPublishedAt,
+          scheduled_publish_at: lessonScheduledAt,
           ...(read_time ? { estimated_minutes: parseInt(read_time) || null } : {}),
         })
         .eq("id", existingLesson.id)
-        .select("id, course_id, title, body, position, estimated_minutes, published_at")
+        .select("id, course_id, title, body, position, estimated_minutes, published_at, scheduled_publish_at")
         .single();
 
       if (error) {
@@ -8961,9 +8975,10 @@ app.post("/api/admin/poa/publish", requireAdminSecret, async (req: Request, res:
           title,
           body: body_markdown ?? null,
           position,
-          published_at: publishedAt,
+          published_at: lessonPublishedAt,
+          scheduled_publish_at: lessonScheduledAt,
         })
-        .select("id, course_id, title, body, position, estimated_minutes, published_at")
+        .select("id, course_id, title, body, position, estimated_minutes, published_at, scheduled_publish_at")
         .single();
 
       if (error) {
@@ -9027,6 +9042,226 @@ app.post("/api/corpus/proposals", requireAdminSecret, async (req: Request, res: 
 
   console.log(`[corpus/proposals] ingested: ${slug} (embedding_generated=${embeddingGenerated})`);
   return res.status(201).json({ ok: true, slug, title, status: "approved", embedding_generated: embeddingGenerated });
+});
+
+// ─── Content Calendar ─────────────────────────────────────────────────────────
+//
+// GET  /api/admin/poa/calendar          — return scheduled content grouped by date
+// POST /api/admin/cron/scheduled-publish — auto-publish content whose time has arrived
+// PATCH /api/admin/poa/calendar/reschedule — drag-to-reschedule a content item
+
+/**
+ * GET /api/admin/poa/calendar
+ *
+ * Returns all upcoming (and recently past) scheduled content in a
+ * date-keyed map suitable for rendering a monthly calendar view.
+ *
+ * Response shape:
+ * {
+ *   byDate: {
+ *     "2026-04-01": [
+ *       { type: "course", id, title, slug, scheduled_publish_at },
+ *       { type: "lesson", id, title, course_id, course_slug, scheduled_publish_at },
+ *       { type: "essay",  id, title, slug, publish_date }
+ *     ]
+ *   }
+ * }
+ *
+ * Covers ± 6 months from today.
+ */
+app.get("/api/admin/poa/calendar", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const now = new Date();
+  const rangeStart = new Date(now);
+  rangeStart.setMonth(rangeStart.getMonth() - 1);
+  const rangeEnd = new Date(now);
+  rangeEnd.setMonth(rangeEnd.getMonth() + 6);
+
+  const [coursesRes, lessonsRes, essaysRes] = await Promise.all([
+    supabase
+      .from("poa_courses")
+      .select("id, title, slug, scheduled_publish_at")
+      .not("scheduled_publish_at", "is", null)
+      .eq("published", false)
+      .is("deleted_at", null)
+      .gte("scheduled_publish_at", rangeStart.toISOString())
+      .lte("scheduled_publish_at", rangeEnd.toISOString()),
+    supabase
+      .from("poa_lessons")
+      .select("id, title, course_id, scheduled_publish_at, poa_courses!inner(slug)")
+      .not("scheduled_publish_at", "is", null)
+      .is("published_at", null)
+      .gte("scheduled_publish_at", rangeStart.toISOString())
+      .lte("scheduled_publish_at", rangeEnd.toISOString()),
+    supabase
+      .from("essays")
+      .select("id, title, slug, published_at")
+      .not("published_at", "is", null)
+      .gte("published_at", now.toISOString())   // future-dated = scheduled
+      .lte("published_at", rangeEnd.toISOString()),
+  ]);
+
+  const byDate: Record<string, Array<Record<string, unknown>>> = {};
+
+  function addToDate(isoString: string, item: Record<string, unknown>) {
+    const day = isoString.slice(0, 10); // YYYY-MM-DD
+    if (!byDate[day]) byDate[day] = [];
+    byDate[day].push(item);
+  }
+
+  for (const c of coursesRes.data ?? []) {
+    addToDate(c.scheduled_publish_at as string, { type: "course", id: c.id, title: c.title, slug: c.slug, scheduled_publish_at: c.scheduled_publish_at });
+  }
+  for (const l of lessonsRes.data ?? []) {
+    const course = (l as Record<string, unknown>).poa_courses as { slug: string } | null;
+    addToDate(l.scheduled_publish_at as string, { type: "lesson", id: l.id, title: l.title, course_id: l.course_id, course_slug: course?.slug ?? null, scheduled_publish_at: l.scheduled_publish_at });
+  }
+  for (const e of essaysRes.data ?? []) {
+    addToDate(e.published_at as string, { type: "essay", id: e.id, title: e.title, slug: e.slug, publish_date: e.published_at });
+  }
+
+  res.json({ byDate });
+});
+
+/**
+ * PATCH /api/admin/poa/calendar/reschedule
+ *
+ * Move a content item to a new date (drag-to-reschedule).
+ *
+ * Body: { type: "course"|"lesson"|"essay", id: string, scheduled_publish_at: string|null }
+ *
+ * For essays, updates the published_at column.
+ * For courses/lessons, updates scheduled_publish_at.
+ */
+app.patch("/api/admin/poa/calendar/reschedule", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+  const { type, id, scheduled_publish_at } = req.body as { type?: string; id?: string; scheduled_publish_at?: string | null };
+
+  if (!type || !id) {
+    res.status(400).json({ error: "type and id are required" }); return;
+  }
+  if (!["course", "lesson", "essay"].includes(type)) {
+    res.status(400).json({ error: "type must be course, lesson, or essay" }); return;
+  }
+  const newDate = typeof scheduled_publish_at === "string" ? scheduled_publish_at : null;
+
+  if (type === "course") {
+    const { data, error } = await supabase
+      .from("poa_courses")
+      .update({ scheduled_publish_at: newDate })
+      .eq("id", id)
+      .is("deleted_at", null)
+      .select("id, title, slug, scheduled_publish_at")
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!data) { res.status(404).json({ error: "Course not found" }); return; }
+    void writeAuditLog("poa_courses", id, "reschedule", { scheduled_publish_at: newDate });
+    res.json({ item: { type: "course", ...data } });
+  } else if (type === "lesson") {
+    const { data, error } = await supabase
+      .from("poa_lessons")
+      .update({ scheduled_publish_at: newDate })
+      .eq("id", id)
+      .select("id, title, course_id, scheduled_publish_at")
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!data) { res.status(404).json({ error: "Lesson not found" }); return; }
+    void writeAuditLog("poa_lessons", id, "reschedule", { scheduled_publish_at: newDate });
+    res.json({ item: { type: "lesson", ...data } });
+  } else {
+    // essay — published_at doubles as the schedule date
+    const { data, error } = await supabase
+      .from("essays")
+      .update({ published_at: newDate })
+      .eq("id", id)
+      .select("id, title, slug, published_at")
+      .maybeSingle();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (!data) { res.status(404).json({ error: "Essay not found" }); return; }
+    void writeAuditLog("essays", id, "reschedule", { published_at: newDate });
+    res.json({ item: { type: "essay", ...data, publish_date: data.published_at } });
+  }
+});
+
+/**
+ * POST /api/admin/cron/scheduled-publish
+ *
+ * Auto-publishes content whose scheduled_publish_at time has arrived.
+ * Should be called every 15 minutes by Vercel cron or an external scheduler.
+ *
+ * Auth: X-Admin-Secret header (reuse existing admin auth).
+ *
+ * For poa_courses: sets published=true and clears scheduled_publish_at.
+ * For poa_lessons: sets published_at=scheduled_publish_at and clears scheduled_publish_at.
+ *
+ * Returns counts of items published.
+ */
+app.post("/api/admin/cron/scheduled-publish", requireAdminSecret, async (_req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const now = new Date().toISOString();
+
+  // Publish courses
+  const { data: publishedCourses, error: courseErr } = await supabase
+    .from("poa_courses")
+    .update({ published: true, scheduled_publish_at: null })
+    .lte("scheduled_publish_at", now)
+    .not("scheduled_publish_at", "is", null)
+    .eq("published", false)
+    .is("deleted_at", null)
+    .select("id, title, slug");
+
+  if (courseErr) {
+    console.error("[scheduled-publish] course error:", courseErr.message);
+  }
+
+  // Publish lessons (set published_at = scheduled_publish_at, then clear)
+  // Fetch matching lessons first so we can set published_at correctly per-row
+  const { data: dueLessons, error: lessonFetchErr } = await supabase
+    .from("poa_lessons")
+    .select("id, title, scheduled_publish_at")
+    .lte("scheduled_publish_at", now)
+    .not("scheduled_publish_at", "is", null)
+    .is("published_at", null);
+
+  let publishedLessons: Array<{ id: string; title: string }> = [];
+  if (!lessonFetchErr && dueLessons && dueLessons.length > 0) {
+    const lessonUpdates = await Promise.all(
+      dueLessons.map((l) =>
+        supabase!
+          .from("poa_lessons")
+          .update({ published_at: l.scheduled_publish_at, scheduled_publish_at: null })
+          .eq("id", l.id)
+          .select("id, title")
+          .maybeSingle()
+      )
+    );
+    publishedLessons = lessonUpdates.flatMap((r) => (r.data ? [r.data] : []));
+  }
+
+  const courseCount = publishedCourses?.length ?? 0;
+  const lessonCount = publishedLessons.length;
+
+  if (courseCount > 0 || lessonCount > 0) {
+    console.log(`[scheduled-publish] published ${courseCount} courses, ${lessonCount} lessons`);
+    for (const c of publishedCourses ?? []) {
+      void writeAuditLog("poa_courses", c.id, "scheduled_publish", { title: c.title, slug: c.slug });
+    }
+    for (const l of publishedLessons) {
+      void writeAuditLog("poa_lessons", l.id, "scheduled_publish", { title: l.title });
+    }
+  }
+
+  res.json({
+    ok: true,
+    published: {
+      courses: courseCount,
+      lessons: lessonCount,
+    },
+    courses: publishedCourses?.map((c) => ({ id: c.id, title: c.title, slug: c.slug })) ?? [],
+    lessons: publishedLessons.map((l) => ({ id: l.id, title: l.title })),
+  });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

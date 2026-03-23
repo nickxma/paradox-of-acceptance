@@ -5,13 +5,19 @@
  * Scans the Obsidian vault for markdown files with:
  *   publish: true
  *   status: ready
- * …and no `published_at` field (unpublished).
+ * …and no `published_at` or `scheduled_at` field (unprocessed).
+ *
+ * Scheduling via `publish_date` frontmatter key:
+ *   If a note has `publish_date: 2026-04-15`, the pipeline passes it as
+ *   `scheduled_publish_at` to the API and writes `scheduled_at` to the
+ *   frontmatter. The server-side cron publishes it at the scheduled time.
+ *   Notes without `publish_date` are published immediately.
  *
  * For each matching file:
  *   1. Strip Obsidian-specific syntax (wiki links, callouts, inline tags).
  *   2. POST to /api/admin/poa/publish (essay or lesson, based on `type` frontmatter).
- *   3. POST to /api/corpus/proposals (auto-approved embedding ingest).
- *   4. Update the file's frontmatter to add `published_at`.
+ *   3. POST to /api/corpus/proposals (auto-approved embedding ingest) — essays only.
+ *   4. Update the file's frontmatter: add `published_at` (immediate) or `scheduled_at` (deferred).
  *   5. Append an entry to the publish log.
  *
  * Usage:
@@ -165,6 +171,16 @@ function serializeFrontmatter(fm) {
  */
 function markPublished(filePath, frontmatter, body, publishedAt) {
   const newFm = { ...frontmatter, published_at: publishedAt };
+  const newContent = `---\n${serializeFrontmatter(newFm)}\n---\n\n${body}`;
+  writeFileSync(filePath, newContent, "utf-8");
+}
+
+/**
+ * Inject scheduled_at into the frontmatter (deferred publish).
+ * Does NOT set published_at — the server cron will publish when the time arrives.
+ */
+function markScheduled(filePath, frontmatter, body, scheduledAt) {
+  const newFm = { ...frontmatter, scheduled_at: scheduledAt };
   const newContent = `---\n${serializeFrontmatter(newFm)}\n---\n\n${body}`;
   writeFileSync(filePath, newContent, "utf-8");
 }
@@ -324,10 +340,11 @@ async function main() {
 
     const { frontmatter, body } = parseFrontmatter(content);
 
-    // Filter: must have publish: true, status: ready, and no published_at
+    // Filter: must have publish: true, status: ready, and no published_at or scheduled_at
     if (frontmatter.publish !== true) continue;
     if (frontmatter.status !== "ready") continue;
-    if (frontmatter.published_at) continue;
+    if (frontmatter.published_at) continue;   // already published
+    if (frontmatter.scheduled_at) continue;   // already scheduled
 
     candidates.push({ filePath, frontmatter, body });
   }
@@ -359,6 +376,14 @@ async function main() {
     // Strip Obsidian syntax from body
     const bodyMarkdown = stripObsidianSyntax(body);
 
+    // Detect scheduled publish: if publish_date is set, schedule rather than publish now
+    const publishDate = fm.publish_date ? String(fm.publish_date) : null;
+    // Normalise YYYY-MM-DD to an ISO datetime at midnight UTC
+    const scheduledPublishAt = publishDate
+      ? (/^\d{4}-\d{2}-\d{2}$/.test(publishDate) ? `${publishDate}T00:00:00.000Z` : publishDate)
+      : null;
+    const isScheduled = Boolean(scheduledPublishAt);
+
     // Build publish payload
     const publishPayload = {
       slug,
@@ -370,11 +395,12 @@ async function main() {
       ...(fm.description ? { description: String(fm.description) } : {}),
       ...(fm.read_time ? { read_time: String(fm.read_time) } : {}),
       ...(fm.tags && Array.isArray(fm.tags) ? { tags: fm.tags.map(String) } : {}),
-      ...(fm.published_at_scheduled ? { published_at: String(fm.published_at_scheduled) } : {}),
+      ...(scheduledPublishAt ? { scheduled_publish_at: scheduledPublishAt } : {}),
       post_to_twitter: fm.post_to_twitter === true,
     };
 
-    console.log(`[obsidian-publish] Publishing: ${slug} (${type}${type === "lesson" ? ` in ${courseSlug}` : ""})`);
+    const action = isScheduled ? "Scheduling" : "Publishing";
+    console.log(`[obsidian-publish] ${action}: ${slug} (${type}${type === "lesson" ? ` in ${courseSlug}` : ""}${scheduledPublishAt ? ` at ${scheduledPublishAt}` : ""})`);
 
     if (DRY_RUN) {
       console.log(`[obsidian-publish] DRY RUN: would POST /api/admin/poa/publish`, JSON.stringify(publishPayload, null, 2));
@@ -383,12 +409,12 @@ async function main() {
     }
 
     try {
-      // 1. Publish to PoA
+      // 1. Publish / schedule on PoA
       const publishResult = await apiPost("/api/admin/poa/publish", publishPayload);
-      console.log(`[obsidian-publish] Published ${slug} (${publishResult.action})`);
+      console.log(`[obsidian-publish] ${isScheduled ? "Scheduled" : "Published"} ${slug} (${publishResult.action})`);
 
-      // 2. Ingest into corpus (essays only — lessons don't need embeddings)
-      if (type === "essay" && bodyMarkdown) {
+      // 2. Ingest into corpus (essays only — lessons don't need embeddings; skip for scheduled)
+      if (type === "essay" && bodyMarkdown && !isScheduled) {
         try {
           await apiPost("/api/corpus/proposals", {
             slug,
@@ -404,18 +430,23 @@ async function main() {
         }
       }
 
-      // 3. Mark file as published
-      const publishedAt = new Date().toISOString();
-      markPublished(filePath, fm, body, publishedAt);
-      console.log(`[obsidian-publish] Updated frontmatter: ${fileName}`);
+      // 3. Mark file (scheduled vs published)
+      const timestamp = isScheduled ? scheduledPublishAt : new Date().toISOString();
+      if (isScheduled) {
+        markScheduled(filePath, fm, body, timestamp);
+        console.log(`[obsidian-publish] Marked as scheduled (${timestamp}): ${fileName}`);
+      } else {
+        markPublished(filePath, fm, body, timestamp);
+        console.log(`[obsidian-publish] Updated frontmatter: ${fileName}`);
+      }
 
       // 4. Append to publish log
       appendPublishLog({
-        timestamp: publishedAt,
+        timestamp,
         slug,
         type,
         title,
-        status: publishResult.action,
+        status: isScheduled ? `scheduled:${scheduledPublishAt}` : publishResult.action,
       });
 
       published++;

@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Course — Admin — Paradox of Acceptance</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5; color: #111; font-size: 14px; min-height: 100vh;
+}
+
+/* ─── Auth gate ─────────────────────────────────────── */
+#auth-gate {
+  position: fixed; inset: 0; background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.auth-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 40px 48px; width: 360px; text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%; padding: 10px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main ──────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.breadcrumb {
+  font-size: 13px; color: #888;
+  display: flex; align-items: center; gap: 6px;
+}
+.breadcrumb a { color: #888; text-decoration: none; }
+.breadcrumb a:hover { color: #111; }
+.breadcrumb-sep { color: #ccc; }
+.breadcrumb-current { color: #111; }
+
+.header-actions { display: flex; gap: 10px; align-items: center; }
+.auto-save-msg { font-size: 12px; color: #aaa; }
+
+.btn-sm {
+  padding: 7px 16px; border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.btn-save-draft { background: #f5f5f5; color: #555; border: 1px solid #ddd; }
+.btn-save-draft:hover { background: #eee; }
+.btn-save-draft:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-publish { background: #111; color: #fff; }
+.btn-publish:hover { background: #333; }
+.btn-publish:disabled { background: #aaa; cursor: not-allowed; }
+.btn-unpublish { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+.btn-unpublish:hover { background: #fef3c7; }
+.btn-unpublish:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 10px;
+  font-size: 11px; font-weight: 500;
+}
+.badge-published { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.badge-draft { background: #fafafa; color: #888; border: 1px solid #e5e5e5; }
+
+/* ─── Layout ────────────────────────────────────────── */
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  padding: 28px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ─── Panels ────────────────────────────────────────── */
+.panel {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid #f0f0f0;
+}
+.panel-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999;
+}
+.panel-body { padding: 20px 18px; }
+
+/* ─── Form fields ───────────────────────────────────── */
+.field { margin-bottom: 18px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: 12px; font-weight: 500; color: #555; margin-bottom: 5px; }
+.field input, .field textarea, .field select {
+  width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; background: #fff;
+}
+.field input:focus, .field textarea:focus { border-color: #999; }
+.field textarea { resize: vertical; min-height: 80px; }
+.field-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+/* ─── Cover image ───────────────────────────────────── */
+.cover-drop-area {
+  border: 2px dashed #ddd; border-radius: 8px; padding: 20px;
+  text-align: center; transition: border-color 0.15s, background 0.15s; cursor: pointer;
+  position: relative;
+}
+.cover-drop-area:hover, .cover-drop-area.drag-over { border-color: #999; background: #fafafa; }
+.cover-drop-area input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  border: none; padding: 0;
+}
+.cover-drop-area img { max-height: 120px; max-width: 100%; border-radius: 4px; display: block; margin: 0 auto 8px; }
+.cover-drop-text { font-size: 12px; color: #aaa; }
+.cover-uploading { font-size: 12px; color: #2563eb; }
+.cover-url-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.cover-url-row input { flex: 1; }
+.btn-tiny {
+  padding: 5px 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;
+  font-size: 11px; font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.btn-tiny:hover { background: #eee; }
+
+/* ─── Lessons panel ─────────────────────────────────── */
+.lessons-list { list-style: none; }
+.lesson-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid #f5f5f5; cursor: default;
+}
+.lesson-row:last-child { border-bottom: none; }
+.lesson-row.dragging { opacity: 0.4; }
+.lesson-row.drag-target { border-top: 2px solid #111; }
+.drag-handle {
+  color: #ccc; cursor: grab; user-select: none; font-size: 16px; padding: 0 2px;
+  flex-shrink: 0;
+}
+.drag-handle:active { cursor: grabbing; }
+.lesson-info { flex: 1; min-width: 0; }
+.lesson-title-text {
+  font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lesson-meta { font-size: 11px; color: #aaa; margin-top: 2px; }
+.lesson-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.btn-lesson {
+  padding: 4px 9px; background: transparent; border: 1px solid #ddd; border-radius: 4px;
+  font-size: 11px; font-family: inherit; cursor: pointer; transition: background 0.1s;
+}
+.btn-lesson:hover { background: #f0f0f0; }
+.btn-lesson.btn-lesson-delete { color: #dc2626; border-color: #fecaca; }
+.btn-lesson.btn-lesson-delete:hover { background: #fef2f2; }
+
+.btn-add-lesson {
+  width: 100%; padding: 9px; background: #fafafa; border: 1px dashed #ddd;
+  border-radius: 6px; font-size: 13px; color: #888; font-family: inherit;
+  cursor: pointer; transition: background 0.15s; margin-top: 12px;
+}
+.btn-add-lesson:hover { background: #f0f0f0; border-color: #ccc; }
+
+.lessons-empty { font-size: 13px; color: #aaa; padding: 12px 0; text-align: center; }
+
+/* ─── Lesson editor modal ───────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-start; justify-content: center;
+  z-index: 200; padding: 40px 20px; overflow-y: auto;
+}
+.modal-backdrop.hidden { display: none; }
+.lesson-modal {
+  background: #fff; border-radius: 10px; width: 860px; max-width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - 80px);
+}
+.lesson-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+}
+.lesson-modal-header h2 { font-size: 15px; font-weight: 600; }
+.modal-header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-close {
+  background: none; border: none; font-size: 20px; color: #999;
+  cursor: pointer; padding: 2px 6px; line-height: 1;
+}
+.btn-close:hover { color: #333; }
+.lesson-modal-body { padding: 18px 24px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+
+/* Markdown editor */
+.md-editor-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.md-toolbar {
+  display: flex; gap: 4px; align-items: center; margin-bottom: 6px;
+}
+.md-toggle {
+  display: flex; border: 1px solid #ddd; border-radius: 5px; overflow: hidden;
+}
+.md-toggle button {
+  padding: 5px 12px; background: transparent; border: none; font-size: 12px;
+  font-family: inherit; cursor: pointer; color: #888; transition: background 0.1s;
+}
+.md-toggle button.active { background: #111; color: #fff; }
+.md-sep { width: 1px; background: #ddd; margin: 0 4px; }
+.md-btn {
+  padding: 4px 8px; background: transparent; border: 1px solid #e0e0e0;
+  border-radius: 4px; font-size: 12px; font-family: monospace; color: #555;
+  cursor: pointer; transition: background 0.1s;
+}
+.md-btn:hover { background: #f0f0f0; }
+.md-editor {
+  flex: 1; width: 100%; min-height: 320px; max-height: 520px;
+  padding: 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-family: 'SF Mono', 'Fira Mono', monospace; line-height: 1.6;
+  resize: vertical; outline: none; transition: border-color 0.15s;
+}
+.md-editor:focus { border-color: #999; }
+.md-preview {
+  flex: 1; min-height: 320px; max-height: 520px; overflow-y: auto;
+  padding: 14px 16px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa;
+  font-size: 14px; line-height: 1.7; color: #111;
+  display: none;
+}
+.md-preview.visible { display: block; }
+.md-preview h1, .md-preview h2, .md-preview h3 { margin: 1em 0 0.5em; font-weight: 600; }
+.md-preview p { margin-bottom: 0.8em; }
+.md-preview pre { background: #f0f0f0; padding: 10px 12px; border-radius: 4px; overflow-x: auto; font-size: 12px; margin-bottom: 0.8em; }
+.md-preview code { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 0.9em; }
+.md-preview pre code { font-size: 12px; }
+.md-preview ul, .md-preview ol { padding-left: 20px; margin-bottom: 0.8em; }
+.md-preview blockquote { border-left: 3px solid #ddd; padding-left: 12px; color: #888; margin-bottom: 0.8em; }
+
+.lesson-modal-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; border-top: 1px solid #f0f0f0; flex-shrink: 0;
+}
+.lesson-footer-left { display: flex; align-items: center; gap: 12px; }
+.lesson-publish-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #555; }
+.lesson-publish-row input[type="checkbox"] { cursor: pointer; }
+.lesson-modal-error { font-size: 12px; color: #dc2626; }
+.lesson-footer-right { display: flex; gap: 8px; }
+.btn-lesson-save {
+  padding: 8px 20px; background: #111; color: #fff;
+  border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-lesson-save:hover { background: #333; }
+.btn-lesson-save:disabled { background: #aaa; cursor: not-allowed; }
+.btn-lesson-cancel {
+  padding: 8px 16px; background: transparent; color: #666;
+  border: 1px solid #ddd; border-radius: 5px; font-size: 13px;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-lesson-cancel:hover { background: #f0f0f0; }
+
+/* ─── Confirm modal ─────────────────────────────────── */
+.confirm-modal {
+  background: #fff; border-radius: 10px; padding: 28px 32px;
+  width: 420px; max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.confirm-modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.confirm-modal p { font-size: 13px; color: #555; line-height: 1.6; }
+.confirm-modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+.btn-confirm-ok {
+  padding: 8px 20px; background: #111; color: #fff;
+  border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer;
+}
+.btn-confirm-ok.danger { background: #dc2626; }
+.btn-confirm-ok:hover { opacity: 0.85; }
+.btn-confirm-cancel {
+  padding: 8px 16px; background: transparent; color: #666;
+  border: 1px solid #ddd; border-radius: 5px; font-size: 13px;
+  font-family: inherit; cursor: pointer;
+}
+.btn-confirm-cancel:hover { background: #f0f0f0; }
+
+/* ─── Toast ──────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 6px;
+  font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  white-space: nowrap; z-index: 400;
+}
+#toast.show { opacity: 1; }
+
+/* ─── Loading / error states ────────────────────────── */
+.loading-placeholder { padding: 60px 32px; text-align: center; color: #aaa; font-size: 13px; }
+
+@media (max-width: 900px) {
+  .editor-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .editor-layout { padding: 16px; }
+  header { padding: 0 16px; }
+  .header-actions { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin — Course Editor</h1>
+    <p>Paradox of Acceptance</p>
+    <input type="password" id="admin-password" class="auth-input" placeholder="Admin password" autocomplete="current-password">
+    <button id="auth-submit" class="btn-primary">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <div class="header-left">
+      <span class="header-title">Paradox of Acceptance</span>
+      <div class="breadcrumb">
+        <span class="breadcrumb-sep">›</span>
+        <a href="/admin/courses/">Courses</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current" id="breadcrumb-title">…</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="auto-save-msg" id="auto-save-msg"></span>
+      <span id="publish-badge"></span>
+      <button class="btn-sm btn-save-draft" id="btn-save-draft" onclick="saveDraft()">Save Draft</button>
+      <button class="btn-sm btn-publish" id="btn-publish" onclick="openPublishConfirm()">Publish</button>
+    </div>
+  </header>
+
+  <div id="editor-body">
+    <div class="loading-placeholder">Loading course…</div>
+  </div>
+</div>
+
+<!-- Lesson editor modal -->
+<div class="modal-backdrop hidden" id="lesson-modal">
+  <div class="lesson-modal">
+    <div class="lesson-modal-header">
+      <h2 id="lesson-modal-title">New Lesson</h2>
+      <div class="modal-header-actions">
+        <button class="btn-close" onclick="closeLessonModal()" title="Close">×</button>
+      </div>
+    </div>
+    <div class="lesson-modal-body">
+      <div class="field">
+        <label for="lesson-title">Title <span style="color:#dc2626">*</span></label>
+        <input type="text" id="lesson-title" placeholder="Lesson title">
+      </div>
+      <div class="field">
+        <label for="lesson-minutes">Est. minutes</label>
+        <input type="number" id="lesson-minutes" placeholder="e.g. 15" min="1" max="600" style="max-width:160px">
+      </div>
+      <div class="md-editor-wrap">
+        <div class="md-toolbar">
+          <div class="md-toggle">
+            <button id="md-write-btn" class="active" onclick="setEditorMode('write')">Write</button>
+            <button id="md-preview-btn" onclick="setEditorMode('preview')">Preview</button>
+          </div>
+          <div class="md-sep"></div>
+          <button class="md-btn" onclick="insertMd('**', '**')" title="Bold">B</button>
+          <button class="md-btn" onclick="insertMd('_', '_')" title="Italic" style="font-style:italic">i</button>
+          <button class="md-btn" onclick="insertMd('`', '`')" title="Code">&#96;</button>
+          <button class="md-btn" onclick="insertMdLine('## ')" title="Heading">H</button>
+          <button class="md-btn" onclick="insertMdLine('- ')" title="List">•</button>
+          <button class="md-btn" onclick="insertMdBlock('```\n', '\n```')" title="Code block">{ }</button>
+        </div>
+        <textarea class="md-editor" id="lesson-body" placeholder="Write lesson content in Markdown…"></textarea>
+        <div class="md-preview" id="md-preview"></div>
+      </div>
+    </div>
+    <div class="lesson-modal-footer">
+      <div class="lesson-footer-left">
+        <div class="lesson-publish-row">
+          <input type="checkbox" id="lesson-published" />
+          <label for="lesson-published">Published</label>
+        </div>
+        <div class="lesson-modal-error" id="lesson-error"></div>
+      </div>
+      <div class="lesson-footer-right">
+        <button class="btn-lesson-cancel" onclick="closeLessonModal()">Cancel</button>
+        <button class="btn-lesson-save" id="lesson-save-btn" onclick="saveLesson()">Save Lesson</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Publish/Unpublish confirm modal -->
+<div class="modal-backdrop hidden" id="confirm-modal">
+  <div class="confirm-modal">
+    <h2 id="confirm-title">Publish Course?</h2>
+    <p id="confirm-msg">This will make the course visible to all users.</p>
+    <div class="confirm-modal-actions">
+      <button class="btn-confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-confirm-ok" id="confirm-ok-btn" onclick="doConfirmAction()">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete lesson confirm -->
+<div class="modal-backdrop hidden" id="delete-lesson-modal">
+  <div class="confirm-modal">
+    <h2>Delete Lesson?</h2>
+    <p id="delete-lesson-msg">This will permanently delete the lesson.</p>
+    <div class="confirm-modal-actions">
+      <button class="btn-confirm-cancel" onclick="closeDeleteLesson()">Cancel</button>
+      <button class="btn-confirm-ok danger" id="delete-lesson-ok" onclick="confirmDeleteLesson()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+let courseId = '';
+let course = null;
+let lessons = [];
+let editingLessonId = null; // null = new lesson
+let pendingDeleteLessonId = null;
+let pendingConfirmFn = null;
+let autoSaveTimer = null;
+let dirtyFields = false;
+
+// ─── URL params ──────────────────────────────────────────────────────
+
+function getCourseId() {
+  return new URLSearchParams(window.location.search).get('id') || '';
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', 'X-Admin-Secret': adminSecret };
+  if (opts.isFormData) delete headers['Content-Type'];
+  const res = await fetch(path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+async function initAuth() {
+  courseId = getCourseId();
+  if (!courseId) { document.getElementById('editor-body').innerHTML = '<div class="loading-placeholder">No course ID specified. <a href="/admin/courses/">← Back to courses</a></div>'; return; }
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': stored } });
+    if (r.ok) { adminSecret = stored; showMain(); return; }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadAll();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true; btn.textContent = 'Checking…'; errEl.textContent = '';
+  const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': secret } });
+  if (r.ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false; btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Load ────────────────────────────────────────────────────────────
+
+async function loadAll() {
+  const [courseRes, lessonsRes] = await Promise.all([
+    api(`/api/admin/poa/courses/${courseId}`),
+    api(`/api/admin/poa/courses/${courseId}/lessons`),
+  ]);
+  if (!courseRes.ok) {
+    document.getElementById('editor-body').innerHTML = '<div class="loading-placeholder">Course not found. <a href="/admin/courses/">← Back to courses</a></div>';
+    return;
+  }
+  course = courseRes.data.course;
+  lessons = lessonsRes.ok ? (lessonsRes.data.lessons ?? []) : [];
+  renderEditor();
+  startAutoSave();
+}
+
+// ─── Render editor ───────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderEditor() {
+  document.getElementById('breadcrumb-title').textContent = course.title;
+  document.title = `${course.title} — Edit — Paradox of Acceptance`;
+
+  // Header badge + buttons
+  const badge = course.published
+    ? '<span class="badge badge-published">Published</span>'
+    : '<span class="badge badge-draft">Draft</span>';
+  document.getElementById('publish-badge').innerHTML = badge;
+
+  if (course.published) {
+    document.getElementById('btn-publish').className = 'btn-sm btn-unpublish';
+    document.getElementById('btn-publish').textContent = 'Unpublish';
+    document.getElementById('btn-publish').onclick = openUnpublishConfirm;
+  } else {
+    document.getElementById('btn-publish').className = 'btn-sm btn-publish';
+    document.getElementById('btn-publish').textContent = 'Publish';
+    document.getElementById('btn-publish').onclick = openPublishConfirm;
+  }
+
+  const coverHtml = course.cover_image_url
+    ? `<img src="${esc(course.cover_image_url)}" alt="Cover" id="cover-preview-img"><div class="cover-drop-text">Drop a new image or click to replace</div>`
+    : `<div class="cover-drop-text">Drop an image here or click to upload</div>`;
+
+  document.getElementById('editor-body').innerHTML = `
+    <div class="editor-layout">
+      <!-- Left: course metadata + lessons -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Course Details</span></div>
+          <div class="panel-body">
+            <div class="field">
+              <label for="cf-title">Title</label>
+              <input type="text" id="cf-title" value="${esc(course.title)}" oninput="markDirty()">
+            </div>
+            <div class="field">
+              <label for="cf-slug">Slug</label>
+              <input type="text" id="cf-slug" value="${esc(course.slug)}" oninput="markDirty()">
+              <div class="field-hint">URL identifier — changing this will break existing links</div>
+            </div>
+            <div class="field">
+              <label for="cf-desc">Description</label>
+              <textarea id="cf-desc" oninput="markDirty()">${esc(course.description ?? '')}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Lessons</span>
+            <span style="font-size:12px;color:#aaa">${lessons.length} total</span>
+          </div>
+          <div class="panel-body" style="padding-bottom:8px">
+            <ul class="lessons-list" id="lessons-list">
+              ${renderLessonsHtml()}
+            </ul>
+            <button class="btn-add-lesson" onclick="openNewLesson()">+ Add Lesson</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: cover image -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Cover Image</span></div>
+          <div class="panel-body">
+            <div class="cover-drop-area" id="cover-drop-area" onclick="document.getElementById('cover-file').click()">
+              <input type="file" id="cover-file" accept="image/*" onchange="handleCoverFile(this.files[0])">
+              ${coverHtml}
+            </div>
+            <div class="cover-url-row">
+              <input type="text" id="cf-cover-url" placeholder="Or paste image URL…" value="${esc(course.cover_image_url ?? '')}" oninput="markDirty()">
+              <button class="btn-tiny" onclick="applyCoverUrl()">Apply</button>
+            </div>
+            <div class="field-hint" style="margin-top:6px">JPEG/PNG/WebP, max 8 MB</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><span class="panel-title">Schedule</span></div>
+          <div class="panel-body">
+            <div class="field">
+              <label for="cf-schedule-date">Publish date</label>
+              <input type="date" id="cf-schedule-date"
+                value="${esc(course.scheduled_publish_at ? course.scheduled_publish_at.slice(0,10) : '')}"
+                oninput="markDirty()"
+                ${course.published ? 'disabled title="Course is already published"' : ''}>
+              <div class="field-hint" style="margin-top:6px">
+                ${course.scheduled_publish_at && !course.published
+                  ? `Scheduled: <strong>${new Date(course.scheduled_publish_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</strong>. <a href="/admin/calendar/" style="color:#888">View calendar ↗</a>`
+                  : 'Leave blank to publish manually. Set a date to auto-publish via cron.'}
+              </div>
+            </div>
+            ${!course.published ? `<button class="btn-tiny" onclick="saveSchedule()">Save schedule</button>` : ''}
+          </div>
+        </div>
+
+      </div>
+    </div>`;
+
+  // Drag-to-reorder for lessons
+  initLessonDnD();
+
+  // Cover image drag-over
+  const dropArea = document.getElementById('cover-drop-area');
+  dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+  dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+  dropArea.addEventListener('drop', e => {
+    e.preventDefault(); dropArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleCoverFile(file);
+  });
+}
+
+function renderLessonsHtml() {
+  if (lessons.length === 0) return '<li class="lessons-empty">No lessons yet.</li>';
+  return lessons.map((l, i) => {
+    const pub = l.published_at ? '<span style="color:#16a34a;font-size:10px">●</span> Published' : '<span style="color:#aaa;font-size:10px">●</span> Draft';
+    const mins = l.estimated_minutes ? `${l.estimated_minutes} min` : '';
+    const meta = [pub, mins].filter(Boolean).join(' · ');
+    return `<li class="lesson-row" data-id="${esc(l.id)}" data-index="${i}" draggable="true">
+      <span class="drag-handle" title="Drag to reorder">⠿</span>
+      <div class="lesson-info">
+        <div class="lesson-title-text">${esc(l.title)}</div>
+        <div class="lesson-meta">${meta}</div>
+      </div>
+      <div class="lesson-actions">
+        <button class="btn-lesson" onclick="openEditLesson('${esc(l.id)}')">Edit</button>
+        <button class="btn-lesson btn-lesson-delete" onclick="openDeleteLessonConfirm('${esc(l.id)}', '${esc(l.title)}')">Delete</button>
+      </div>
+    </li>`;
+  }).join('');
+}
+
+function refreshLessonsPanel() {
+  const ul = document.getElementById('lessons-list');
+  if (ul) {
+    ul.innerHTML = renderLessonsHtml();
+    initLessonDnD();
+  }
+  const panel = document.querySelector('#lessons-list')?.closest('.panel');
+  if (panel) {
+    const span = panel.querySelector('.panel-header span:last-child');
+    if (span) span.textContent = `${lessons.length} total`;
+  }
+}
+
+// ─── Cover image ─────────────────────────────────────────────────────
+
+async function handleCoverFile(file) {
+  if (!file) return;
+  const dropArea = document.getElementById('cover-drop-area');
+  const statusEl = dropArea.querySelector('.cover-drop-text') || dropArea.appendChild(Object.assign(document.createElement('div'), { className: 'cover-drop-text' }));
+  statusEl.className = 'cover-uploading';
+  statusEl.textContent = 'Uploading…';
+
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch(`/api/admin/poa/courses/${courseId}/cover-image`, {
+    method: 'POST',
+    headers: { 'X-Admin-Secret': adminSecret },
+    body: fd,
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    statusEl.className = 'cover-drop-text';
+    statusEl.textContent = json.error || 'Upload failed';
+    showToast('Upload failed', true);
+    return;
+  }
+
+  course.cover_image_url = json.cover_image_url;
+  document.getElementById('cf-cover-url').value = json.cover_image_url;
+
+  // Show preview
+  let img = dropArea.querySelector('img');
+  if (!img) { img = document.createElement('img'); dropArea.insertBefore(img, dropArea.firstChild); }
+  img.src = json.cover_image_url;
+  img.style.maxHeight = '120px';
+  img.style.display = 'block';
+  img.style.margin = '0 auto 8px';
+  statusEl.className = 'cover-drop-text';
+  statusEl.textContent = 'Drop a new image or click to replace';
+  showToast('Cover image updated');
+}
+
+function applyCoverUrl() {
+  const url = document.getElementById('cf-cover-url').value.trim();
+  const dropArea = document.getElementById('cover-drop-area');
+  let img = dropArea.querySelector('img');
+  if (url) {
+    if (!img) { img = document.createElement('img'); img.style.maxHeight = '120px'; img.style.display = 'block'; img.style.margin = '0 auto 8px'; dropArea.insertBefore(img, dropArea.firstChild); }
+    img.src = url;
+  } else if (img) {
+    img.remove();
+  }
+  markDirty();
+}
+
+// ─── Auto-save + manual save ─────────────────────────────────────────
+
+function markDirty() { dirtyFields = true; }
+
+function startAutoSave() {
+  autoSaveTimer = setInterval(() => { if (dirtyFields) saveDraft(true); }, 30000);
+}
+
+function setAutoSaveMsg(msg) {
+  const el = document.getElementById('auto-save-msg');
+  if (el) el.textContent = msg;
+}
+
+async function saveDraft(isAuto = false) {
+  const title = document.getElementById('cf-title')?.value?.trim();
+  const slug = document.getElementById('cf-slug')?.value?.trim();
+  const description = document.getElementById('cf-desc')?.value?.trim();
+  const cover_image_url = document.getElementById('cf-cover-url')?.value?.trim();
+  if (!title && !slug && !description && !cover_image_url) return;
+
+  const btn = document.getElementById('btn-save-draft');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (!isAuto) setAutoSaveMsg('');
+  else setAutoSaveMsg('Saving…');
+
+  const patch = {};
+  if (title) patch.title = title;
+  if (slug) patch.slug = slug;
+  patch.description = description || null;
+  patch.cover_image_url = cover_image_url || null;
+
+  const { ok, data } = await api(`/api/admin/poa/courses/${courseId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Save Draft'; }
+
+  if (ok) {
+    course = { ...course, ...data.course };
+    dirtyFields = false;
+    document.getElementById('breadcrumb-title').textContent = course.title;
+    document.title = `${course.title} — Edit — Paradox of Acceptance`;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setAutoSaveMsg(`Saved ${now}`);
+    if (!isAuto) showToast('Draft saved');
+  } else {
+    setAutoSaveMsg('');
+    showToast(data.error || 'Save failed', true);
+  }
+}
+
+// ─── Schedule ────────────────────────────────────────────────────────
+
+async function saveSchedule() {
+  const dateVal = document.getElementById('cf-schedule-date')?.value?.trim();
+  const scheduled_publish_at = dateVal ? `${dateVal}T00:00:00.000Z` : null;
+  const btn = document.querySelector('[onclick="saveSchedule()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const { ok, data } = await api(`/api/admin/poa/courses/${courseId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ scheduled_publish_at }),
+  });
+  if (btn) { btn.disabled = false; btn.textContent = 'Save schedule'; }
+  if (ok) {
+    course = { ...course, ...data.course };
+    showToast(scheduled_publish_at ? `Scheduled for ${new Date(scheduled_publish_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : 'Schedule cleared');
+    renderEditor();
+  } else {
+    showToast(data.error || 'Save failed', true);
+  }
+}
+
+// ─── Publish / Unpublish ─────────────────────────────────────────────
+
+function openPublishConfirm() {
+  document.getElementById('confirm-title').textContent = 'Publish Course?';
+  document.getElementById('confirm-msg').textContent = 'This will make the course visible to enrolled users.';
+  document.getElementById('confirm-ok-btn').textContent = 'Publish';
+  document.getElementById('confirm-ok-btn').className = 'btn-confirm-ok';
+  pendingConfirmFn = () => doPublish(true);
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function openUnpublishConfirm() {
+  document.getElementById('confirm-title').textContent = 'Unpublish Course?';
+  document.getElementById('confirm-msg').textContent = 'This will hide the course from users.';
+  document.getElementById('confirm-ok-btn').textContent = 'Unpublish';
+  document.getElementById('confirm-ok-btn').className = 'btn-confirm-ok';
+  pendingConfirmFn = () => doPublish(false);
+  document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function closeConfirm() {
+  pendingConfirmFn = null;
+  document.getElementById('confirm-modal').classList.add('hidden');
+}
+
+function doConfirmAction() {
+  closeConfirm();
+  if (pendingConfirmFn) { pendingConfirmFn(); pendingConfirmFn = null; }
+}
+
+async function doPublish(published) {
+  const btn = document.getElementById('btn-publish');
+  if (btn) { btn.disabled = true; }
+  const { ok, data } = await api(`/api/admin/poa/courses/${courseId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ published }),
+  });
+  if (btn) { btn.disabled = false; }
+  if (!ok) { showToast(data.error || 'Update failed', true); return; }
+  course = { ...course, ...data.course };
+  showToast(published ? 'Course published' : 'Course unpublished');
+  // Re-render header badge + button
+  const badge = course.published
+    ? '<span class="badge badge-published">Published</span>'
+    : '<span class="badge badge-draft">Draft</span>';
+  document.getElementById('publish-badge').innerHTML = badge;
+  if (course.published) {
+    document.getElementById('btn-publish').className = 'btn-sm btn-unpublish';
+    document.getElementById('btn-publish').textContent = 'Unpublish';
+    document.getElementById('btn-publish').onclick = openUnpublishConfirm;
+  } else {
+    document.getElementById('btn-publish').className = 'btn-sm btn-publish';
+    document.getElementById('btn-publish').textContent = 'Publish';
+    document.getElementById('btn-publish').onclick = openPublishConfirm;
+  }
+}
+
+// ─── Lesson DnD reorder ──────────────────────────────────────────────
+
+let dragSrcIndex = null;
+
+function initLessonDnD() {
+  const rows = document.querySelectorAll('.lesson-row[draggable]');
+  rows.forEach(row => {
+    row.addEventListener('dragstart', e => {
+      dragSrcIndex = parseInt(row.dataset.index, 10);
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.lesson-row').forEach(r => r.classList.remove('drag-target'));
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.lesson-row').forEach(r => r.classList.remove('drag-target'));
+      row.classList.add('drag-target');
+    });
+    row.addEventListener('drop', async e => {
+      e.preventDefault();
+      row.classList.remove('drag-target');
+      const targetIndex = parseInt(row.dataset.index, 10);
+      if (dragSrcIndex === null || dragSrcIndex === targetIndex) return;
+      const moved = lessons.splice(dragSrcIndex, 1)[0];
+      lessons.splice(targetIndex, 0, moved);
+      // Re-assign positions
+      lessons.forEach((l, i) => l.position = i);
+      refreshLessonsPanel();
+      // Persist new positions
+      await Promise.all(lessons.map((l, i) =>
+        api(`/api/admin/poa/lessons/${l.id}`, { method: 'PATCH', body: JSON.stringify({ position: i }) })
+      ));
+      showToast('Order saved');
+    });
+  });
+}
+
+// ─── Lesson modal ────────────────────────────────────────────────────
+
+function openNewLesson() {
+  editingLessonId = null;
+  document.getElementById('lesson-modal-title').textContent = 'New Lesson';
+  document.getElementById('lesson-title').value = '';
+  document.getElementById('lesson-minutes').value = '';
+  document.getElementById('lesson-body').value = '';
+  document.getElementById('lesson-published').checked = false;
+  document.getElementById('lesson-error').textContent = '';
+  setEditorMode('write');
+  document.getElementById('lesson-modal').classList.remove('hidden');
+  document.getElementById('lesson-title').focus();
+}
+
+function openEditLesson(id) {
+  const lesson = lessons.find(l => l.id === id);
+  if (!lesson) return;
+  editingLessonId = id;
+  document.getElementById('lesson-modal-title').textContent = 'Edit Lesson';
+  document.getElementById('lesson-title').value = lesson.title;
+  document.getElementById('lesson-minutes').value = lesson.estimated_minutes ?? '';
+  document.getElementById('lesson-body').value = lesson.body ?? '';
+  document.getElementById('lesson-published').checked = !!lesson.published_at;
+  document.getElementById('lesson-error').textContent = '';
+  setEditorMode('write');
+  document.getElementById('lesson-modal').classList.remove('hidden');
+  document.getElementById('lesson-title').focus();
+}
+
+function closeLessonModal() {
+  editingLessonId = null;
+  document.getElementById('lesson-modal').classList.add('hidden');
+}
+
+async function saveLesson() {
+  const title = document.getElementById('lesson-title').value.trim();
+  const body = document.getElementById('lesson-body').value;
+  const minutes = parseInt(document.getElementById('lesson-minutes').value, 10);
+  const published = document.getElementById('lesson-published').checked;
+  const errEl = document.getElementById('lesson-error');
+  const btn = document.getElementById('lesson-save-btn');
+  if (!title) { errEl.textContent = 'Title is required.'; return; }
+  errEl.textContent = '';
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const payload = {
+    title,
+    body: body || null,
+    estimated_minutes: isNaN(minutes) ? null : minutes,
+    published_at: published ? new Date().toISOString() : null,
+  };
+
+  let ok, data;
+  if (editingLessonId) {
+    ({ ok, data } = await api(`/api/admin/poa/lessons/${editingLessonId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }));
+  } else {
+    payload.position = lessons.length;
+    ({ ok, data } = await api(`/api/admin/poa/courses/${courseId}/lessons`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Lesson';
+  if (!ok) { errEl.textContent = data.error || 'Save failed.'; return; }
+
+  if (editingLessonId) {
+    const idx = lessons.findIndex(l => l.id === editingLessonId);
+    if (idx !== -1) lessons[idx] = data.lesson;
+  } else {
+    lessons.push(data.lesson);
+  }
+
+  closeLessonModal();
+  refreshLessonsPanel();
+  showToast(editingLessonId ? 'Lesson updated' : 'Lesson added');
+}
+
+// ─── Delete lesson ───────────────────────────────────────────────────
+
+function openDeleteLessonConfirm(id, title) {
+  pendingDeleteLessonId = id;
+  document.getElementById('delete-lesson-msg').textContent = `Delete "${title}"? This cannot be undone.`;
+  document.getElementById('delete-lesson-modal').classList.remove('hidden');
+}
+
+function closeDeleteLesson() {
+  pendingDeleteLessonId = null;
+  document.getElementById('delete-lesson-modal').classList.add('hidden');
+}
+
+async function confirmDeleteLesson() {
+  if (!pendingDeleteLessonId) return;
+  const btn = document.getElementById('delete-lesson-ok');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  const { ok } = await api(`/api/admin/poa/lessons/${pendingDeleteLessonId}`, { method: 'DELETE' });
+  btn.disabled = false; btn.textContent = 'Delete';
+  if (!ok) { showToast('Delete failed', true); return; }
+  lessons = lessons.filter(l => l.id !== pendingDeleteLessonId);
+  closeDeleteLesson();
+  refreshLessonsPanel();
+  showToast('Lesson deleted');
+}
+
+// ─── Markdown editor ─────────────────────────────────────────────────
+
+let editorMode = 'write';
+
+function setEditorMode(mode) {
+  editorMode = mode;
+  const editor = document.getElementById('lesson-body');
+  const preview = document.getElementById('md-preview');
+  const writeBtn = document.getElementById('md-write-btn');
+  const previewBtn = document.getElementById('md-preview-btn');
+
+  if (mode === 'preview') {
+    const md = editor.value;
+    preview.innerHTML = typeof marked !== 'undefined' ? marked.parse(md) : md.replace(/\n/g, '<br>');
+    preview.classList.add('visible');
+    editor.style.display = 'none';
+    writeBtn.classList.remove('active');
+    previewBtn.classList.add('active');
+  } else {
+    preview.classList.remove('visible');
+    editor.style.display = '';
+    writeBtn.classList.add('active');
+    previewBtn.classList.remove('active');
+    editor.focus();
+  }
+}
+
+function insertMd(before, after) {
+  const ta = document.getElementById('lesson-body');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const selected = ta.value.substring(start, end);
+  const replacement = before + selected + after;
+  ta.value = ta.value.substring(0, start) + replacement + ta.value.substring(end);
+  ta.selectionStart = start + before.length;
+  ta.selectionEnd = start + before.length + selected.length;
+  ta.focus();
+}
+
+function insertMdLine(prefix) {
+  const ta = document.getElementById('lesson-body');
+  const start = ta.selectionStart;
+  const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
+  ta.value = ta.value.substring(0, lineStart) + prefix + ta.value.substring(lineStart);
+  ta.selectionStart = ta.selectionEnd = start + prefix.length;
+  ta.focus();
+}
+
+function insertMdBlock(before, after) {
+  const ta = document.getElementById('lesson-body');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const selected = ta.value.substring(start, end);
+  ta.value = ta.value.substring(0, start) + before + selected + after + ta.value.substring(end);
+  ta.selectionStart = start + before.length;
+  ta.selectionEnd = start + before.length + selected.length;
+  ta.focus();
+}
+
+// ─── Image paste into lesson editor ──────────────────────────────────
+
+document.addEventListener('paste', async (e) => {
+  const modal = document.getElementById('lesson-modal');
+  if (modal.classList.contains('hidden')) return;
+  const items = Array.from(e.clipboardData.items);
+  const imageItem = items.find(i => i.type.startsWith('image/'));
+  if (!imageItem) return;
+  e.preventDefault();
+  const file = imageItem.getAsFile();
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch(`/api/admin/poa/courses/${courseId}/cover-image`, {
+    method: 'POST',
+    headers: { 'X-Admin-Secret': adminSecret },
+    body: fd,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (res.ok) {
+    const ta = document.getElementById('lesson-body');
+    const md = `\n![image](${json.cover_image_url})\n`;
+    const pos = ta.selectionStart;
+    ta.value = ta.value.substring(0, pos) + md + ta.value.substring(pos);
+    ta.selectionStart = ta.selectionEnd = pos + md.length;
+    showToast('Image pasted');
+  } else {
+    showToast('Image upload failed', true);
+  }
+});
+
+// ─── Close modals on backdrop click ──────────────────────────────────
+
+document.getElementById('lesson-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeLessonModal(); });
+document.getElementById('confirm-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(); });
+document.getElementById('delete-lesson-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteLesson(); });
+
+// Esc to close modals
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!document.getElementById('lesson-modal').classList.contains('hidden')) { closeLessonModal(); return; }
+    if (!document.getElementById('confirm-modal').classList.contains('hidden')) { closeConfirm(); return; }
+    if (!document.getElementById('delete-lesson-modal').classList.contains('hidden')) { closeDeleteLesson(); return; }
+  }
+  // Cmd/Ctrl+S to save draft
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); saveDraft(); }
+});
+
+// ─── Toast ───────────────────────────────────────────────────────────
+
+let toastTimer = null;
+function showToast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isErr ? '#dc2626' : '#111';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ─── Init ────────────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>

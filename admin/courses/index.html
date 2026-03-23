@@ -9,13 +9,10 @@
 html { -webkit-font-smoothing: antialiased; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  background: #f5f5f5;
-  color: #111;
-  font-size: 14px;
-  min-height: 100vh;
+  background: #f5f5f5; color: #111; font-size: 14px; min-height: 100vh;
 }
 
-/* ─── Auth gate ─────────────────────────────────────────────── */
+/* ─── Auth gate ───────────────────────────────────────────── */
 #auth-gate {
   position: fixed; inset: 0; background: #f5f5f5;
   display: flex; align-items: center; justify-content: center; z-index: 100;
@@ -40,7 +37,7 @@ body {
 .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
 #auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
 
-/* ─── Main ──────────────────────────────────────────────────── */
+/* ─── Main ──────────────────────────────────────────────── */
 #main { display: none; }
 
 header {
@@ -57,27 +54,29 @@ header {
 .header-nav a:hover { color: #111; }
 .header-nav a.active { color: #111; border-bottom-color: #111; }
 
-.content { padding: 28px 32px; max-width: 960px; margin: 0 auto; }
+.content { padding: 28px 32px; max-width: 1040px; margin: 0 auto; }
 
-/* ─── Page header ───────────────────────────────────────────── */
 .page-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   margin-bottom: 24px;
 }
 .page-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
 .page-sub { font-size: 13px; color: #888; margin-top: 3px; }
-
-/* ─── Course table ──────────────────────────────────────────── */
-.panel {
-  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;
+.btn-new {
+  padding: 8px 18px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s; white-space: nowrap;
 }
+.btn-new:hover { background: #333; }
+
+/* ─── Panel / table ─────────────────────────────────────── */
+.panel { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
 .panel-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 18px 10px; border-bottom: 1px solid #f0f0f0;
 }
 .panel-title {
-  font-size: 11px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.8px; color: #999;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999;
 }
 
 table { width: 100%; border-collapse: collapse; }
@@ -89,46 +88,67 @@ th {
 }
 td {
   padding: 14px 18px; border-bottom: 1px solid #f5f5f5;
-  font-size: 13px; vertical-align: top;
+  font-size: 13px; vertical-align: middle;
 }
 tr:last-child td { border-bottom: none; }
 tbody tr:hover td { background: #fafafa; }
 
-.course-name { font-weight: 500; }
-.course-slug { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 11px; color: #888; margin-top: 2px; }
+.course-title { font-weight: 500; color: #111; }
+.course-slug { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 11px; color: #aaa; margin-top: 2px; }
+
 .badge {
   display: inline-block; padding: 2px 8px; border-radius: 10px;
-  font-size: 11px; font-weight: 500;
+  font-size: 11px; font-weight: 500; white-space: nowrap;
 }
-.badge-free { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.badge-paid { background: #f5f5f5; color: #888; border: 1px solid #e5e5e5; }
+.badge-published { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.badge-draft { background: #fafafa; color: #888; border: 1px solid #e5e5e5; }
 
-/* ─── Edit form ─────────────────────────────────────────────── */
-.edit-row { display: none; }
-.edit-row.open { display: table-row; }
-.edit-cell {
-  padding: 16px 18px 20px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+.count { font-size: 13px; color: #555; }
+
+/* ─── Actions ────────────────────────────────────────────── */
+.actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.btn-action {
+  padding: 5px 11px; background: transparent; color: #555;
+  border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
+  font-family: inherit; cursor: pointer; transition: background 0.1s, color 0.1s;
 }
-.edit-form-title {
-  font-size: 13px; font-weight: 600; margin-bottom: 14px; color: #333;
+.btn-action:hover { background: #f0f0f0; color: #111; }
+.btn-action.btn-edit { color: #2563eb; border-color: #bfdbfe; }
+.btn-action.btn-edit:hover { background: #eff6ff; }
+.btn-action.btn-publish { color: #16a34a; border-color: #bbf7d0; }
+.btn-action.btn-publish:hover { background: #f0fdf4; }
+.btn-action.btn-unpublish { color: #d97706; border-color: #fde68a; }
+.btn-action.btn-unpublish:hover { background: #fffbeb; }
+.btn-action.btn-danger { color: #dc2626; border-color: #fecaca; }
+.btn-action.btn-danger:hover { background: #fef2f2; }
+.btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.empty-row td { padding: 36px 18px; color: #aaa; text-align: center; }
+.loading-row td { padding: 32px 18px; color: #aaa; font-size: 13px; }
+.error-msg { font-size: 13px; color: #dc2626; padding: 24px 18px; }
+
+/* ─── Modal ──────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
 }
-.field { margin-bottom: 14px; }
+.modal-backdrop.hidden { display: none; }
+.modal {
+  background: #fff; border-radius: 10px; padding: 28px 32px;
+  width: 480px; max-width: calc(100vw - 40px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 20px; letter-spacing: -0.2px; }
+.field { margin-bottom: 16px; }
 .field label { display: block; font-size: 12px; font-weight: 500; color: #555; margin-bottom: 5px; }
-.field select {
-  width: 100%; max-width: 420px; padding: 8px 10px; border: 1px solid #ddd;
-  border-radius: 5px; font-size: 13px; font-family: inherit; outline: none;
-  background: #fff; transition: border-color 0.15s;
+.field input, .field textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s; background: #fff;
 }
-.field select:focus { border-color: #999; }
-.field select[multiple] { height: 120px; }
+.field input:focus, .field textarea:focus { border-color: #999; }
+.field textarea { height: 72px; resize: vertical; }
 .field-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
-.field-row { display: flex; align-items: center; gap: 8px; }
-.field-row input[type="checkbox"] { cursor: pointer; }
-.field-row label { font-size: 13px; color: #333; cursor: pointer; }
-
-.form-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
 .btn-save {
   padding: 8px 20px; background: #111; color: #fff;
   border: none; border-radius: 5px; font-size: 13px; font-weight: 500;
@@ -142,24 +162,22 @@ tbody tr:hover td { background: #fafafa; }
   font-family: inherit; cursor: pointer; transition: background 0.15s;
 }
 .btn-cancel:hover { background: #f0f0f0; }
-.save-msg { font-size: 12px; min-height: 16px; }
-.save-msg.ok { color: #16a34a; }
-.save-msg.err { color: #dc2626; }
+.modal-error { font-size: 12px; color: #dc2626; margin-top: 8px; min-height: 16px; }
 
-.edit-btn {
-  padding: 5px 12px; background: transparent; color: #666;
-  border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
-  font-family: inherit; cursor: pointer; transition: background 0.1s;
+/* ─── Toast ──────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 6px;
+  font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  white-space: nowrap; z-index: 300;
 }
-.edit-btn:hover { background: #f0f0f0; }
+#toast.show { opacity: 1; }
 
-/* ─── Loading / error ───────────────────────────────────────── */
-.loading-row td { padding: 32px 18px; color: #aaa; font-size: 13px; }
-.error-row td { padding: 24px 18px; color: #dc2626; font-size: 13px; }
-
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .content { padding: 20px 16px; }
   header { padding: 0 16px; }
+  th:nth-child(3), td:nth-child(3),
+  th:nth-child(4), td:nth-child(4) { display: none; }
 }
 </style>
 </head>
@@ -183,6 +201,7 @@ tbody tr:hover td { background: #fafafa; }
       <a href="/admin/stats/">Stats</a>
       <a href="/admin/newsletter/">Newsletter</a>
       <a href="/admin/courses/" class="active">Courses</a>
+      <a href="/admin/calendar/">Calendar</a>
       <a href="/admin/gates/">Gates</a>
       <a href="/admin/writing/">Writing</a>
       <a href="/admin/about/">About</a>
@@ -193,8 +212,9 @@ tbody tr:hover td { background: #fafafa; }
     <div class="page-header">
       <div>
         <div class="page-title">Courses</div>
-        <div class="page-sub">Manage course prerequisites and unlock logic</div>
+        <div class="page-sub">Create and manage PoA course content</div>
       </div>
+      <button class="btn-new" onclick="openNewCourseModal()">+ New Course</button>
     </div>
 
     <div class="panel">
@@ -205,51 +225,90 @@ tbody tr:hover td { background: #fafafa; }
         <thead>
           <tr>
             <th>Course</th>
-            <th>Sessions</th>
-            <th>Access</th>
-            <th>Prerequisites</th>
+            <th>Status</th>
+            <th>Lessons</th>
+            <th>Enrolled</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="courses-tbody">
-          <tr class="loading-row"><td colspan="5">Loading courses…</td></tr>
+          <tr class="loading-row"><td colspan="5">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- New course modal -->
+<div class="modal-backdrop hidden" id="new-course-modal">
+  <div class="modal">
+    <h2>New Course</h2>
+    <div class="field">
+      <label for="nc-title">Title <span style="color:#dc2626">*</span></label>
+      <input type="text" id="nc-title" placeholder="e.g. The Honest Meditator">
+    </div>
+    <div class="field">
+      <label for="nc-slug">Slug <span style="color:#dc2626">*</span></label>
+      <input type="text" id="nc-slug" placeholder="e.g. the-honest-meditator">
+      <div class="field-hint">URL-safe, lowercase, hyphens only</div>
+    </div>
+    <div class="field">
+      <label for="nc-desc">Description</label>
+      <textarea id="nc-desc" placeholder="Short course description…"></textarea>
+    </div>
+    <div class="modal-error" id="nc-error"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeNewCourseModal()">Cancel</button>
+      <button class="btn-save" id="nc-save" onclick="createCourse()">Create Course</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-backdrop hidden" id="delete-modal">
+  <div class="modal">
+    <h2>Delete Course?</h2>
+    <p style="font-size:13px;color:#555;line-height:1.6" id="delete-modal-msg">
+      This will permanently delete the course and all its lessons. This cannot be undone.
+    </p>
+    <div class="modal-error" id="delete-error"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-save" id="delete-confirm" style="background:#dc2626" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <script>
 'use strict';
 
 let adminSecret = '';
-let coursesData = [];
+let courses = [];
+let pendingDeleteId = null;
 
-// ─── Auth ──────────────────────────────────────────────────────
+// ─── Auth ────────────────────────────────────────────────────────────
 
-async function apiRequest(path, opts = {}) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Admin-Secret': adminSecret,
-    ...(opts.headers || {}),
-  };
-  const res = await fetch(path, { ...opts, headers });
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': adminSecret, ...(opts.headers || {}) },
+  });
   const json = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data: json };
 }
 
 async function tryAuth(secret) {
-  const { ok } = await apiRequest('/api/newsletter/stats', {
-    headers: { 'X-Admin-Secret': secret },
-  });
+  const { ok } = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': secret } });
   return ok;
 }
 
 async function initAuth() {
   const stored = sessionStorage.getItem('admin_secret');
   if (stored) {
-    const ok = await tryAuth(stored);
-    if (ok) { adminSecret = stored; showMain(); return; }
+    const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': stored } });
+    if (r.ok) { adminSecret = stored; showMain(); return; }
     sessionStorage.removeItem('admin_secret');
   }
   document.getElementById('auth-gate').style.display = 'flex';
@@ -262,9 +321,7 @@ function showMain() {
 }
 
 document.getElementById('auth-submit').addEventListener('click', submitAuth);
-document.getElementById('admin-password').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') submitAuth();
-});
+document.getElementById('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
 
 async function submitAuth() {
   const input = document.getElementById('admin-password');
@@ -273,8 +330,8 @@ async function submitAuth() {
   const secret = input.value.trim();
   if (!secret) return;
   btn.disabled = true; btn.textContent = 'Checking…'; errEl.textContent = '';
-  const ok = await tryAuth(secret);
-  if (ok) {
+  const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': secret } });
+  if (r.ok) {
     adminSecret = secret;
     sessionStorage.setItem('admin_secret', secret);
     showMain();
@@ -285,147 +342,171 @@ async function submitAuth() {
   }
 }
 
-// ─── Load courses ──────────────────────────────────────────────
+// ─── Load ────────────────────────────────────────────────────────────
 
 async function loadCourses() {
   const tbody = document.getElementById('courses-tbody');
-  const { ok, data } = await apiRequest('/api/admin/courses');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Loading…</td></tr>';
+  const { ok, data } = await api('/api/admin/poa/courses');
   if (!ok || !Array.isArray(data.courses)) {
-    tbody.innerHTML = '<tr class="error-row"><td colspan="5">Failed to load courses. Is the newsletter server running?</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="error-msg">Failed to load courses. Is the newsletter server running?</td></tr>';
     return;
   }
-  coursesData = data.courses;
+  courses = data.courses;
   renderTable();
 }
 
-// ─── Render ────────────────────────────────────────────────────
+// ─── Render ──────────────────────────────────────────────────────────
 
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function prereqNames(prereqs) {
-  if (!Array.isArray(prereqs) || prereqs.length === 0) return '<span style="color:#aaa">None</span>';
-  return prereqs.map(pid => {
-    const c = coursesData.find(x => x.id === pid);
-    return c ? escHtml(c.title) : '<em style="color:#aaa">Unknown</em>';
-  }).join(', ');
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderTable() {
   const tbody = document.getElementById('courses-tbody');
-  if (coursesData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="padding:24px 18px;color:#aaa">No courses found.</td></tr>';
+  if (courses.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No courses yet. Create one to get started.</td></tr>';
     return;
   }
-
-  let html = '';
-  coursesData.forEach((course) => {
-    const prereqs = Array.isArray(course.prerequisites) ? course.prerequisites : [];
-    const badge = course.is_free
-      ? '<span class="badge badge-free">Free</span>'
-      : '<span class="badge badge-paid">Paid</span>';
-
-    html += `<tr data-id="${escHtml(course.id)}">
+  tbody.innerHTML = courses.map(c => {
+    const badge = c.published
+      ? '<span class="badge badge-published">Published</span>'
+      : '<span class="badge badge-draft">Draft</span>';
+    const publishBtn = c.published
+      ? `<button class="btn-action btn-unpublish" onclick="togglePublish('${esc(c.id)}', false)">Unpublish</button>`
+      : `<button class="btn-action btn-publish" onclick="togglePublish('${esc(c.id)}', true)">Publish</button>`;
+    return `<tr>
       <td>
-        <div class="course-name">${escHtml(course.title)}</div>
-        <div class="course-slug">${escHtml(course.slug)}</div>
+        <div class="course-title">${esc(c.title)}</div>
+        <div class="course-slug">${esc(c.slug)}</div>
       </td>
-      <td>${course.sessions_total}</td>
       <td>${badge}</td>
-      <td>${prereqNames(prereqs)}</td>
-      <td><button class="edit-btn" onclick="openEdit('${escHtml(course.id)}')">Edit</button></td>
-    </tr>`;
-
-    // Edit row (hidden by default)
-    html += `<tr class="edit-row" id="edit-row-${escHtml(course.id)}">
-      <td colspan="5" class="edit-cell">
-        <div class="edit-form-title">Edit: ${escHtml(course.title)}</div>
-        <div class="field">
-          <label>Prerequisites</label>
-          <select id="prereq-select-${escHtml(course.id)}" multiple>
-            ${coursesData
-              .filter(c => c.id !== course.id)
-              .map(c => `<option value="${escHtml(c.id)}" ${prereqs.includes(c.id) ? 'selected' : ''}>${escHtml(c.title)}</option>`)
-              .join('')}
-          </select>
-          <div class="field-hint">Hold Cmd/Ctrl to select multiple. Leave blank for no prerequisites.</div>
-        </div>
-        <div class="field">
-          <div class="field-row">
-            <input type="checkbox" id="free-${escHtml(course.id)}" ${course.is_free ? 'checked' : ''}>
-            <label for="free-${escHtml(course.id)}">Free (always unlocked for everyone)</label>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn-save" onclick="saveCourse('${escHtml(course.id)}')">Save</button>
-          <button class="btn-cancel" onclick="closeEdit('${escHtml(course.id)}')">Cancel</button>
-          <span class="save-msg" id="save-msg-${escHtml(course.id)}"></span>
+      <td><span class="count">${c.lesson_count ?? 0}</span></td>
+      <td><span class="count">${c.enrolled_count ?? 0}</span></td>
+      <td>
+        <div class="actions">
+          <a href="/admin/courses/edit/?id=${esc(c.id)}" class="btn-action btn-edit">Edit</a>
+          ${publishBtn}
+          <button class="btn-action" onclick="duplicateCourse('${esc(c.id)}')">Duplicate</button>
+          <button class="btn-action btn-danger" onclick="openDeleteModal('${esc(c.id)}', '${esc(c.title)}')">Delete</button>
         </div>
       </td>
     </tr>`;
+  }).join('');
+}
+
+// ─── New course modal ────────────────────────────────────────────────
+
+function openNewCourseModal() {
+  document.getElementById('nc-title').value = '';
+  document.getElementById('nc-slug').value = '';
+  document.getElementById('nc-desc').value = '';
+  document.getElementById('nc-error').textContent = '';
+  document.getElementById('new-course-modal').classList.remove('hidden');
+  document.getElementById('nc-title').focus();
+}
+
+function closeNewCourseModal() {
+  document.getElementById('new-course-modal').classList.add('hidden');
+}
+
+// Auto-generate slug from title
+document.getElementById('nc-title').addEventListener('input', function() {
+  const slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  document.getElementById('nc-slug').value = slug;
+});
+
+async function createCourse() {
+  const title = document.getElementById('nc-title').value.trim();
+  const slug = document.getElementById('nc-slug').value.trim();
+  const description = document.getElementById('nc-desc').value.trim();
+  const errEl = document.getElementById('nc-error');
+  const btn = document.getElementById('nc-save');
+  if (!title) { errEl.textContent = 'Title is required.'; return; }
+  if (!slug) { errEl.textContent = 'Slug is required.'; return; }
+  errEl.textContent = '';
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const { ok, data } = await api('/api/admin/poa/courses', {
+    method: 'POST',
+    body: JSON.stringify({ title, slug, description: description || null, published: false }),
   });
-
-  tbody.innerHTML = html;
+  btn.disabled = false; btn.textContent = 'Create Course';
+  if (!ok) { errEl.textContent = data.error || 'Failed to create course.'; return; }
+  closeNewCourseModal();
+  showToast('Course created');
+  await loadCourses();
+  // Navigate to the new course editor
+  window.location.href = `/admin/courses/edit/?id=${data.course.id}`;
 }
 
-// ─── Edit ──────────────────────────────────────────────────────
+// ─── Publish / Unpublish ─────────────────────────────────────────────
 
-function openEdit(id) {
-  // Close any other open edit rows first
-  document.querySelectorAll('.edit-row.open').forEach(r => {
-    if (r.id !== 'edit-row-' + id) r.classList.remove('open');
-  });
-  const row = document.getElementById('edit-row-' + id);
-  if (row) row.classList.toggle('open');
-}
-
-function closeEdit(id) {
-  const row = document.getElementById('edit-row-' + id);
-  if (row) row.classList.remove('open');
-}
-
-async function saveCourse(id) {
-  const selectEl = document.getElementById('prereq-select-' + id);
-  const freeEl = document.getElementById('free-' + id);
-  const msgEl = document.getElementById('save-msg-' + id);
-  const saveBtn = document.querySelector(`#edit-row-${id} .btn-save`);
-
-  const prerequisites = selectEl
-    ? Array.from(selectEl.selectedOptions).map(o => o.value)
-    : [];
-  const is_free = freeEl ? freeEl.checked : false;
-
-  saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; msgEl.textContent = '';
-
-  const { ok, data } = await apiRequest('/api/admin/courses/' + id, {
+async function togglePublish(id, published) {
+  const { ok, data } = await api(`/api/admin/poa/courses/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify({ prerequisites, is_free }),
+    body: JSON.stringify({ published }),
   });
-
-  saveBtn.disabled = false; saveBtn.textContent = 'Save';
-
-  if (ok && data.course) {
-    // Update local state
-    const idx = coursesData.findIndex(c => c.id === id);
-    if (idx !== -1) coursesData[idx] = data.course;
-    msgEl.textContent = 'Saved.';
-    msgEl.className = 'save-msg ok';
-    setTimeout(() => {
-      msgEl.textContent = '';
-      closeEdit(id);
-      renderTable();
-    }, 900);
-  } else {
-    msgEl.textContent = data.error || 'Save failed.';
-    msgEl.className = 'save-msg err';
-  }
+  if (!ok) { showToast(data.error || 'Update failed', true); return; }
+  showToast(published ? 'Course published' : 'Course unpublished');
+  const idx = courses.findIndex(c => c.id === id);
+  if (idx !== -1) courses[idx] = { ...courses[idx], ...data.course };
+  renderTable();
 }
 
-// ─── Init ──────────────────────────────────────────────────────
+// ─── Duplicate ───────────────────────────────────────────────────────
 
+async function duplicateCourse(id) {
+  const { ok, data } = await api(`/api/admin/poa/courses/${id}/duplicate`, { method: 'POST' });
+  if (!ok) { showToast(data.error || 'Duplicate failed', true); return; }
+  showToast('Course duplicated');
+  await loadCourses();
+}
+
+// ─── Delete ──────────────────────────────────────────────────────────
+
+function openDeleteModal(id, title) {
+  pendingDeleteId = id;
+  document.getElementById('delete-modal-msg').textContent =
+    `Delete "${title}"? This will permanently remove the course and all its lessons. This cannot be undone.`;
+  document.getElementById('delete-error').textContent = '';
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  pendingDeleteId = null;
+  document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const btn = document.getElementById('delete-confirm');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  const { ok, data } = await api(`/api/admin/poa/courses/${pendingDeleteId}`, { method: 'DELETE' });
+  btn.disabled = false; btn.textContent = 'Delete';
+  if (!ok) { document.getElementById('delete-error').textContent = data.error || 'Delete failed.'; return; }
+  closeDeleteModal();
+  showToast('Course deleted');
+  courses = courses.filter(c => c.id !== pendingDeleteId);
+  renderTable();
+}
+
+// ─── Toast ───────────────────────────────────────────────────────────
+
+let toastTimer = null;
+function showToast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isErr ? '#dc2626' : '#111';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Close modals on backdrop click
+document.getElementById('new-course-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeNewCourseModal(); });
+document.getElementById('delete-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+
+// ─── Init ────────────────────────────────────────────────────────────
 initAuth();
 </script>
 </body>
