@@ -107,22 +107,46 @@ a { color: inherit; text-decoration: none; }
 .stat-num { font-variant-numeric: tabular-nums; }
 .stat-sep { font-size: 13px; color: #CCC; margin: 0 14px; }
 
+/* Scroll indicator */
+.scroll-indicator { display: flex; justify-content: center; margin-top: 28px; }
+.scroll-btn { background: none; border: none; cursor: pointer; color: #CCC; padding: 8px; line-height: 0; transition: color 0.2s; }
+.scroll-btn:hover { color: #999; }
+.scroll-btn svg { display: block; animation: scrollBounce 2s ease-in-out infinite; }
+@keyframes scrollBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+
+/* Testimonials */
+.testimonials-section { padding: 48px 280px; }
+.testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.testimonial-card { border: 1px solid #EEEEEE; border-radius: 6px; padding: 24px; }
+.testimonial-quote { font-size: 15px; color: #555; line-height: 1.65; margin-bottom: 20px; }
+.testimonial-author { display: flex; align-items: center; gap: 12px; }
+.testimonial-avatar { width: 36px; height: 36px; border-radius: 50%; background: #111; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; flex-shrink: 0; letter-spacing: 0.5px; }
+.testimonial-name { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 2px; }
+.testimonial-meta { font-size: 12px; color: #999; }
+
 /* Footer */
-.footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #EEEEEE; padding-top: 24px; padding-bottom: 24px; }
+.footer { border-top: 1px solid #EEEEEE; padding: 24px 280px; display: flex; flex-direction: column; gap: 20px; }
+.footer-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.footer-bottom { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid #F5F5F5; }
 .footer-logo { font-family: 'Newsreader', serif; font-size: 16px; color: #111; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 24px; }
 .footer-links a { font-size: 13px; color: #666; transition: color 0.15s; }
 .footer-links a:hover { color: #111; }
+.footer-copyright { font-size: 12px; color: #CCC; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .nav, .hero, .section, .subscribe-section, .footer, .stats-strip { padding-left: 24px; padding-right: 24px; }
+  .nav, .hero, .section, .subscribe-section, .stats-strip { padding-left: 24px; padding-right: 24px; }
+  .testimonials-section { padding-left: 24px; padding-right: 24px; }
+  .testimonials-grid { grid-template-columns: 1fr; gap: 16px; }
   .stats-strip { flex-wrap: wrap; gap: 4px; }
   .hero-headline { font-size: 32px; }
   .subscribe-form { flex-direction: column; width: 100%; }
   .subscribe-input { width: 100%; }
   .subscribe-btn { width: 100%; }
-  .footer { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer { padding-left: 24px; padding-right: 24px; gap: 16px; }
+  .footer-top { flex-direction: column; gap: 16px; align-items: flex-start; }
+  .footer-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
   .footer-links { gap: 16px; }
   .tool-title { font-size: 20px; }
   .nav-links { gap: 20px; }
@@ -173,10 +197,15 @@ a { color: inherit; text-decoration: none; }
 
 <!-- Hero -->
 <section class="hero">
-  <h1 class="hero-headline">Tools for the questions practice raises.</h1>
+  <h1 class="hero-headline">Tools for the questions<br>practice raises.</h1>
   <div class="hero-card">
     <div class="hero-card-label">ABOUT THIS PROJECT</div>
     <p class="hero-card-text">A collection of interactive tools, essays, and guided practices for meditators navigating what mindfulness actually does to a person.</p>
+  </div>
+  <div class="scroll-indicator">
+    <button class="scroll-btn" onclick="document.getElementById('stats-strip').scrollIntoView({behavior:'smooth'})" aria-label="Scroll down">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
   </div>
 </section>
 
@@ -189,6 +218,45 @@ a { color: inherit; text-decoration: none; }
   <span class="stat-item"><span class="stat-num" id="stat-questions">4,200</span> questions answered</span>
   <span class="stat-sep">·</span>
   <span class="stat-item"><span class="stat-num" id="stat-subscribers">26,000</span> subscribers</span>
+</section>
+
+<hr class="divider">
+
+<!-- Testimonials -->
+<section class="testimonials-section">
+  <div class="section-label">What practitioners say</div>
+  <div class="testimonials-grid">
+    <div class="testimonial-card">
+      <p class="testimonial-quote">"The 'What Kind of Meditator Are You?' quiz named something about my practice that I hadn't been able to articulate myself. Remarkably accurate."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">SK</div>
+        <div>
+          <div class="testimonial-name">Sarah K.</div>
+          <div class="testimonial-meta">Meditator, 6 years</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card">
+      <p class="testimonial-quote">"This is the first place I've found that grapples with the hard questions in practice without pretending they're already settled."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">ML</div>
+        <div>
+          <div class="testimonial-name">Marcus L.</div>
+          <div class="testimonial-meta">Longtime practitioner</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card">
+      <p class="testimonial-quote">"The teacher debates tool is something I now recommend to every serious student. It shows the real disagreements in the field, clearly."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">PM</div>
+        <div>
+          <div class="testimonial-name">Priya M.</div>
+          <div class="testimonial-meta">Mindfulness teacher</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <hr class="divider">
@@ -325,23 +393,29 @@ a { color: inherit; text-decoration: none; }
 
 <!-- Footer -->
 <footer class="footer">
-  <div class="footer-logo">Paradox of Acceptance</div>
-  <div class="footer-links">
-    <a href="/meditation-quiz/">Quiz</a>
-    <a href="/meditation-debates/">Debates</a>
-    <a href="/teacher-debates/">Teacher Map</a>
-    <a href="/meditation-recommender/">Recommender</a>
-    <a href="/mindfulness-essays/">Essays</a>
+  <div class="footer-top">
+    <div class="footer-logo">Paradox of Acceptance</div>
+    <div class="footer-links">
+      <a href="/meditation-quiz/">Quiz</a>
+      <a href="/meditation-debates/">Debates</a>
+      <a href="/teacher-debates/">Teacher Map</a>
+      <a href="/meditation-recommender/">Recommender</a>
+      <a href="/mindfulness-essays/">Essays</a>
       <a href="/reading-lists/">Reading Lists</a>
-    <a href="/mindfulness-pointers/">Pointers</a>
-    <a href="/mindfulness-wiki/">Wiki</a>
-    <a href="/newsletter/">Newsletter</a>
-    <a href="/about/">About</a>
-    <a href="/pass/">Pass</a>
-    <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">Twitter / X</a>
-    <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
-    <a href="/privacy/">Privacy</a>
-    <a href="/terms/">Terms</a>
+      <a href="/mindfulness-pointers/">Pointers</a>
+      <a href="/mindfulness-wiki/">Wiki</a>
+      <a href="/newsletter/">Newsletter</a>
+      <a href="/about/">About</a>
+      <a href="/pass/">Pass</a>
+      <a href="https://x.com/quiet_drift" target="_blank" rel="noopener">X (Twitter)</a>
+      <a href="https://instagram.com/" target="_blank" rel="noopener">Instagram</a>
+      <a href="/feed.xml"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>RSS Feed</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="/terms/">Terms</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-copyright">© 2026 Paradox of Acceptance. All rights reserved.</span>
   </div>
 </footer>
 
