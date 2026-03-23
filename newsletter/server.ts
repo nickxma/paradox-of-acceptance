@@ -8207,7 +8207,7 @@ app.get("/api/poa/courses/:slug", async (req: Request, res: Response) => {
 
   const { data: lessons, error: lessonsErr } = await supabase
     .from("poa_lessons")
-    .select("id, title, position, estimated_minutes, published_at")
+    .select("id, title, position, estimated_minutes, published_at, video_platform, video_thumbnail_url")
     .eq("course_id", course.id)
     .lte("published_at", new Date().toISOString())
     .order("position", { ascending: true });
@@ -8277,7 +8277,7 @@ app.get("/api/poa/courses/:slug/lessons/:id", async (req: Request, res: Response
 
   const { data: lesson, error: lessonErr } = await supabase
     .from("poa_lessons")
-    .select("id, title, body, position, estimated_minutes, published_at, created_at")
+    .select("id, title, body, position, estimated_minutes, published_at, created_at, video_embed_url, video_platform, video_thumbnail_url, video_position")
     .eq("id", id)
     .eq("course_id", course.id)
     .lte("published_at", new Date().toISOString())
@@ -8429,6 +8429,136 @@ app.post("/api/poa/lessons/:id/complete", async (req: Request, res: Response) =>
     points_awarded: LESSON_REP_POINTS,
     total_points: newPoints,
     ...(badgeEarned ? { badge_earned: badgeEarned } : {}),
+  });
+});
+
+// ─── POST /api/poa/lessons/:id/video-watched ─────────────────────────────────
+//
+// Records video watch progress for the authenticated user.
+// Body: { percentWatched: number }  (0–100)
+// When percentWatched >= 90 for the first time, marks the lesson as complete
+// (same logic as /complete — awards rep points and course badge).
+// Requires Authorization: Bearer <supabase-jwt>.
+
+app.post("/api/poa/lessons/:id/video-watched", async (req: Request, res: Response) => {
+  setPoaCors(res);
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const userId = await getUserIdFromJwt(req.headers.authorization);
+  if (!userId) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const { id: lessonId } = req.params;
+  const { percentWatched } = req.body as { percentWatched?: unknown };
+
+  if (typeof percentWatched !== "number" || percentWatched < 0 || percentWatched > 100) {
+    res.status(400).json({ error: "percentWatched must be a number between 0 and 100" }); return;
+  }
+
+  // Verify lesson exists and belongs to a published course
+  const { data: lesson, error: lessonErr } = await supabase
+    .from("poa_lessons")
+    .select("id, course_id, poa_courses!inner(slug, published)")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (lessonErr) { res.status(500).json({ error: "Failed to fetch lesson" }); return; }
+  if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  const coursePublished = (lesson as { poa_courses: { slug: string; published: boolean } }).poa_courses?.published;
+  const courseSlug = (lesson as { poa_courses: { slug: string; published: boolean } }).poa_courses?.slug;
+  if (!coursePublished) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  const now = new Date().toISOString();
+  const reachedThreshold = percentWatched >= 90;
+
+  // Upsert watch record (keep highest percentWatched seen)
+  const { data: existing } = await supabase
+    .from("lesson_video_watches")
+    .select("percent_watched, completed_at")
+    .eq("user_id", userId)
+    .eq("lesson_id", lessonId)
+    .maybeSingle();
+
+  const highestPct = Math.max(percentWatched, existing?.percent_watched ?? 0);
+  const alreadyCompletedViaVideo = !!existing?.completed_at;
+  const completedAt = reachedThreshold && !alreadyCompletedViaVideo ? now : (existing?.completed_at ?? null);
+
+  await supabase
+    .from("lesson_video_watches")
+    .upsert(
+      { user_id: userId, lesson_id: lessonId, percent_watched: highestPct, completed_at: completedAt, updated_at: now },
+      { onConflict: "user_id,lesson_id" }
+    );
+
+  // If threshold reached for the first time via video, also record in lesson_completions
+  if (reachedThreshold && !alreadyCompletedViaVideo) {
+    const { data: existingCompletion } = await supabase
+      .from("lesson_completions")
+      .select("lesson_id")
+      .eq("user_id", userId)
+      .eq("lesson_id", lessonId)
+      .maybeSingle();
+
+    let pointsAwarded = 0;
+    let badgeEarned: string | null = null;
+
+    if (!existingCompletion) {
+      const { error: compErr } = await supabase
+        .from("lesson_completions")
+        .insert({ user_id: userId, lesson_id: lessonId });
+
+      if (!compErr) {
+        // Award +5 reputation
+        const LESSON_REP_POINTS = 5;
+        const { data: repRow } = await supabase
+          .from("user_reputation")
+          .select("points")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const newPoints = (repRow?.points ?? 0) + LESSON_REP_POINTS;
+        await supabase
+          .from("user_reputation")
+          .upsert({ user_id: userId, points: newPoints, updated_at: now }, { onConflict: "user_id" });
+        pointsAwarded = LESSON_REP_POINTS;
+
+        // Check for course completion badge
+        const courseId = lesson.course_id;
+        const [{ count: totalLessons }, { count: completedCount }] = await Promise.all([
+          supabase
+            .from("poa_lessons")
+            .select("id", { count: "exact", head: true })
+            .eq("course_id", courseId)
+            .lte("published_at", now),
+          supabase
+            .from("lesson_completions")
+            .select("lesson_id, poa_lessons!inner(course_id)", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("poa_lessons.course_id", courseId),
+        ]);
+        if (typeof totalLessons === "number" && typeof completedCount === "number" && completedCount >= totalLessons) {
+          const badgeKey = `course_complete:${courseSlug}`;
+          const { error: badgeErr } = await supabase
+            .from("user_badges")
+            .upsert({ user_id: userId, badge_key: badgeKey }, { onConflict: "user_id,badge_key" });
+          if (!badgeErr) badgeEarned = badgeKey;
+        }
+      }
+    }
+
+    res.json({
+      status: "lesson_completed",
+      lessonId,
+      percentWatched: highestPct,
+      points_awarded: pointsAwarded,
+      ...(badgeEarned ? { badge_earned: badgeEarned } : {}),
+    });
+    return;
+  }
+
+  res.json({
+    status: reachedThreshold ? "already_completed" : "recorded",
+    lessonId,
+    percentWatched: highestPct,
   });
 });
 
@@ -8682,6 +8812,154 @@ app.delete("/api/admin/poa/lessons/:id", requireAdminSecret, async (req: Request
   if (error) { res.status(500).json({ error: error.message }); return; }
   void writeAuditLog("poa_lessons", req.params.id, "delete");
   res.json({ status: "deleted" });
+});
+
+// ─── Admin: PoA Lesson video ──────────────────────────────────────────────────
+
+/**
+ * POST /api/admin/poa/lessons/:id/video
+ *
+ * Set or clear the embedded video for a lesson.
+ *
+ * To set:   { videoUrl: string, videoPosition?: "top" | "bottom" | "inline" }
+ * To clear: { videoUrl: null }
+ *
+ * On set: extracts video ID, determines platform (youtube/vimeo),
+ * builds canonical embed URL, fetches thumbnail from YouTube/Vimeo.
+ * On clear: nulls all five video columns.
+ *
+ * Auth: X-Admin-Secret.
+ */
+
+function parseVideoUrl(rawUrl: string): { platform: "youtube" | "vimeo"; videoId: string; embedUrl: string } | null {
+  try {
+    const url = new URL(rawUrl.trim());
+    const host = url.hostname.replace(/^www\./, "");
+
+    // YouTube
+    if (host === "youtube.com" || host === "youtu.be") {
+      let videoId: string | null = null;
+      if (host === "youtu.be") {
+        videoId = url.pathname.slice(1).split(/[?#]/)[0] ?? null;
+      } else if (url.pathname === "/watch") {
+        videoId = url.searchParams.get("v");
+      } else if (url.pathname.startsWith("/embed/")) {
+        videoId = url.pathname.split("/embed/")[1]?.split(/[?#]/)[0] ?? null;
+      } else if (url.pathname.startsWith("/shorts/")) {
+        videoId = url.pathname.split("/shorts/")[1]?.split(/[?#]/)[0] ?? null;
+      }
+      if (!videoId) return null;
+      return {
+        platform: "youtube",
+        videoId,
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+      };
+    }
+
+    // Vimeo
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      let videoId: string | null = null;
+      if (host === "player.vimeo.com" && url.pathname.startsWith("/video/")) {
+        videoId = url.pathname.split("/video/")[1]?.split(/[?#/]/)[0] ?? null;
+      } else {
+        // vimeo.com/123456789 or vimeo.com/channels/x/123456789
+        const segments = url.pathname.split("/").filter(Boolean);
+        // Last numeric segment is the video ID
+        for (let i = segments.length - 1; i >= 0; i--) {
+          if (/^\d+$/.test(segments[i] ?? "")) { videoId = segments[i] ?? null; break; }
+        }
+      }
+      if (!videoId) return null;
+      return {
+        platform: "vimeo",
+        videoId,
+        embedUrl: `https://player.vimeo.com/video/${videoId}`,
+      };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchVideoThumbnail(platform: "youtube" | "vimeo", videoId: string): Promise<string | null> {
+  try {
+    if (platform === "youtube") {
+      // YouTube thumbnails are available without an API key
+      return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+    // Vimeo: use oEmbed (no API key required for public videos)
+    const oEmbedUrl = `https://vimeo.com/api/oembed.json?url=https://vimeo.com/${videoId}`;
+    const resp = await fetch(oEmbedUrl, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) return null;
+    const data = await resp.json() as { thumbnail_url?: string };
+    return data.thumbnail_url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+app.post("/api/admin/poa/lessons/:id/video", requireAdminSecret, async (req: Request, res: Response) => {
+  if (!supabase) { res.status(503).json({ error: "Database not configured" }); return; }
+
+  const { id: lessonId } = req.params;
+  const { videoUrl, videoPosition } = req.body as { videoUrl?: unknown; videoPosition?: unknown };
+
+  // Verify lesson exists
+  const { data: lesson, error: fetchErr } = await supabase
+    .from("poa_lessons")
+    .select("id")
+    .eq("id", lessonId)
+    .maybeSingle();
+  if (fetchErr) { res.status(500).json({ error: "Failed to fetch lesson" }); return; }
+  if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  // Clear video
+  if (videoUrl === null) {
+    const { error } = await supabase
+      .from("poa_lessons")
+      .update({ video_url: null, video_position: null, video_embed_url: null, video_platform: null, video_thumbnail_url: null })
+      .eq("id", lessonId);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    void writeAuditLog("poa_lessons", lessonId, "update", { video_url: null });
+    res.json({ status: "cleared" });
+    return;
+  }
+
+  if (typeof videoUrl !== "string" || !videoUrl.trim()) {
+    res.status(400).json({ error: "videoUrl must be a non-empty string or null to clear" }); return;
+  }
+
+  if (videoPosition !== undefined && !["top", "bottom", "inline"].includes(videoPosition as string)) {
+    res.status(400).json({ error: "videoPosition must be top, bottom, or inline" }); return;
+  }
+
+  const parsed = parseVideoUrl(videoUrl);
+  if (!parsed) {
+    res.status(400).json({ error: "Unrecognized video URL — must be a YouTube or Vimeo URL" }); return;
+  }
+
+  const thumbnailUrl = await fetchVideoThumbnail(parsed.platform, parsed.videoId);
+
+  const patch: Record<string, unknown> = {
+    video_url: videoUrl.trim(),
+    video_embed_url: parsed.embedUrl,
+    video_platform: parsed.platform,
+    video_thumbnail_url: thumbnailUrl,
+  };
+  if (typeof videoPosition === "string") patch.video_position = videoPosition;
+
+  const { data: updated, error: updateErr } = await supabase
+    .from("poa_lessons")
+    .update(patch)
+    .eq("id", lessonId)
+    .select("id, video_url, video_embed_url, video_platform, video_thumbnail_url, video_position")
+    .maybeSingle();
+
+  if (updateErr) { res.status(500).json({ error: updateErr.message }); return; }
+  void writeAuditLog("poa_lessons", lessonId, "update", { video_url: videoUrl, video_platform: parsed.platform });
+  res.json({ lesson: updated });
 });
 
 // ─── Admin: PoA Course publish / unpublish ────────────────────────────────────
