@@ -9542,6 +9542,292 @@ app.post("/api/admin/cron/scheduled-publish", requireAdminSecret, async (_req: R
   });
 });
 
+// ─── POST /api/contact ────────────────────────────────────────────────────────
+
+/**
+ * POST /api/contact
+ *
+ * Public — no API key required.
+ *
+ * Body (JSON):
+ *   name     {string}  — required, 1–100 chars
+ *   email    {string}  — required, valid email
+ *   message  {string}  — required, 10–2000 chars
+ *
+ * Rate-limited to 5 submissions per IP per hour.
+ * Forwards the message via Resend to nick@paradoxofacceptance.xyz with
+ * reply-to set to the sender's email address.
+ */
+
+// In-memory rate limit store: ip → { count, resetAt }
+const contactRateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? ADMIN_NOTIFY_EMAIL ?? "nick@paradoxofacceptance.xyz";
+const CONTACT_RATE_LIMIT = 5;
+const CONTACT_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+app.options("/api/contact", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.post("/api/contact", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "unknown";
+
+  // Rate limit check
+  const now = Date.now();
+  const bucket = contactRateLimitStore.get(ip);
+  if (bucket && now < bucket.resetAt) {
+    if (bucket.count >= CONTACT_RATE_LIMIT) {
+      res.status(429).json({ error: "Too many requests. Please wait before submitting again." });
+      return;
+    }
+    bucket.count++;
+  } else {
+    contactRateLimitStore.set(ip, { count: 1, resetAt: now + CONTACT_RATE_WINDOW_MS });
+  }
+
+  const { name, email, message } = req.body as { name?: string; email?: string; message?: string };
+
+  // Validate
+  if (!name || name.trim().length < 1 || name.trim().length > 100) {
+    res.status(400).json({ error: "Name is required (1–100 characters)." });
+    return;
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    res.status(400).json({ error: "A valid email address is required." });
+    return;
+  }
+  if (!message || message.trim().length < 10 || message.trim().length > 2000) {
+    res.status(400).json({ error: "Message must be between 10 and 2000 characters." });
+    return;
+  }
+
+  if (!RESEND_API_KEY) {
+    console.error("[contact] RESEND_API_KEY not set");
+    res.status(503).json({ error: "Contact form is temporarily unavailable." });
+    return;
+  }
+
+  const resend = new Resend(RESEND_API_KEY);
+  const safeName = name.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const safeEmail = email.trim().toLowerCase();
+  const safeMessage = message.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+
+  const { error } = await resend.emails.send({
+    from: EMAIL_FROM ?? "newsletter@paradoxofacceptance.xyz",
+    to: [CONTACT_EMAIL],
+    replyTo: safeEmail,
+    subject: `Contact form: ${safeName}`,
+    html: `<p><strong>From:</strong> ${safeName} &lt;${safeEmail}&gt;</p>
+<p><strong>Message:</strong></p>
+<p>${safeMessage}</p>`,
+  });
+
+  if (error) {
+    console.error("[contact] Resend error:", error);
+    res.status(500).json({ error: "Failed to send message. Please try again." });
+    return;
+  }
+
+  console.log(`[contact] Message from ${safeEmail} forwarded to ${CONTACT_EMAIL}`);
+  res.json({ status: "sent" });
+});
+
+// ─── GET /api/podcast/episodes ───────────────────────────────────────────────
+
+/**
+ * GET /api/podcast/episodes
+ *
+ * Returns published podcast episodes ordered by published_at DESC.
+ *
+ * Query params:
+ *   page  {number}  — 1-based page number (default: 1)
+ *   limit {number}  — results per page, max 50 (default: 10)
+ *
+ * Response:
+ *   { episodes: PodcastEpisode[], total: number, page: number, pages: number }
+ */
+
+app.options("/api/podcast/episodes", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.sendStatus(204);
+});
+
+app.get("/api/podcast/episodes", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
+  const offset = (page - 1) * limit;
+
+  const [countRes, dataRes] = await Promise.all([
+    supabase
+      .from("podcast_episodes")
+      .select("id", { count: "exact", head: true })
+      .eq("published", true),
+    supabase
+      .from("podcast_episodes")
+      .select("id, title, slug, description, audio_url, duration, published_at, season_number, episode_number")
+      .eq("published", true)
+      .order("published_at", { ascending: false })
+      .range(offset, offset + limit - 1),
+  ]);
+
+  if (dataRes.error) {
+    console.error("[podcast/episodes] db error:", dataRes.error);
+    res.status(500).json({ error: "Failed to load episodes" });
+    return;
+  }
+
+  const total = countRes.count ?? 0;
+
+  res.json({
+    episodes: dataRes.data ?? [],
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+  });
+});
+
+// ─── GET /api/podcast/episodes/:slug ──────────────────────────────────────────
+
+/**
+ * GET /api/podcast/episodes/:slug
+ *
+ * Returns a single published episode including show_notes (markdown).
+ * Used by the episode detail page.
+ */
+
+app.options("/api/podcast/episodes/:slug", (_req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.sendStatus(204);
+});
+
+app.get("/api/podcast/episodes/:slug", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=600");
+
+  const { slug } = req.params;
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+    res.status(400).json({ error: "Invalid slug" });
+    return;
+  }
+
+  if (!supabase) {
+    res.status(503).json({ error: "Database not configured" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("podcast_episodes")
+    .select("id, title, slug, description, show_notes, audio_url, duration, published_at, season_number, episode_number")
+    .eq("slug", slug)
+    .eq("published", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[podcast/episodes/${slug}] db error:`, error);
+    res.status(500).json({ error: "Failed to load episode" });
+    return;
+  }
+
+  if (!data) {
+    res.status(404).json({ error: "Episode not found" });
+    return;
+  }
+
+  res.json(data);
+});
+
+// ─── POST /api/newsletter/subscribe ──────────────────────────────────────────
+
+/**
+ * POST /api/newsletter/subscribe
+ *
+ * Public — no API key required.
+ *
+ * Body (JSON):
+ *   email      {string}  — required
+ *   firstName  {string}  — optional
+ *   honeypot   {string}  — must be empty (spam prevention)
+ *   source     {string}  — optional
+ *
+ * Adds the contact to the Resend audience and sends a welcome email.
+ * If the honeypot field is non-empty, silently returns success without
+ * actually subscribing (bot trap).
+ */
+
+app.options("/api/newsletter/subscribe", (_req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(204);
+});
+
+app.post("/api/newsletter/subscribe", async (req: Request, res: Response) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  const { email, firstName, honeypot, source } = req.body as {
+    email?: string;
+    firstName?: string;
+    honeypot?: string;
+    source?: string;
+  };
+
+  // Honeypot: bots fill in hidden fields — silently succeed
+  if (honeypot && honeypot.trim().length > 0) {
+    console.log("[newsletter/subscribe] honeypot triggered — silently dropping");
+    res.json({ status: "subscribed" });
+    return;
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    res.status(400).json({ error: "A valid email address is required." });
+    return;
+  }
+
+  const resend = new Resend(RESEND_API_KEY!);
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const { error } = await resend.contacts.create({
+    audienceId: RESEND_AUDIENCE_ID!,
+    email: normalizedEmail,
+    firstName: firstName?.trim() || undefined,
+    unsubscribed: false,
+  });
+
+  if (error) {
+    console.error(`[newsletter/subscribe] Error for ${normalizedEmail}:`, error);
+    res.status(500).json({ error: "Subscription failed. Please try again." });
+    return;
+  }
+
+  const safeSource = source ? ` [source: ${source}]` : "";
+  console.log(`[newsletter/subscribe] ${normalizedEmail} added to audience${safeSource}`);
+
+  // Send welcome email (non-blocking)
+  sendWelcomeEmail(resend, normalizedEmail, firstName).catch((err) => {
+    console.error(`[newsletter/subscribe] Unexpected welcome email error for ${normalizedEmail}:`, err);
+  });
+
+  res.json({ status: "subscribed" });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 validateConfig();

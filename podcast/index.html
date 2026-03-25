@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Podcast — Paradox of Acceptance</title>
+<meta name="description" content="Honest conversations about what meditation actually does to a person — the parts the wellness industry skips.">
+<meta property="og:title" content="Paradox of Acceptance Podcast" />
+<meta property="og:description" content="Honest conversations about what meditation actually does to a person — the parts the wellness industry skips." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://paradoxofacceptance.xyz/podcast/" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Paradox of Acceptance Podcast" />
+<meta name="twitter:description" content="Honest conversations about what meditation actually does to a person." />
+<link rel="canonical" href="https://paradoxofacceptance.xyz/podcast/" />
+<link rel="alternate" type="application/atom+xml" title="Paradox of Acceptance" href="/feed.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script defer data-domain="paradoxofacceptance.xyz" src="https://plausible.io/js/script.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #FFFFFF; color: #111111; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Nav ────────────────────────────────────────────────────────────── */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 120px; }
+.nav-logo { font-family: 'Newsreader', serif; font-size: 20px; font-weight: 500; color: #111; }
+.nav-links { display: flex; align-items: center; gap: 32px; }
+.nav-links a { font-size: 13px; font-weight: 500; color: #666; transition: color 0.15s; }
+.nav-links a:hover, .nav-links a.active { color: #111; }
+.divider { border: none; border-top: 1px solid #EEEEEE; }
+
+/* ── Hero ────────────────────────────────────────────────────────────── */
+.hero { padding: 64px 120px 56px; max-width: 1280px; margin: 0 auto; }
+.hero-kicker { font-size: 12px; font-weight: 600; color: #888; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; }
+.hero-title { font-family: 'Newsreader', serif; font-size: 44px; font-weight: 400; color: #111; line-height: 1.15; margin-bottom: 18px; }
+.hero-desc { font-size: 17px; color: #555; line-height: 1.7; max-width: 560px; margin-bottom: 32px; }
+
+/* ── Subscribe links ────────────────────────────────────────────────── */
+.subscribe-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sub-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 500;
+  padding: 8px 16px; border-radius: 8px;
+  border: 1px solid #E0E0E0; color: #333;
+  background: #FAFAFA;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.sub-link:hover { border-color: #BDBDBD; background: #F5F5F5; color: #111; }
+.sub-link svg { flex-shrink: 0; }
+.sub-link.apple:hover { border-color: #9c6dff; color: #6d28d9; background: #F5F0FF; }
+.sub-link.spotify:hover { border-color: #1DB954; color: #1DB954; background: #F0FFF4; }
+.sub-link.rss:hover { border-color: #F97316; color: #EA580C; background: #FFF7ED; }
+
+/* ── Episode list ─────────────────────────────────────────────────────── */
+.episodes-section { padding: 0 120px 120px; max-width: 1280px; margin: 0 auto; }
+.section-label {
+  font-size: 12px; font-weight: 600; color: #999; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 28px; padding-top: 48px;
+}
+.episode-list { display: flex; flex-direction: column; gap: 1px; }
+
+.episode-card {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 20px;
+  align-items: center;
+  padding: 24px 0;
+  border-bottom: 1px solid #F0F0F0;
+  transition: background 0.15s;
+}
+.episode-card:first-child { border-top: 1px solid #F0F0F0; }
+
+.ep-number {
+  font-family: 'Newsreader', serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #CCC;
+  text-align: center;
+  flex-shrink: 0;
+}
+.ep-body { min-width: 0; }
+.ep-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.ep-season { font-size: 11px; font-weight: 600; color: #999; letter-spacing: 1px; text-transform: uppercase; }
+.ep-date { font-size: 12px; color: #AAA; }
+.ep-duration { font-size: 12px; color: #AAA; }
+.ep-title {
+  font-family: 'Newsreader', serif;
+  font-size: 20px;
+  font-weight: 400;
+  color: #111;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.ep-title a { transition: color 0.15s; }
+.ep-title a:hover { color: #6d28d9; }
+.ep-desc { font-size: 14px; color: #666; line-height: 1.6; max-width: 640px; }
+
+.ep-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.play-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #111; border: none; cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.play-btn:hover { background: #333; transform: scale(1.05); }
+.play-btn.playing { background: #6d28d9; }
+.play-btn svg { pointer-events: none; }
+
+/* ── Pagination ──────────────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 40px; }
+.page-btn {
+  font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid #E0E0E0; cursor: pointer; background: #FFF; color: #333;
+  transition: all 0.15s;
+}
+.page-btn:hover { background: #F5F5F5; border-color: #CCC; }
+.page-btn.active { background: #111; color: #FFF; border-color: #111; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Loading / error states ──────────────────────────────────────────── */
+.state-msg { padding: 48px 0; text-align: center; font-size: 15px; color: #888; }
+
+/* ── Persistent bottom player ────────────────────────────────────────── */
+.player-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 72px;
+  background: #111;
+  color: #FFF;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  z-index: 1000;
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+}
+.player-bar.visible { transform: translateY(0); }
+
+/* Nudge page content up when player is visible */
+body.player-open { padding-bottom: 72px; }
+
+.player-info { flex: 0 0 260px; min-width: 0; overflow: hidden; }
+.player-ep-title {
+  font-size: 13px; font-weight: 500; color: #FFF;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-ep-sub { font-size: 11px; color: #888; margin-top: 2px; }
+
+.player-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ctrl-btn {
+  background: none; border: none; cursor: pointer; color: #CCC;
+  padding: 4px; display: flex; align-items: center;
+  transition: color 0.15s;
+}
+.ctrl-btn:hover { color: #FFF; }
+.ctrl-btn.play-pause {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #FFF; color: #111; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.ctrl-btn.play-pause:hover { background: #E0E0E0; }
+
+.player-progress { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.time-label { font-size: 11px; color: #888; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.scrub {
+  flex: 1; height: 4px; background: #333; border-radius: 2px;
+  appearance: none; cursor: pointer; outline: none;
+  accent-color: #7c3aed;
+}
+.scrub::-webkit-slider-thumb {
+  appearance: none; width: 12px; height: 12px;
+  border-radius: 50%; background: #FFF; cursor: pointer;
+  margin-top: -4px;
+}
+.scrub::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+}
+
+.speed-btn {
+  font-size: 12px; font-weight: 600; color: #888; background: none; border: none;
+  cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: color 0.15s, background 0.15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.speed-btn:hover { color: #FFF; background: #222; }
+
+.player-close {
+  background: none; border: none; cursor: pointer; color: #666;
+  padding: 4px; display: flex; align-items: center; flex-shrink: 0;
+  transition: color 0.15s;
+}
+.player-close:hover { color: #FFF; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .nav { padding: 20px 24px; }
+  .nav-links { gap: 20px; display: none; }
+  .hero { padding: 48px 24px 40px; }
+  .hero-title { font-size: 32px; }
+  .episodes-section { padding: 0 24px 96px; }
+  .episode-card { grid-template-columns: 36px 1fr; }
+  .ep-actions { display: none; }
+  .player-info { flex: 0 0 180px; }
+  .player-progress { display: none; }
+}
+@media (max-width: 600px) {
+  .player-bar { padding: 0 16px; gap: 12px; }
+  .player-info { flex: 0 1 140px; }
+  .time-label { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div style="display:flex;align-items:center;gap:48px;">
+    <a href="/" class="nav-logo">Paradox of Acceptance</a>
+    <div class="nav-links">
+      <a href="/mindfulness-essays/">Essays</a>
+      <a href="/courses/">Courses</a>
+      <a href="/podcast/" class="active">Podcast</a>
+      <a href="/newsletter/">Newsletter</a>
+      <a href="/about/">About</a>
+    </div>
+  </div>
+</nav>
+
+<hr class="divider">
+
+<!-- Hero -->
+<section class="hero">
+  <p class="hero-kicker">The Podcast</p>
+  <h1 class="hero-title">Honest conversations<br>about meditation.</h1>
+  <p class="hero-desc">What mindfulness actually does to a person — the questions serious practitioners ask and the parts the wellness industry skips.</p>
+
+  <div class="subscribe-row">
+    <!-- Apple Podcasts -->
+    <a href="#" class="sub-link apple" aria-label="Subscribe on Apple Podcasts">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-11v6l5-3-5-3z" fill="currentColor"/>
+      </svg>
+      Apple Podcasts
+    </a>
+    <!-- Spotify -->
+    <a href="#" class="sub-link spotify" aria-label="Subscribe on Spotify">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 14.36c-.2.32-.63.42-.95.22-2.6-1.59-5.88-1.95-9.74-1.07-.37.09-.74-.14-.83-.51-.09-.37.14-.74.51-.83 4.23-.97 7.86-.55 10.79 1.24.32.2.42.63.22.95zm1.24-2.75c-.25.41-.78.53-1.19.28-2.98-1.83-7.51-2.36-11.03-1.29-.46.14-.94-.12-1.08-.57-.13-.46.12-.94.57-1.08 4.02-1.22 9.01-.63 12.45 1.47.41.25.53.78.28 1.19zm.11-2.86c-.3.49-.96.64-1.45.34-3.37-2.01-8.93-2.19-12.15-1.21-.51.16-1.05-.14-1.21-.65-.16-.51.14-1.05.65-1.21 3.71-1.12 9.88-.9 13.78 1.4.49.3.64.96.34 1.45l.04-.12z" fill="currentColor"/>
+      </svg>
+      Spotify
+    </a>
+    <!-- RSS -->
+    <a href="/feed.xml" class="sub-link rss" aria-label="RSS Feed">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6.18 15.64a2.18 2.18 0 0 1 2.18 2.18C8.36 19.01 7.38 20 6.18 20C4.98 20 4 19.01 4 17.82a2.18 2.18 0 0 1 2.18-2.18M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1z" fill="currentColor"/>
+      </svg>
+      RSS
+    </a>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Episode List -->
+<section class="episodes-section">
+  <p class="section-label">All Episodes</p>
+  <div class="episode-list" id="episode-list">
+    <div class="state-msg" id="state-msg">Loading episodes…</div>
+  </div>
+  <div class="pagination" id="pagination" style="display:none;"></div>
+</section>
+
+<!-- Persistent Bottom Player -->
+<div class="player-bar" id="player-bar" role="region" aria-label="Audio player">
+  <div class="player-info">
+    <div class="player-ep-title" id="player-title">—</div>
+    <div class="player-ep-sub" id="player-sub"></div>
+  </div>
+
+  <div class="player-controls">
+    <!-- Skip back 15s -->
+    <button class="ctrl-btn" id="btn-back" aria-label="Skip back 15 seconds" title="−15s">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/>
+        <text x="7.5" y="15" font-size="5.5" font-family="Inter,sans-serif" font-weight="600" fill="currentColor" text-anchor="middle">15</text>
+      </svg>
+    </button>
+    <!-- Play / Pause -->
+    <button class="ctrl-btn play-pause" id="btn-play" aria-label="Play/Pause">
+      <svg id="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
+      </svg>
+      <svg id="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="none" style="display:none">
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
+      </svg>
+    </button>
+    <!-- Skip forward 15s -->
+    <button class="ctrl-btn" id="btn-fwd" aria-label="Skip forward 15 seconds" title="+15s">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z" fill="currentColor"/>
+        <text x="16.5" y="15" font-size="5.5" font-family="Inter,sans-serif" font-weight="600" fill="currentColor" text-anchor="middle">15</text>
+      </svg>
+    </button>
+  </div>
+
+  <div class="player-progress">
+    <span class="time-label" id="time-current">0:00</span>
+    <input type="range" class="scrub" id="scrub" min="0" max="100" value="0" step="0.5" aria-label="Seek">
+    <span class="time-label" id="time-total">0:00</span>
+  </div>
+
+  <button class="speed-btn" id="btn-speed" aria-label="Playback speed">1×</button>
+
+  <button class="player-close" id="btn-close" aria-label="Close player">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+    </svg>
+  </button>
+</div>
+
+<!-- Hidden audio element -->
+<audio id="audio-el" preload="metadata"></audio>
+
+<script>
+// ── Utilities ──────────────────────────────────────────────────────────
+
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+const PLAYER_STATE_KEY = 'poa_podcast_player';
+
+function fmtDuration(secs) {
+  if (!secs || isNaN(secs)) return '0:00';
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function epLabel(ep) {
+  if (ep.season_number && ep.episode_number) return `S${ep.season_number} E${ep.episode_number}`;
+  if (ep.episode_number) return `Ep ${ep.episode_number}`;
+  return '';
+}
+
+// ── State ──────────────────────────────────────────────────────────────
+
+let state = {
+  episodes: [],
+  page: 1,
+  pages: 1,
+  currentSlug: null,
+  currentAudioUrl: null,
+};
+
+// Restore from sessionStorage on load
+function loadStoredPlayer() {
+  try {
+    const raw = sessionStorage.getItem(PLAYER_STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function savePlayerState(data) {
+  try { sessionStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(data)); } catch {}
+}
+
+// ── Player ─────────────────────────────────────────────────────────────
+
+const audio   = document.getElementById('audio-el');
+const bar     = document.getElementById('player-bar');
+const btnPlay = document.getElementById('btn-play');
+const iconPlay  = document.getElementById('icon-play');
+const iconPause = document.getElementById('icon-pause');
+const btnBack = document.getElementById('btn-back');
+const btnFwd  = document.getElementById('btn-fwd');
+const btnSpeed = document.getElementById('btn-speed');
+const btnClose = document.getElementById('btn-close');
+const scrub   = document.getElementById('scrub');
+const timeCurrent = document.getElementById('time-current');
+const timeTotal   = document.getElementById('time-total');
+const playerTitle = document.getElementById('player-title');
+const playerSub   = document.getElementById('player-sub');
+
+let speedIdx = 1; // index into SPEEDS, default 1×
+let isScrubbing = false;
+
+function showPlayer() {
+  bar.classList.add('visible');
+  document.body.classList.add('player-open');
+}
+
+function hidePlayer() {
+  audio.pause();
+  bar.classList.remove('visible');
+  document.body.classList.remove('player-open');
+  state.currentSlug = null;
+  state.currentAudioUrl = null;
+  sessionStorage.removeItem(PLAYER_STATE_KEY);
+  updatePlayBtns(false);
+}
+
+function updatePlayBtns(playing) {
+  iconPlay.style.display  = playing ? 'none' : 'block';
+  iconPause.style.display = playing ? 'block' : 'none';
+  // Update all card play buttons
+  document.querySelectorAll('.play-btn').forEach(btn => {
+    const slug = btn.dataset.slug;
+    btn.classList.toggle('playing', playing && slug === state.currentSlug);
+    btn.setAttribute('aria-label', (playing && slug === state.currentSlug) ? 'Pause' : 'Play');
+    btn.querySelector('.icon-play-card').style.display  = (playing && slug === state.currentSlug) ? 'none' : 'block';
+    btn.querySelector('.icon-pause-card').style.display = (playing && slug === state.currentSlug) ? 'block' : 'none';
+  });
+}
+
+function loadEpisode(ep, autoplay = true) {
+  state.currentSlug = ep.slug;
+  state.currentAudioUrl = ep.audio_url;
+
+  playerTitle.textContent = ep.title;
+  playerSub.textContent   = epLabel(ep);
+
+  if (audio.src !== ep.audio_url) {
+    audio.src = ep.audio_url;
+    audio.load();
+  }
+  audio.playbackRate = SPEEDS[speedIdx];
+
+  showPlayer();
+  if (autoplay) {
+    audio.play().catch(() => {});
+  }
+  updatePlayBtns(autoplay);
+
+  savePlayerState({
+    slug: ep.slug,
+    audioUrl: ep.audio_url,
+    title: ep.title,
+    sub: epLabel(ep),
+    position: 0,
+    speed: SPEEDS[speedIdx],
+  });
+}
+
+function togglePlayPause() {
+  if (audio.paused) {
+    audio.play().catch(() => {});
+  } else {
+    audio.pause();
+  }
+}
+
+btnPlay.addEventListener('click', togglePlayPause);
+btnBack.addEventListener('click', () => { audio.currentTime = Math.max(0, audio.currentTime - 15); });
+btnFwd.addEventListener('click',  () => { audio.currentTime = audio.currentTime + 15; });
+btnClose.addEventListener('click', hidePlayer);
+
+btnSpeed.addEventListener('click', () => {
+  speedIdx = (speedIdx + 1) % SPEEDS.length;
+  const s = SPEEDS[speedIdx];
+  audio.playbackRate = s;
+  btnSpeed.textContent = s === 1 ? '1×' : `${s}×`;
+  const stored = loadStoredPlayer();
+  if (stored) savePlayerState({ ...stored, speed: s });
+});
+
+audio.addEventListener('play',  () => updatePlayBtns(true));
+audio.addEventListener('pause', () => updatePlayBtns(false));
+audio.addEventListener('ended', () => updatePlayBtns(false));
+
+audio.addEventListener('timeupdate', () => {
+  if (isScrubbing) return;
+  const cur = audio.currentTime;
+  const dur = audio.duration || 0;
+  timeCurrent.textContent = fmtDuration(cur);
+  if (dur > 0) {
+    scrub.value = (cur / dur) * 100;
+  }
+  // Persist position periodically
+  const stored = loadStoredPlayer();
+  if (stored && cur > 0) {
+    stored.position = cur;
+    savePlayerState(stored);
+  }
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  const dur = audio.duration || 0;
+  timeTotal.textContent = fmtDuration(dur);
+  scrub.max = 100;
+  // Restore saved position
+  const stored = loadStoredPlayer();
+  if (stored && stored.position > 0 && stored.audioUrl === audio.src) {
+    audio.currentTime = stored.position;
+  }
+});
+
+scrub.addEventListener('mousedown', () => { isScrubbing = true; });
+scrub.addEventListener('touchstart', () => { isScrubbing = true; });
+scrub.addEventListener('input', () => {
+  const dur = audio.duration || 0;
+  timeCurrent.textContent = fmtDuration((scrub.value / 100) * dur);
+});
+scrub.addEventListener('change', () => {
+  const dur = audio.duration || 0;
+  if (dur > 0) audio.currentTime = (scrub.value / 100) * dur;
+  isScrubbing = false;
+});
+
+// ── Episode list rendering ─────────────────────────────────────────────
+
+function renderEpisodes(episodes) {
+  const list = document.getElementById('episode-list');
+  const msg  = document.getElementById('state-msg');
+  if (msg) msg.remove();
+
+  list.innerHTML = '';
+
+  if (!episodes.length) {
+    list.innerHTML = '<div class="state-msg">No episodes yet.</div>';
+    return;
+  }
+
+  episodes.forEach(ep => {
+    const card = document.createElement('div');
+    card.className = 'episode-card';
+    card.dataset.slug = ep.slug;
+
+    const num = ep.episode_number ?? '–';
+
+    card.innerHTML = `
+      <div class="ep-number">${num}</div>
+      <div class="ep-body">
+        <div class="ep-meta">
+          ${ep.season_number ? `<span class="ep-season">S${ep.season_number}</span>` : ''}
+          <span class="ep-date">${fmtDate(ep.published_at)}</span>
+          <span class="ep-duration">${fmtDuration(ep.duration)}</span>
+        </div>
+        <div class="ep-title">
+          <a href="/podcast/${ep.slug}/">${ep.title}</a>
+        </div>
+        ${ep.description ? `<p class="ep-desc">${ep.description}</p>` : ''}
+      </div>
+      <div class="ep-actions">
+        <button class="play-btn" data-slug="${ep.slug}" data-url="${ep.audio_url}"
+          data-title="${ep.title.replace(/"/g, '&quot;')}"
+          data-sub="${epLabel(ep)}"
+          aria-label="Play ${ep.title.replace(/"/g, '&quot;')}">
+          <svg class="icon-play-card" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M8 5v14l11-7L8 5z" fill="white"/>
+          </svg>
+          <svg class="icon-pause-card" width="18" height="18" viewBox="0 0 24 24" fill="none" style="display:none">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="white"/>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    list.appendChild(card);
+  });
+
+  // Wire up play buttons
+  list.querySelectorAll('.play-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const slug = btn.dataset.slug;
+      if (state.currentSlug === slug) {
+        togglePlayPause();
+        return;
+      }
+      loadEpisode({
+        slug,
+        audio_url: btn.dataset.url,
+        title: btn.dataset.title,
+        episode_number: null,
+        season_number: null,
+      });
+      // Reconstruct sub from data attribute
+      playerSub.textContent = btn.dataset.sub || '';
+    });
+  });
+}
+
+function renderPagination(page, pages) {
+  const pg = document.getElementById('pagination');
+  pg.style.display = pages > 1 ? 'flex' : 'none';
+  pg.innerHTML = '';
+
+  const prev = document.createElement('button');
+  prev.className = 'page-btn';
+  prev.textContent = '← Prev';
+  prev.disabled = page <= 1;
+  prev.addEventListener('click', () => loadPage(page - 1));
+  pg.appendChild(prev);
+
+  for (let i = 1; i <= pages; i++) {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (i === page ? ' active' : '');
+    b.textContent = i;
+    if (i !== page) b.addEventListener('click', () => loadPage(i));
+    pg.appendChild(b);
+  }
+
+  const next = document.createElement('button');
+  next.className = 'page-btn';
+  next.textContent = 'Next →';
+  next.disabled = page >= pages;
+  next.addEventListener('click', () => loadPage(page + 1));
+  pg.appendChild(next);
+}
+
+// ── Data fetching ──────────────────────────────────────────────────────
+
+async function loadPage(page) {
+  const msg = document.getElementById('state-msg');
+  if (msg) msg.textContent = 'Loading…';
+  else {
+    const m = document.createElement('div');
+    m.id = 'state-msg'; m.className = 'state-msg'; m.textContent = 'Loading…';
+    document.getElementById('episode-list').prepend(m);
+  }
+
+  try {
+    const res = await fetch(`/api/podcast/episodes?page=${page}&limit=10`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    state.episodes = data.episodes || [];
+    state.page  = data.page  || 1;
+    state.pages = data.pages || 1;
+
+    renderEpisodes(state.episodes);
+    renderPagination(state.page, state.pages);
+
+    // After render, re-sync active state if a player is going
+    if (state.currentSlug) {
+      updatePlayBtns(!audio.paused);
+    }
+  } catch (err) {
+    console.error('[podcast] failed to load episodes:', err);
+    const list = document.getElementById('episode-list');
+    list.innerHTML = '<div class="state-msg">Couldn\'t load episodes. Please try again.</div>';
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadPage(1);
+
+  // Restore player state from sessionStorage (user navigated back)
+  const stored = loadStoredPlayer();
+  if (stored && stored.audioUrl) {
+    state.currentSlug    = stored.slug;
+    state.currentAudioUrl = stored.audioUrl;
+    playerTitle.textContent = stored.title || '—';
+    playerSub.textContent   = stored.sub || '';
+
+    // Find speed index
+    const si = SPEEDS.indexOf(stored.speed || 1);
+    speedIdx = si >= 0 ? si : 1;
+    audio.playbackRate = SPEEDS[speedIdx];
+    btnSpeed.textContent = SPEEDS[speedIdx] === 1 ? '1×' : `${SPEEDS[speedIdx]}×`;
+
+    audio.src = stored.audioUrl;
+    audio.load();
+    showPlayer();
+    updatePlayBtns(false); // don't auto-resume on page reload
+  }
+});
+</script>
+</body>
+</html>
