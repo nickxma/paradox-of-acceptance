@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Events — Admin — Paradox of Acceptance</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #f5f5f5; color: #111; font-size: 14px; min-height: 100vh;
+}
+
+/* ─── Auth gate ───────────────────────────────────────────── */
+#auth-gate {
+  position: fixed; inset: 0; background: #f5f5f5;
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.auth-card {
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+  padding: 40px 48px; width: 360px; text-align: center;
+}
+.auth-card h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.3px; }
+.auth-card p { font-size: 13px; color: #888; margin-bottom: 24px; }
+.auth-input {
+  width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; margin-bottom: 12px;
+}
+.auth-input:focus { border-color: #111; }
+.btn-primary {
+  width: 100%; padding: 10px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+#auth-error { font-size: 12px; color: #dc2626; margin-top: 10px; min-height: 18px; }
+
+/* ─── Main ──────────────────────────────────────────────── */
+#main { display: none; }
+
+header {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.header-nav { display: flex; gap: 20px; }
+.header-nav a {
+  font-size: 13px; font-weight: 500; color: #888; text-decoration: none;
+  padding-bottom: 2px; border-bottom: 2px solid transparent; transition: color 0.15s;
+}
+.header-nav a:hover { color: #111; }
+.header-nav a.active { color: #111; border-bottom-color: #111; }
+
+.content { padding: 32px; }
+
+.page-header {
+  display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px;
+}
+.page-title { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 2px; }
+.page-sub { font-size: 13px; color: #888; }
+.btn-new {
+  padding: 8px 16px; background: #111; color: #fff;
+  border: none; border-radius: 6px; font-size: 13px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.btn-new:hover { background: #333; }
+
+/* ─── Panel / Table ─────────────────────────────────────── */
+.panel { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+.panel-header {
+  padding: 14px 20px; border-bottom: 1px solid #e0e0e0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-title { font-size: 13px; font-weight: 600; color: #555; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: 11px; font-weight: 600; color: #888;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 10px 16px; border-bottom: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+.loading-row td, .empty-row td, .error-msg td { color: #888; text-align: center; padding: 32px 16px; font-size: 13px; }
+
+.event-title-cell { font-weight: 500; font-size: 13px; line-height: 1.4; }
+.event-slug { font-size: 11px; color: #aaa; margin-top: 2px; }
+.event-date { font-size: 12px; color: #666; white-space: nowrap; }
+.reg-count { font-size: 13px; font-weight: 500; color: #111; }
+
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+}
+.badge-published { background: #F0FDF4; color: #16A34A; }
+.badge-draft { background: #F5F5F5; color: #888; }
+.badge-free { background: #EFF6FF; color: #2563EB; }
+.badge-paid { background: #F5F3FF; color: #7C3AED; }
+
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-action {
+  padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 500;
+  border: 1px solid #e0e0e0; background: #fff; color: #444; cursor: pointer;
+  font-family: inherit; transition: background 0.1s, color 0.1s; white-space: nowrap;
+  text-decoration: none;
+}
+.btn-action:hover { background: #f5f5f5; }
+.btn-publish { border-color: #bbf7d0; color: #16a34a; background: #f0fdf4; }
+.btn-publish:hover { background: #dcfce7; }
+.btn-unpublish { border-color: #e0e0e0; color: #888; }
+.btn-unpublish:hover { background: #f5f5f5; color: #111; }
+.btn-edit { border-color: #ddd9ff; color: #7c3aed; background: #f5f3ff; }
+.btn-edit:hover { background: #ede9fe; }
+.btn-danger { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
+.btn-danger:hover { background: #fee2e2; }
+.btn-regs { border-color: #ddd; }
+
+/* ─── Modal ─────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+  padding: 20px;
+}
+.modal-backdrop.hidden { display: none; }
+.modal {
+  background: #fff; border-radius: 8px; padding: 28px 32px;
+  width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto;
+}
+.modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 20px; letter-spacing: -0.2px; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px;
+  font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s;
+  color: #111;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: #111; }
+.field textarea { min-height: 90px; resize: vertical; }
+.field-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+.field-row { display: flex; gap: 12px; }
+.field-row .field { flex: 1; }
+.modal-error { font-size: 12px; color: #dc2626; min-height: 18px; margin-bottom: 12px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.btn-cancel {
+  padding: 8px 16px; background: #fff; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;
+}
+.btn-cancel:hover { background: #f5f5f5; }
+.btn-save {
+  padding: 8px 18px; background: #111; color: #fff; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: background 0.15s;
+}
+.btn-save:hover { background: #333; }
+.btn-save:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ─── Registrations sub-table ───────────────────────────── */
+.regs-list { margin-top: 12px; }
+.reg-row {
+  display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f0f0;
+  font-size: 12px; color: #444; align-items: flex-start;
+}
+.reg-row:last-child { border-bottom: none; }
+.reg-row .reg-name { font-weight: 500; color: #111; min-width: 120px; }
+.reg-row .reg-email { flex: 1; color: #666; }
+.reg-row .reg-payment { color: #888; white-space: nowrap; }
+
+/* ─── Toast ─────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(16px);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 6px;
+  font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none; z-index: 500; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h1>Admin</h1>
+    <p>Paradox of Acceptance</p>
+    <input class="auth-input" type="password" id="admin-password" placeholder="Admin password">
+    <button class="btn-primary" id="auth-submit">Unlock</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main UI -->
+<div id="main">
+  <header>
+    <div class="header-title">paradoxofacceptance.xyz</div>
+    <nav class="header-nav">
+      <a href="/admin/">Overview</a>
+      <a href="/admin/stats/">Stats</a>
+      <a href="/admin/newsletter/">Newsletter</a>
+      <a href="/admin/courses/">Courses</a>
+      <a href="/admin/events/" class="active">Events</a>
+      <a href="/admin/calendar/">Calendar</a>
+      <a href="/admin/gates/">Gates</a>
+      <a href="/admin/writing/">Writing</a>
+      <a href="/admin/about/">About</a>
+    </nav>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Events</div>
+        <div class="page-sub">Manage workshops and retreats</div>
+      </div>
+      <button class="btn-new" onclick="openNewModal()">+ New Event</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">All Events</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>Price</th>
+            <th>Registrations</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="events-tbody">
+          <tr class="loading-row"><td colspan="6">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- New / Edit event modal -->
+<div class="modal-backdrop hidden" id="event-modal">
+  <div class="modal">
+    <h2 id="modal-title">New Event</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="em-title">Title <span style="color:#dc2626">*</span></label>
+        <input type="text" id="em-title" placeholder="e.g. The Body Knows Workshop">
+      </div>
+      <div class="field" style="max-width:180px">
+        <label for="em-slug">Slug <span style="color:#dc2626">*</span></label>
+        <input type="text" id="em-slug" placeholder="e.g. body-knows-workshop">
+        <div class="field-hint">URL-safe, lowercase</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="em-description">Short description</label>
+      <textarea id="em-description" placeholder="What is this event about?"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="em-starts-at">Start date & time (UTC) <span style="color:#dc2626">*</span></label>
+        <input type="datetime-local" id="em-starts-at">
+      </div>
+      <div class="field">
+        <label for="em-ends-at">End date & time (UTC) <span style="color:#dc2626">*</span></label>
+        <input type="datetime-local" id="em-ends-at">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="em-location-type">Location type</label>
+        <select id="em-location-type" onchange="toggleLocationField()">
+          <option value="virtual">Virtual</option>
+          <option value="in-person">In-person</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="em-location" id="em-location-label">Meeting URL (optional)</label>
+        <input type="text" id="em-location" placeholder="https://…">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="em-price-cents">Price (USD cents) — 0 = free</label>
+        <input type="number" id="em-price-cents" min="0" step="100" placeholder="e.g. 4900 for $49">
+      </div>
+      <div class="field">
+        <label for="em-price-pyusd">PYUSD price (optional)</label>
+        <input type="number" id="em-price-pyusd" min="0" step="1" placeholder="e.g. 49">
+        <div class="field-hint">Leave blank to not accept PYUSD</div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="em-capacity">Capacity (blank = unlimited)</label>
+        <input type="number" id="em-capacity" min="1" placeholder="e.g. 20">
+      </div>
+      <div class="field">
+        <label for="em-spots-remaining">Spots remaining (blank = same as capacity)</label>
+        <input type="number" id="em-spots-remaining" min="0" placeholder="">
+      </div>
+    </div>
+    <div class="field">
+      <label for="em-agenda">Agenda (markdown)</label>
+      <textarea id="em-agenda" placeholder="Session breakdown…" style="min-height:70px;"></textarea>
+    </div>
+    <div class="field">
+      <label for="em-facilitator-bio">Facilitator bio (markdown)</label>
+      <textarea id="em-facilitator-bio" placeholder="Who's leading this?" style="min-height:70px;"></textarea>
+    </div>
+    <div class="field">
+      <label for="em-what-to-bring">What to bring (markdown)</label>
+      <textarea id="em-what-to-bring" placeholder="What participants should prepare…" style="min-height:60px;"></textarea>
+    </div>
+    <div class="field">
+      <label for="em-faq">FAQ (markdown)</label>
+      <textarea id="em-faq" placeholder="Common questions…" style="min-height:60px;"></textarea>
+    </div>
+    <div class="modal-error" id="em-error"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEventModal()">Cancel</button>
+      <button class="btn-save" id="em-save" onclick="saveEvent()">Create Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-backdrop hidden" id="delete-modal">
+  <div class="modal" style="max-width:420px">
+    <h2>Delete Event?</h2>
+    <p style="font-size:13px;color:#555;line-height:1.6" id="delete-modal-msg">
+      This will soft-delete the event. Existing registrations are preserved.
+    </p>
+    <div class="modal-error" id="delete-error"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-save" id="delete-confirm" style="background:#dc2626" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Registrations modal -->
+<div class="modal-backdrop hidden" id="regs-modal">
+  <div class="modal" style="max-width:640px">
+    <h2 id="regs-modal-title">Registrations</h2>
+    <div id="regs-modal-body" style="font-size:13px;color:#888;">Loading…</div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="btn-cancel" onclick="closeRegsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+let adminSecret = '';
+let events = [];
+let pendingDeleteId = null;
+let editingEventId = null;
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': adminSecret, ...(opts.headers || {}) },
+  });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data: json };
+}
+
+async function initAuth() {
+  const stored = sessionStorage.getItem('admin_secret');
+  if (stored) {
+    const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': stored } });
+    if (r.ok) { adminSecret = stored; showMain(); return; }
+    sessionStorage.removeItem('admin_secret');
+  }
+  document.getElementById('auth-gate').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadEvents();
+}
+
+document.getElementById('auth-submit').addEventListener('click', submitAuth);
+document.getElementById('admin-password').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+
+async function submitAuth() {
+  const input = document.getElementById('admin-password');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit');
+  const secret = input.value.trim();
+  if (!secret) return;
+  btn.disabled = true; btn.textContent = 'Checking…'; errEl.textContent = '';
+  const r = await fetch('/api/newsletter/stats', { headers: { 'X-Admin-Secret': secret } });
+  if (r.ok) {
+    adminSecret = secret;
+    sessionStorage.setItem('admin_secret', secret);
+    showMain();
+  } else {
+    errEl.textContent = 'Incorrect password.';
+    btn.disabled = false; btn.textContent = 'Unlock';
+    input.focus();
+  }
+}
+
+// ─── Load ─────────────────────────────────────────────────────────────────────
+
+async function loadEvents() {
+  const tbody = document.getElementById('events-tbody');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="6">Loading…</td></tr>';
+  const { ok, data } = await api('/api/admin/poa/events');
+  if (!ok || !Array.isArray(data.events)) {
+    tbody.innerHTML = '<tr><td colspan="6" class="error-msg">Failed to load events. Is the newsletter server running?</td></tr>';
+    return;
+  }
+  events = data.events;
+  renderTable();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+  });
+}
+
+function fmtPrice(cents) {
+  if (cents === 0) return '<span class="badge badge-free">Free</span>';
+  return '<span class="badge badge-paid">$' + esc((cents / 100).toFixed(0)) + '</span>';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('events-tbody');
+  if (events.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No events yet. Create one to get started.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = events.map(ev => {
+    const statusBadge = ev.published
+      ? '<span class="badge badge-published">Published</span>'
+      : '<span class="badge badge-draft">Draft</span>';
+    const publishBtn = ev.published
+      ? `<button class="btn-action btn-unpublish" onclick="togglePublish('${esc(ev.id)}', false)">Unpublish</button>`
+      : `<button class="btn-action btn-publish" onclick="togglePublish('${esc(ev.id)}', true)">Publish</button>`;
+    const spotsStr = ev.capacity !== null
+      ? `${ev.spots_remaining ?? ev.capacity}/${ev.capacity} spots`
+      : 'Unlimited';
+
+    return `<tr>
+      <td>
+        <div class="event-title-cell">${esc(ev.title)}</div>
+        <div class="event-slug">${esc(ev.slug)}</div>
+      </td>
+      <td class="event-date">${esc(fmtDate(ev.starts_at))}</td>
+      <td>${fmtPrice(ev.price_cents ?? 0)}</td>
+      <td>
+        <div class="reg-count">${ev.registration_count ?? 0}</div>
+        <div style="font-size:11px;color:#aaa;">${esc(spotsStr)}</div>
+      </td>
+      <td>${statusBadge}</td>
+      <td>
+        <div class="actions">
+          <button class="btn-action btn-edit" onclick="openEditModal('${esc(ev.id)}')">Edit</button>
+          ${publishBtn}
+          <button class="btn-action btn-regs" onclick="openRegsModal('${esc(ev.id)}', '${esc(ev.title)}')">Registrations</button>
+          <a class="btn-action" href="/events/event/?slug=${esc(ev.slug)}" target="_blank">View</a>
+          <button class="btn-action btn-danger" onclick="openDeleteModal('${esc(ev.id)}', '${esc(ev.title)}')">Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── New / Edit modal ─────────────────────────────────────────────────────────
+
+function clearEventModal() {
+  const ids = ['em-title','em-slug','em-description','em-agenda','em-facilitator-bio','em-what-to-bring','em-faq','em-location'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('em-starts-at').value = '';
+  document.getElementById('em-ends-at').value = '';
+  document.getElementById('em-price-cents').value = '0';
+  document.getElementById('em-price-pyusd').value = '';
+  document.getElementById('em-capacity').value = '';
+  document.getElementById('em-spots-remaining').value = '';
+  document.getElementById('em-location-type').value = 'virtual';
+  document.getElementById('em-error').textContent = '';
+  toggleLocationField();
+}
+
+function openNewModal() {
+  editingEventId = null;
+  clearEventModal();
+  document.getElementById('modal-title').textContent = 'New Event';
+  document.getElementById('em-save').textContent = 'Create Event';
+  document.getElementById('event-modal').classList.remove('hidden');
+  document.getElementById('em-title').focus();
+}
+
+function openEditModal(id) {
+  const ev = events.find(e => e.id === id);
+  if (!ev) return;
+  editingEventId = id;
+  clearEventModal();
+  document.getElementById('modal-title').textContent = 'Edit Event';
+  document.getElementById('em-save').textContent = 'Save Changes';
+  document.getElementById('em-title').value = ev.title || '';
+  document.getElementById('em-slug').value = ev.slug || '';
+  document.getElementById('em-description').value = ev.description || '';
+  document.getElementById('em-agenda').value = ev.agenda || '';
+  document.getElementById('em-facilitator-bio').value = ev.facilitator_bio || '';
+  document.getElementById('em-what-to-bring').value = ev.what_to_bring || '';
+  document.getElementById('em-faq').value = ev.faq || '';
+  document.getElementById('em-starts-at').value = toDatetimeLocal(ev.starts_at);
+  document.getElementById('em-ends-at').value = toDatetimeLocal(ev.ends_at);
+  document.getElementById('em-location-type').value = ev.location_type || 'virtual';
+  document.getElementById('em-location').value = ev.location || '';
+  document.getElementById('em-price-cents').value = ev.price_cents ?? 0;
+  document.getElementById('em-price-pyusd').value = ev.price_pyusd ?? '';
+  document.getElementById('em-capacity').value = ev.capacity ?? '';
+  document.getElementById('em-spots-remaining').value = ev.spots_remaining ?? '';
+  toggleLocationField();
+  document.getElementById('event-modal').classList.remove('hidden');
+}
+
+function closeEventModal() {
+  document.getElementById('event-modal').classList.add('hidden');
+  editingEventId = null;
+}
+
+function toggleLocationField() {
+  const type = document.getElementById('em-location-type').value;
+  const label = document.getElementById('em-location-label');
+  const input = document.getElementById('em-location');
+  if (type === 'virtual') {
+    label.textContent = 'Meeting URL (optional — sent in confirmation email)';
+    input.placeholder = 'https://zoom.us/j/…';
+  } else {
+    label.textContent = 'Venue address';
+    input.placeholder = '123 Main St, City, State';
+  }
+}
+
+function toDatetimeLocal(iso) {
+  if (!iso) return '';
+  // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:MM), UTC
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
+// Auto-generate slug from title (new events only)
+document.getElementById('em-title').addEventListener('input', function() {
+  if (editingEventId) return;
+  const slug = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  document.getElementById('em-slug').value = slug;
+});
+
+async function saveEvent() {
+  const title = document.getElementById('em-title').value.trim();
+  const slug = document.getElementById('em-slug').value.trim();
+  const description = document.getElementById('em-description').value.trim();
+  const startsAt = document.getElementById('em-starts-at').value;
+  const endsAt = document.getElementById('em-ends-at').value;
+  const locationType = document.getElementById('em-location-type').value;
+  const location = document.getElementById('em-location').value.trim();
+  const priceCentsRaw = document.getElementById('em-price-cents').value;
+  const pricePyusdRaw = document.getElementById('em-price-pyusd').value;
+  const capacityRaw = document.getElementById('em-capacity').value;
+  const spotsRaw = document.getElementById('em-spots-remaining').value;
+  const agenda = document.getElementById('em-agenda').value.trim();
+  const facilitatorBio = document.getElementById('em-facilitator-bio').value.trim();
+  const whatToBring = document.getElementById('em-what-to-bring').value.trim();
+  const faq = document.getElementById('em-faq').value.trim();
+  const errEl = document.getElementById('em-error');
+  const btn = document.getElementById('em-save');
+
+  if (!title) { errEl.textContent = 'Title is required.'; return; }
+  if (!slug) { errEl.textContent = 'Slug is required.'; return; }
+  if (!startsAt) { errEl.textContent = 'Start date/time is required.'; return; }
+  if (!endsAt) { errEl.textContent = 'End date/time is required.'; return; }
+
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = editingEventId ? 'Saving…' : 'Creating…';
+
+  const body = {
+    title, slug,
+    description: description || null,
+    agenda: agenda || null,
+    facilitator_bio: facilitatorBio || null,
+    what_to_bring: whatToBring || null,
+    faq: faq || null,
+    starts_at: new Date(startsAt + ':00Z').toISOString(),
+    ends_at: new Date(endsAt + ':00Z').toISOString(),
+    location_type: locationType,
+    location: location || null,
+    price_cents: priceCentsRaw ? parseInt(priceCentsRaw, 10) : 0,
+    price_pyusd: pricePyusdRaw ? parseFloat(pricePyusdRaw) : null,
+    capacity: capacityRaw ? parseInt(capacityRaw, 10) : null,
+    spots_remaining: spotsRaw ? parseInt(spotsRaw, 10) : null,
+  };
+
+  let result;
+  if (editingEventId) {
+    result = await api(`/api/admin/poa/events/${editingEventId}`, {
+      method: 'PATCH', body: JSON.stringify(body),
+    });
+  } else {
+    result = await api('/api/admin/poa/events', {
+      method: 'POST', body: JSON.stringify(body),
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = editingEventId ? 'Save Changes' : 'Create Event';
+
+  if (!result.ok) {
+    errEl.textContent = result.data.error || (editingEventId ? 'Failed to save.' : 'Failed to create.');
+    return;
+  }
+
+  closeEventModal();
+  showToast(editingEventId ? 'Event updated' : 'Event created');
+  await loadEvents();
+}
+
+// ─── Publish / Unpublish ──────────────────────────────────────────────────────
+
+async function togglePublish(id, published) {
+  const { ok, data } = await api(`/api/admin/poa/events/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ published }),
+  });
+  if (!ok) { showToast(data.error || 'Update failed', true); return; }
+  showToast(published ? 'Event published' : 'Event unpublished');
+  const idx = events.findIndex(e => e.id === id);
+  if (idx !== -1) events[idx] = { ...events[idx], published };
+  renderTable();
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+function openDeleteModal(id, title) {
+  pendingDeleteId = id;
+  document.getElementById('delete-modal-msg').textContent =
+    `Delete "${title}"? This soft-deletes the event. Existing registrations are preserved.`;
+  document.getElementById('delete-error').textContent = '';
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  pendingDeleteId = null;
+  document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const btn = document.getElementById('delete-confirm');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  const { ok, data } = await api(`/api/admin/poa/events/${pendingDeleteId}`, { method: 'DELETE' });
+  btn.disabled = false; btn.textContent = 'Delete';
+  if (!ok) { document.getElementById('delete-error').textContent = data.error || 'Delete failed.'; return; }
+  closeDeleteModal();
+  showToast('Event deleted');
+  events = events.filter(e => e.id !== pendingDeleteId);
+  renderTable();
+}
+
+// ─── Registrations modal ──────────────────────────────────────────────────────
+
+function closeRegsModal() {
+  document.getElementById('regs-modal').classList.add('hidden');
+}
+
+async function openRegsModal(eventId, title) {
+  document.getElementById('regs-modal-title').textContent = `Registrations — ${title}`;
+  document.getElementById('regs-modal-body').innerHTML = 'Loading…';
+  document.getElementById('regs-modal').classList.remove('hidden');
+
+  const { ok, data } = await api(`/api/admin/poa/events/${eventId}/registrations`);
+  if (!ok) {
+    document.getElementById('regs-modal-body').innerHTML = '<span style="color:#dc2626">Failed to load registrations.</span>';
+    return;
+  }
+
+  const regs = data.registrations ?? [];
+  if (regs.length === 0) {
+    document.getElementById('regs-modal-body').innerHTML = '<span style="color:#888">No registrations yet.</span>';
+    return;
+  }
+
+  const bodyHtml = '<div style="margin-bottom:8px;font-size:12px;color:#888;">'
+    + regs.length + ' registration' + (regs.length === 1 ? '' : 's')
+    + '</div>'
+    + '<div class="regs-list">'
+    + regs.map(r => {
+      const payment = r.payment_status === 'paid'
+        ? (r.payment_method === 'pyusd' ? 'PYUSD' : r.payment_method === 'free' ? 'Free' : 'Stripe paid')
+        : r.payment_status;
+      return `<div class="reg-row">
+        <div class="reg-name">${esc(r.name)}</div>
+        <div class="reg-email">${esc(r.email)}</div>
+        <div class="reg-payment">${esc(payment)}</div>
+      </div>`;
+    }).join('')
+    + '</div>';
+
+  document.getElementById('regs-modal-body').innerHTML = bodyHtml;
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+let toastTimer = null;
+function showToast(msg, isErr = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isErr ? '#dc2626' : '#111';
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Close modals on backdrop click
+document.getElementById('event-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEventModal(); });
+document.getElementById('delete-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+document.getElementById('regs-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeRegsModal(); });
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initAuth();
+</script>
+</body>
+</html>
