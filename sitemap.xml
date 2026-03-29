@@ -4,8 +4,22 @@
   <!-- Homepage -->
   <url>
     <loc>https://paradoxofacceptance.xyz/</loc>
-    <lastmod>2026-03-21</lastmod>
+    <lastmod>2026-03-26</lastmod>
     <priority>1.0</priority>
+  </url>
+
+  <!-- About -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/about/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Essays listing -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.8</priority>
   </url>
 
   <!-- Essays -->
@@ -35,80 +49,67 @@
     <priority>0.8</priority>
   </url>
 
-  <!-- Essay listing -->
+  <!-- Blog listing -->
   <url>
-    <loc>https://paradoxofacceptance.xyz/mindfulness-essays/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Tag index -->
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/</loc>
+    <loc>https://paradoxofacceptance.xyz/blog/</loc>
     <lastmod>2026-03-22</lastmod>
     <priority>0.7</priority>
   </url>
 
-  <!-- Tag pages -->
+  <!-- Blog posts -->
   <url>
-    <loc>https://paradoxofacceptance.xyz/tags/mindfulness/</loc>
+    <loc>https://paradoxofacceptance.xyz/blog/what-beginners-mind-actually-means/</loc>
+    <lastmod>2026-03-18</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/blog/when-meditation-makes-things-worse/</loc>
     <lastmod>2026-03-22</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://paradoxofacceptance.xyz/tags/practice/</loc>
+    <loc>https://paradoxofacceptance.xyz/blog/building-a-sustainable-practice/</loc>
     <lastmod>2026-03-22</lastmod>
     <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/motivation/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/acceptance/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/avoidance/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/beginners/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/honesty/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/mental-health/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/self/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://paradoxofacceptance.xyz/tags/stopping/</loc>
-    <lastmod>2026-03-22</lastmod>
-    <priority>0.6</priority>
   </url>
 
-  <!-- Course landing page -->
+  <!-- Podcast listing -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/podcast/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Podcast episodes -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/podcast/the-acceptance-paradox/</loc>
+    <lastmod>2026-02-24</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/podcast/what-mindfulness-actually-does/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/podcast/dosage-how-much-meditation/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Courses listing -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Course: The Honest Meditator -->
   <url>
     <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/</loc>
     <lastmod>2026-03-21</lastmod>
-    <priority>0.6</priority>
+    <priority>0.7</priority>
   </url>
-
-  <!-- Course sessions -->
   <url>
     <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-1/</loc>
     <lastmod>2026-03-21</lastmod>
@@ -138,6 +139,143 @@
     <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/session-6/</loc>
     <lastmod>2026-03-21</lastmod>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/courses/the-honest-meditator/faq/</loc>
+    <lastmod>2026-03-21</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Newsletter archive -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/newsletter/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Glossary -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/glossary/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/glossary/awareness/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Reading lists -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/reading-lists/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Resources -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/resources/</loc>
+    <lastmod>2026-03-25</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Book -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/book/</loc>
+    <lastmod>2026-03-23</lastmod>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Events -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/events/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Contact -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/contact/</loc>
+    <lastmod>2026-03-25</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Pricing -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/pricing/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Tag index -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Tag pages -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/mindfulness/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/practice/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/motivation/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/acceptance/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/avoidance/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/beginners/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/honesty/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/mental-health/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/self/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/tags/stopping/</loc>
+    <lastmod>2026-03-22</lastmod>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- Legal -->
+  <url>
+    <loc>https://paradoxofacceptance.xyz/privacy/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://paradoxofacceptance.xyz/terms/</loc>
+    <lastmod>2026-03-26</lastmod>
+    <priority>0.3</priority>
   </url>
 
 </urlset>
